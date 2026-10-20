@@ -18,7 +18,7 @@ const STYLES: Array[Dictionary] = [
 		"outline": true, "grade": true, "ssao": true, "fog": true, "stylized": true},
 	# D: C's camera + a Dead Cells-like pixel look: flat colours with two-tone cel light,
 	# violet shadows, warm key light, light bloom, a few particles.
-	{"id": "D", "name": "D 데드셀풍 픽셀", "pitch": 40.0, "zoom": 2, "offset": Vector3(0, 0, -1.0),
+	{"id": "D", "name": "D 데드셀풍 픽셀", "pitch": 40.0, "zoom": 4, "offset": Vector3(0, 0, -1.0),
 		"outline": true, "grade": true, "ssao": false, "fog": true, "stylized": true, "look": "deadcells", "detail": 0.0},
 ]
 

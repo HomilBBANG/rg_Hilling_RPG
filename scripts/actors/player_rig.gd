@@ -51,17 +51,16 @@ static func direction_yaw(index: int) -> float:
 
 
 ## Protagonist (based on the concept art, then revised): chubby adult traveller, bald,
-## thick black brows and moustache, stubble, big red nose, open blue short-sleeve shirt over
-## a cream tee, compass necklace, khaki cargo shorts, sandals, wristwatch. No bag.
+## thick black brows and moustache, stubble, big red nose, white short-sleeve tee,
+## compass necklace, khaki cargo shorts, sandals, wristwatch. No bag.
 ## Flat colours only; shading comes from the cel lighting.
 func _build() -> void:
 	var skin := ProtoMesh.mat(Color(0.93, 0.64, 0.48))
 	var stubble := ProtoMesh.mat(Color(0.66, 0.48, 0.38))
 	var nose := ProtoMesh.mat(Color(0.9, 0.42, 0.36))
 	var hair := ProtoMesh.mat(Color(0.12, 0.1, 0.1))
-	var shirt := ProtoMesh.mat(Color(0.29, 0.45, 0.68))
-	var shirt_light := ProtoMesh.mat(Color(0.4, 0.56, 0.78))
-	var tee := ProtoMesh.mat(Color(0.95, 0.91, 0.82))
+	var tee := ProtoMesh.mat(Color(0.96, 0.96, 0.94))
+	var tee_shade := ProtoMesh.mat(Color(0.84, 0.84, 0.82))
 	var shorts := ProtoMesh.mat(Color(0.62, 0.54, 0.34))
 	var shorts_dark := ProtoMesh.mat(Color(0.52, 0.45, 0.28))
 	var sandal := ProtoMesh.mat(Color(0.24, 0.17, 0.13))
@@ -88,16 +87,11 @@ func _build() -> void:
 		ProtoMesh.box(leg, Vector3(0.21, 0.04, 0.06), Vector3(0, -0.72, 0.03), sandal)
 		ProtoMesh.box(leg, Vector3(0.16, 0.05, 0.08), Vector3(0, -0.745, -0.17), skin)
 
-	# Torso: shirt shell + cream tee belly showing through the open front
+	# Torso: plain white short-sleeve tee over a round belly, crew neck
 	ProtoMesh.box(hips, Vector3(0.6, 0.12, 0.42), Vector3(0, 0.03, 0.0), shorts)
-	ProtoMesh.sphere(hips, 0.36, Vector3(0, 0.36, 0.04), shirt, Vector3(1.0, 1.05, 0.88), 12, 8)
-	ProtoMesh.sphere(hips, 0.31, Vector3(0, 0.33, -0.07), tee, Vector3(0.92, 1.0, 0.95), 12, 8)
-	ProtoMesh.box(hips, Vector3(0.44, 0.26, 0.3), Vector3(0, 0.6, 0.02), shirt)
-	ProtoMesh.box(hips, Vector3(0.2, 0.22, 0.04), Vector3(0, 0.6, -0.14), tee)
-	for side in [-1.0, 1.0]:
-		ProtoMesh.box(hips, Vector3(0.1, 0.06, 0.16), Vector3(side * 0.12, 0.72, -0.09), shirt_light, Vector3(0, side * 25.0, side * -20.0))
-		ProtoMesh.box(hips, Vector3(0.06, 0.4, 0.05), Vector3(side * 0.15, 0.4, -0.2), shirt, Vector3(0, 0, side * 6.0))
-	ProtoMesh.box(hips, Vector3(0.1, 0.08, 0.03), Vector3(0.18, 0.55, -0.17), shirt_light)
+	ProtoMesh.sphere(hips, 0.36, Vector3(0, 0.36, 0.0), tee, Vector3(1.0, 1.05, 0.95), 12, 8)
+	ProtoMesh.box(hips, Vector3(0.46, 0.26, 0.32), Vector3(0, 0.6, 0.02), tee)
+	ProtoMesh.cylinder(hips, 0.12, 0.04, Vector3(0, 0.735, 0.0), tee_shade, Vector3.ZERO, 10)
 	# Compass necklace
 	ProtoMesh.box(hips, Vector3(0.012, 0.16, 0.012), Vector3(-0.05, 0.64, -0.15), cord, Vector3(0, 0, -25))
 	ProtoMesh.box(hips, Vector3(0.012, 0.16, 0.012), Vector3(0.05, 0.64, -0.15), cord, Vector3(0, 0, 25))
@@ -116,13 +110,13 @@ func _build() -> void:
 		ProtoMesh.box(hips, Vector3(0.11, 0.04, 0.04), Vector3(side * 0.09, 1.07, -0.23), hair, Vector3(0, 0, side * -10.0))
 		ProtoMesh.sphere(hips, 0.06, Vector3(side * 0.25, 0.98, 0.02), skin, Vector3(0.6, 1.0, 1.0), 6, 4)
 
-	# Arms with elbows: blue short sleeves (rolled cuff), bare forearms, watch on the left wrist
+	# Arms with elbows: white short sleeves, bare forearms, watch on the left wrist
 	_arm_l = _limb(hips, Vector3(-0.38, 0.62, 0.0))
 	_arm_r = _limb(hips, Vector3(0.38, 0.62, 0.0))
 	for i in 2:
 		var arm: Node3D = [_arm_l, _arm_r][i]
-		ProtoMesh.capsule(arm, 0.12, 0.34, Vector3(0, -0.1, 0), shirt)
-		ProtoMesh.cylinder(arm, 0.125, 0.06, Vector3(0, -0.22, 0), shirt_light, Vector3.ZERO, 10)
+		ProtoMesh.capsule(arm, 0.12, 0.3, Vector3(0, -0.08, 0), tee)
+		ProtoMesh.cylinder(arm, 0.115, 0.04, Vector3(0, -0.19, 0), tee_shade, Vector3.ZERO, 10)
 		var elbow := _limb(arm, Vector3(0, -0.24, 0))
 		ProtoMesh.capsule(elbow, 0.09, 0.32, Vector3(0, -0.13, 0), skin)
 		ProtoMesh.sphere(elbow, 0.1, Vector3(0, -0.31, 0), skin)
