@@ -53,6 +53,15 @@ void fragment() {
 // wrap leaked light through thin parts such as the awning). Same 1/PI scale as Godot's BRDF.
 void light() {
 	float ndl = dot(NORMAL, LIGHT);
-	float lit = smoothstep(0.0, 0.06, ndl);
+	float lit;
+	if (LIGHT_IS_DIRECTIONAL) {
+		lit = smoothstep(0.0, 0.06, ndl);  // sun/moon: hard two-tone cel edge
+	} else {
+		// Local lights (campfire, porch, headlights) wrap around the small sprite: two of
+		// them from opposite sides left an unlit violet band across the head at night.
+		// Wrapped and kept smooth: stepped levels from two overlapping lights drew stripes.
+		float w = clamp((ndl + 0.7) / 1.7, 0.0, 1.0);
+		lit = 0.35 + 0.65 * w;
+	}
 	DIFFUSE_LIGHT += lit * ATTENUATION * LIGHT_COLOR / PI;
 }
