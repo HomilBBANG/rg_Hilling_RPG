@@ -62,6 +62,7 @@ func use_sprite_sheet(sheet: SpriteSheet) -> void:
 		sprite.name = "Sprite"
 		sprite.anchor = self
 		sprite.silhouette_enabled = false
+		sprite.set_inner_lines(true)  # pixel-art inner lines: panel edges, awning, windows
 		add_child(sprite)
 	elif sheet == null and sprite:
 		sprite.queue_free()

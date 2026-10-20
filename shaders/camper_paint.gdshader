@@ -5,11 +5,11 @@ render_mode specular_disabled;
 
 #include "res://shaders/cel_light.gdshaderinc"
 
-uniform vec3 body : source_color = vec3(0.96, 0.93, 0.85);
+uniform vec3 body : source_color = vec3(0.88, 0.85, 0.78);  // below white so lit sides do not clip
 uniform vec3 skirt : source_color = vec3(0.32, 0.6, 0.58);
 uniform vec3 stripe_a : source_color = vec3(0.95, 0.52, 0.4);
 uniform vec3 stripe_b : source_color = vec3(0.97, 0.79, 0.36);
-uniform vec3 roof : source_color = vec3(0.86, 0.85, 0.8);
+uniform vec3 roof : source_color = vec3(0.8, 0.81, 0.8);
 uniform vec3 arch : source_color = vec3(0.2, 0.2, 0.23);
 uniform vec2 wheel_a = vec2(2.5, 0.42);
 uniform vec2 wheel_b = vec2(-2.0, 0.42);
@@ -30,15 +30,21 @@ void fragment() {
 	float y = lpos.y;
 	col = mix(col, skirt, step(y, 1.02));
 	col = mix(col, stripe_a, step(1.08, y) * step(y, 1.17));
-	col = mix(col, stripe_b, step(1.21, y) * step(y, 1.25) * stylized * detail);
+	col = mix(col, stripe_b, step(1.21, y) * step(y, 1.25) * stylized);
+	// volume bands on the sides: light band under the roof edge, shade band above the stripes
+	col = mix(col, body * 1.04, side * step(2.88, y) * stylized);
+	col = mix(col, body * 0.9, side * step(1.27, y) * step(y, 1.42) * stylized);
 	// alcove swoosh on the sides
 	float swoosh = side * step(1.3, lpos.x) * step(2.42 + (lpos.x - 1.3) * 0.08, y) * step(y, 2.58 + (lpos.x - 1.3) * 0.08);
 	col = mix(col, skirt, swoosh);
 	// panel seams (sides)
 	float seam = side * (1.0 - step(0.025, abs(lpos.x + 1.6))) + side * (1.0 - step(0.025, abs(lpos.x - 1.9)));
-	col = mix(col, col * 0.84, seam * step(1.25, y) * stylized * detail);
+	col = mix(col, col * 0.8, seam * step(1.25, y) * stylized);
 	// roof + underside
 	col = mix(col, roof, step(0.75, lnormal.y));
+	// roof panel seams across the length
+	float roof_seam = step(0.75, lnormal.y) * (1.0 - step(0.035, abs(fract((lpos.x + 0.2) / 1.1) - 0.5) * 1.1 - 0.5 + 0.035));
+	col = mix(col, roof * 0.82, roof_seam * stylized);
 	col = mix(col, arch, step(lnormal.y, -0.6));
 	// wheel arches
 	float arch_mask = side * (step(distance(lpos.xy, wheel_a), 0.6) + step(distance(lpos.xy, wheel_b), 0.6));

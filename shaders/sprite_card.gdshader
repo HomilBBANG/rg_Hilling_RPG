@@ -18,6 +18,12 @@ uniform float self_shadow_escape = 0.35;
 // Classic pixel-sprite outline: the sprite's own border texels are drawn in a dark colour.
 uniform bool sprite_outline = true;
 uniform vec3 outline_color : source_color = vec3(0.13, 0.08, 0.12);
+// Pixel-art inner lines (per sprite): darken texels at baked creases (normal change) and on
+// the near side of depth steps inside the sprite (awning over body, windows, wheels).
+uniform bool inner_lines = false;
+uniform float crease_threshold = 0.93;
+uniform float depth_step = 0.18;
+uniform float line_darkness : hint_range(0.0, 1.0) = 0.42;
 
 void fragment() {
 	vec2 uv = frame_rect.xy + UV * frame_rect.zw;
@@ -33,6 +39,50 @@ void fragment() {
 			|| texture(albedo_tex, uv + vec2(0.0, px.y)).a < 0.5 || texture(albedo_tex, uv - vec2(0.0, px.y)).a < 0.5;
 		if (border) {
 			ALBEDO = outline_color;
+		}
+	}
+	if (inner_lines && !border) {
+		vec2 px = 1.0 / vec2(textureSize(albedo_tex, 0));
+		vec3 n0 = texture(normal_tex, uv).xyz * 2.0 - 1.0;
+		float d0 = texture(depth_tex, uv).r;
+		bool line = false;
+		bool shine = false;
+		// creases: compare with right and lower neighbours only -> single-pixel lines
+		for (int i = 0; i < 2; i++) {
+			vec2 o = i == 0 ? vec2(px.x, 0.0) : vec2(0.0, px.y);
+			if (texture(albedo_tex, uv + o).a > 0.5) {
+				vec3 n1 = texture(normal_tex, uv + o).xyz * 2.0 - 1.0;
+				if (dot(normalize(n0), normalize(n1)) < crease_threshold) {
+					// top edges (this texel faces up more than its neighbour) get a light
+					// highlight pixel, other creases a dark line - classic pixel-art edges
+					if (n0.y > n1.y + 0.25) {
+						shine = true;
+					} else {
+						line = true;
+					}
+				}
+			}
+		}
+		// the texel just below a top edge gets the dark line (highlight above, line below)
+		vec2 up = vec2(0.0, -px.y);
+		if (!line && texture(albedo_tex, uv + up).a > 0.5) {
+			vec3 nu = texture(normal_tex, uv + up).xyz * 2.0 - 1.0;
+			if (dot(normalize(n0), normalize(nu)) < crease_threshold && nu.y > n0.y + 0.25) {
+				line = true;
+				shine = false;
+			}
+		}
+		// depth steps: mark the nearer texel
+		vec2 offs[4] = vec2[](vec2(px.x, 0.0), vec2(-px.x, 0.0), vec2(0.0, px.y), vec2(0.0, -px.y));
+		for (int i = 0; i < 4; i++) {
+			if (texture(albedo_tex, uv + offs[i]).a > 0.5 && texture(depth_tex, uv + offs[i]).r < d0 - depth_step) {
+				line = true;
+			}
+		}
+		if (line) {
+			ALBEDO = mix(ALBEDO * (1.0 - line_darkness), outline_color, 0.25);
+		} else if (shine) {
+			ALBEDO = mix(ALBEDO, vec3(1.0, 0.98, 0.9), 0.45);
 		}
 	}
 	NORMAL = normalize(texture(normal_tex, uv).xyz * 2.0 - 1.0);
