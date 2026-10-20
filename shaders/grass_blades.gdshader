@@ -10,8 +10,8 @@ uniform vec3 tip_color : source_color = vec3(0.58, 0.76, 0.33);
 uniform float wind_strength = 0.05;
 uniform bool is_flower = false;
 uniform float detail = 1.0;
-// Flat look: tufts are drawn as thin dark line strokes only (no tint, no wind).
-uniform vec3 line_color : source_color = vec3(0.17, 0.33, 0.17);
+// Flat look: tufts in one colour just a bit darker than the grass ground (no wind).
+uniform vec3 line_color : source_color = vec3(0.33, 0.53, 0.23);  // ~12% darker than the grass ground
 
 varying float tint;
 
