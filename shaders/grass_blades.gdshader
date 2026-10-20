@@ -10,14 +10,17 @@ uniform vec3 tip_color : source_color = vec3(0.58, 0.76, 0.33);
 uniform float wind_strength = 0.05;
 uniform bool is_flower = false;
 uniform float detail = 1.0;
+// Flat look: tufts are drawn as thin dark line strokes only (no tint, no wind).
+uniform vec3 line_color : source_color = vec3(0.17, 0.33, 0.17);
 
 varying float tint;
 
 void vertex() {
 	vec3 world = (MODEL_MATRIX * vec4(0.0, 0.0, 0.0, 1.0)).xyz;
 	float sway = sin(TIME * 1.7 + world.x * 0.45 + world.z * 0.32) + 0.4 * sin(TIME * 2.9 + world.z);
-	VERTEX.x += sway * wind_strength * UV.y;
-	VERTEX.z += sway * wind_strength * 0.5 * UV.y;
+	// No sway in the flat look: moving 1-texel blades flicker once pixelated.
+	VERTEX.x += sway * wind_strength * UV.y * detail;
+	VERTEX.z += sway * wind_strength * 0.5 * UV.y * detail;
 	NORMAL = vec3(0.0, 1.0, 0.0);
 	tint = UV.y;
 }
@@ -32,7 +35,7 @@ void fragment() {
 	} else {
 		col = mix(root_color, tip_color, smoothstep(0.0, 1.0, tint)) * COLOR.rgb;
 		if (detail < 0.5) {
-			col = mix(root_color, tip_color, step(0.6, tint));  // two flat bands
+			col = line_color;
 		}
 	}
 	ALBEDO = col;
