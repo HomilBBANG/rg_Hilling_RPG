@@ -24,7 +24,7 @@ const MARGIN_TEXELS := 1
 
 signal settings_changed
 
-@export var preset_index := 1
+@export var preset_index := 2  # PXL-SOFT 640x360 (x3): enough pixels for readable character detail
 @export var pipeline: Pipeline = Pipeline.SUBVIEWPORT
 ## Mode 3: limited colour levels + ordered dither.
 @export var post_enabled := false

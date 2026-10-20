@@ -12,7 +12,7 @@ var hud: VisualHud
 
 var _snap := true
 var _orthogonal := true
-var _zoom_index := 4  # 13 m view height (style D default)
+var _zoom_index := 3  # 11 m view height (style D default)
 ## Camera comparison style (TopdownCamera.STYLES): 0 = A, 1 = B, 2 = C, 3 = D (default).
 var style_index := 3
 var _outline_user := true  # thin dark silhouette outlines (O toggles)
@@ -526,7 +526,7 @@ func _run_hd_tour() -> void:
 	_touring = true
 	hud.show_help_panel(false)
 	Game.clock_running = false
-	render.set_preset(1)
+	render.set_preset(2)
 	set_camera_style(3)
 	var shots := [["day", 10.5 * 60.0, false], ["night", Game.NIGHT_PRESET_MINUTE, true]]
 	for sdef: Array in shots:

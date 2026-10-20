@@ -12,6 +12,9 @@ uniform vec4 frame_rect = vec4(0.0, 0.0, 1.0, 1.0);  // uv offset (xy) and size 
 uniform float emission_energy = 1.0;
 uniform float roughness_value = 0.7;
 uniform float light_offset = 0.04;
+// Classic pixel-sprite outline: the sprite's own border texels are drawn in a dark colour.
+uniform bool sprite_outline = true;
+uniform vec3 outline_color : source_color = vec3(0.13, 0.08, 0.12);
 
 void fragment() {
 	vec2 uv = frame_rect.xy + UV * frame_rect.zw;
@@ -20,6 +23,15 @@ void fragment() {
 		discard;
 	}
 	ALBEDO = a.rgb;
+	bool border = false;
+	if (sprite_outline) {
+		vec2 px = 1.0 / vec2(textureSize(albedo_tex, 0));
+		border = texture(albedo_tex, uv + vec2(px.x, 0.0)).a < 0.5 || texture(albedo_tex, uv - vec2(px.x, 0.0)).a < 0.5
+			|| texture(albedo_tex, uv + vec2(0.0, px.y)).a < 0.5 || texture(albedo_tex, uv - vec2(0.0, px.y)).a < 0.5;
+		if (border) {
+			ALBEDO = outline_color;
+		}
+	}
 	NORMAL = normalize(texture(normal_tex, uv).xyz * 2.0 - 1.0);
 	float d = texture(depth_tex, uv).r;
 	vec3 surface = VERTEX + vec3(0.0, 0.0, d);
@@ -30,7 +42,7 @@ void fragment() {
 	// Small push along the normal: the reconstructed surface can sit a hair inside the
 	// shadow-only mesh, which otherwise shows up as shadow-acne rings.
 	LIGHT_VERTEX = surface + NORMAL * light_offset;
-	EMISSION = texture(emission_tex, uv).rgb * emission_energy;
+	EMISSION = border ? vec3(0.0) : texture(emission_tex, uv).rgb * emission_energy;
 	ROUGHNESS = roughness_value;
 }
 
