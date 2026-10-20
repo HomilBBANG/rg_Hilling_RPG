@@ -12,12 +12,13 @@ extends Control
 
 enum Pipeline { SUBVIEWPORT, SCALING_3D }
 
-const OUTPUT_SIZE := Vector2i(1280, 720)
+const OUTPUT_SIZE := Vector2i(1920, 1080)
+## Integer upscale factors for 1920x1080: x6 / x4 / x3 / x1.
 const PRESETS: Array[Dictionary] = [
 	{"name": "PXL-COARSE", "size": Vector2i(320, 180)},
-	{"name": "PXL-MID", "size": Vector2i(427, 240)},
+	{"name": "PXL-MID", "size": Vector2i(480, 270)},
 	{"name": "PXL-SOFT", "size": Vector2i(640, 360)},
-	{"name": "3D-NATIVE", "size": Vector2i(1280, 720)},
+	{"name": "3D-NATIVE", "size": Vector2i(1920, 1080)},
 ]
 const MARGIN_TEXELS := 1
 

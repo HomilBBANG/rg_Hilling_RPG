@@ -16,6 +16,7 @@
 | 엔진 | **Godot 4.7.x 표준판**(.NET 판 불필요). 4.7.2-stable로 작성·검증 |
 | 렌더러 | Forward+ (기본). Vulkan을 지원하는 GPU 필요 |
 | 저사양 대안 | Compatibility(OpenGL) 렌더러로도 실행 확인됨 (아래 "실행" 참고) |
+| 화면 | 기본 창/출력 **1920×1080**. 화면이 작으면 F11 전체 화면 또는 창 크기 조절(비정수 배율로 늘어남) |
 | 외부 에셋 | 없음. 모든 모델·재질·셰이더를 코드로 생성. 폰트만 포함(나눔고딕, SIL OFL 1.1, `assets/fonts/LICENSE_NanumGothic.txt`) |
 
 ## 설치 (`C:/Game/denial`)
@@ -47,9 +48,9 @@ git clone -b claude/gallant-edison-84bkyp https://github.com/HomilBBANG/rg_Hilli
 | 마우스 왼쪽 클릭 | 기본 공격 모션 1회 (마우스 방향, 누르고 있어도 반복 안 함) |
 | `F` | 캠핑카 외부 라이트 ON/OFF (캠핑카 7.5m 이내에서만) |
 | `V` | **카메라 스타일 A(기존 기능형) → B(개선된 탑다운) → C(기울어진 디오라마) → D(데드셀풍 픽셀)**. 시작은 D |
-| `O` | 픽셀 외곽선 ON/OFF (B/C/D, Forward+ 전용) |
+| `O` | 픽셀 외곽선 ON/OFF (**기본 OFF**, Forward+ 전용; D의 림라이트도 이 패스에 포함) |
 | `Z` | 스프라이트 파이프라인 ON/OFF — 캐릭터·슬라임·캠핑카를 3D 모델에서 구운 픽셀 스프라이트로 그릴지, 실시간 3D로 그릴지 |
-| `1` / `2` / `3` / `4` | **PXL-COARSE 320×180** / **PXL-MID 427×240(기본)** / **PXL-SOFT 640×360** / **3D-NATIVE 1280×720(픽셀화 OFF)** |
+| `1` / `2` / `3` / `4` | **PXL-COARSE 320×180 (×6)** / **PXL-MID 480×270 (×4, 기본)** / **PXL-SOFT 640×360 (×3)** / **3D-NATIVE 1920×1080(픽셀화 OFF)** |
 | `M` | 픽셀화 파이프라인 전환: M1 SubViewport 확대 ↔ M2 3D 해상도 스케일링(nearest) |
 | `P` | 모드 3: 색 단계 제한 + 4×4 디더 ON/OFF (색보정 셰이더 안의 옵션) |
 | `N` | 낮(12:00) ↔ 밤(22:00) |
@@ -61,6 +62,7 @@ git clone -b claude/gallant-edison-84bkyp https://github.com/HomilBBANG/rg_Hilli
 | `X` | 가림 보조: 실루엣 → 수관 디더 투명화 → 끔 |
 | `-` / `=` | 카메라 규모(화면 세로 9~22m) |
 | `F12` | 스크린샷 → `user://captures` (Windows: `%APPDATA%\Godot\app_userdata\Denial\captures`) |
+| `F11` | 전체 화면 전환 |
 | `ESC` | 일시정지 |
 | `H` | 도움말 패널 표시/숨김 (시작 시 표시됨) |
 
@@ -133,6 +135,7 @@ Godot.exe --path C:/Game/denial --write-movie C:/Game/walk.avi --fixed-fps 30 --
 - 픽셀 외곽선은 Forward+ 전용이며 Compatibility에서는 자동으로 꺼집니다(디오라마 버전은 Compatibility에서 미검증).
 - 이동 중 픽셀 떨림은 녹화 영상의 프레임으로만 확인했습니다. **실시간 체감은 직접 실행해서 판단**해 주세요.
 - Forward+와 Compatibility의 밤 밝기가 다릅니다(Compatibility가 더 밝고 헤드라이트 빔이 더 뚜렷함).
-- 창 크기를 1280×720이 아닌 크기로 바꾸면 `canvas_items` 스트레치 때문에 픽셀이 비정수 배율로 늘어납니다.
+- 창 크기를 1920×1080이 아닌 크기로 바꾸면 `canvas_items` 스트레치 때문에 픽셀이 비정수 배율로 늘어납니다.
+- 1080p 전환 이전에 찍은 `captures/` 이미지(p0_baseline, visual_direction, sprite_pipeline)는 1280×720 기준입니다. 최신 화면은 `captures/hd_1080p/`.
 - 자세한 시각 평가와 P0 통과/보류 체크리스트: [`notes/VISUAL_COMPARISON.md`](notes/VISUAL_COMPARISON.md)
 - 임시로 정한 값과 미정 사항 처리: [`notes/IMPLEMENTATION_ASSUMPTIONS.md`](notes/IMPLEMENTATION_ASSUMPTIONS.md)

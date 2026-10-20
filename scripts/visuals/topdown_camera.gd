@@ -21,7 +21,7 @@ const STYLES: Array[Dictionary] = [
 		"outline": true, "grade": true, "ssao": true, "fog": true, "stylized": true, "look": "deadcells"},
 ]
 
-## Visible world height (metres) of the 1280x720 frame, without the snap margin.
+## Visible world height (metres) of the output frame, without the snap margin.
 @export var zoom_index := 2
 @export var pitch_degrees := 40.0
 ## World-space shift of the look-at point (composition: keep the player a bit below centre).
@@ -122,7 +122,7 @@ func snap_to_target() -> void:
 
 
 func _texel_height() -> int:
-	return render.render_texel_height() if render else 720
+	return render.render_texel_height() if render else 1080
 
 
 func _apply_projection() -> void:

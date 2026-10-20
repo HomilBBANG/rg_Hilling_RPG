@@ -15,7 +15,7 @@ var _orthogonal := true
 var _zoom_index := 2
 ## Camera comparison style (TopdownCamera.STYLES): 0 = A, 1 = B, 2 = C, 3 = D (default).
 var style_index := 3
-var _outline_user := true
+var _outline_user := false  # outlines off by default (O turns them back on)
 ## Pre-rendered sprite pipeline for player / slime / camper (key Z).
 var sprites_enabled := true
 var baker: SpriteBaker
@@ -122,6 +122,9 @@ func _unhandled_input(event: InputEvent) -> void:
 	elif event.is_action("cycle_camera_style"):
 		set_camera_style(style_index + 1)
 		hud.toast("카메라 스타일: " + style_name())
+	elif event.is_action("toggle_fullscreen"):
+		var fs := DisplayServer.window_get_mode() == DisplayServer.WINDOW_MODE_FULLSCREEN
+		DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_WINDOWED if fs else DisplayServer.WINDOW_MODE_FULLSCREEN)
 	elif event.is_action("toggle_sprites"):
 		sprites_enabled = not sprites_enabled
 		hud.toast("스프라이트 파이프라인(3D→픽셀 스프라이트): " + ("ON" if sprites_enabled else "OFF (실시간 3D)"))
@@ -194,6 +197,8 @@ func _parse_args() -> void:
 		_run_shot_tour()
 	elif tour == "styles":
 		_run_style_tour()
+	elif tour == "hd":
+		_run_hd_tour()
 	elif tour == "sprites":
 		_run_sprite_tour()
 	elif tour == "night_outline":
@@ -344,7 +349,7 @@ func _run_style_tour() -> void:
 		_place_player(Vector3(-4.3, 0, 1.1), PI * 0.8)
 		await _frames(30)
 		var id: String = TopdownCamera.STYLES[i]["id"]
-		hud.set_capture_mode(true, "%s · PXL-MID 427×240" % style_name())
+		hud.set_capture_mode(true, "%s · PXL-MID 480×270" % style_name())
 		await _shot("style_%s_PXL-MID.png" % id)
 	# Dead Cells look (D) extra shots: night with lights, forest, other densities
 	set_camera_style(3)
@@ -506,3 +511,27 @@ func _run_sprite_tour() -> void:
 	get_tree().quit()
 
 
+
+
+## 1920x1080 output: current default (D, no outline) vs outline on, day and night.
+func _run_hd_tour() -> void:
+	_touring = true
+	hud.show_help_panel(false)
+	Game.clock_running = false
+	render.set_preset(1)
+	set_camera_style(3)
+	var shots := [["day", 10.5 * 60.0, false], ["night", Game.NIGHT_PRESET_MINUTE, true]]
+	for sdef: Array in shots:
+		Game.minute_of_day = sdef[1]
+		Game.camper_lights_on = sdef[2]
+		Game.lantern_on = sdef[2]
+		for outline in [false, true]:
+			_outline_user = outline
+			_configure_camera()
+			await wait_for_sprites()
+			_place_player(Vector3(-4.3, 0, 1.1), PI * 0.8)
+			hud.set_capture_mode(true, "1920×1080 · %s · %s · 외곽선 %s" % [style_name(), sdef[0], "ON" if outline else "OFF"])
+			await _frames(25)
+			await _shot("hd_%s_outline_%s.png" % [sdef[0], "on" if outline else "off"])
+	_outline_user = false
+	get_tree().quit()

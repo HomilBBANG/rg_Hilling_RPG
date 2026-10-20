@@ -1,7 +1,9 @@
 class_name VisualHud
 extends Control
 ## High-resolution debug HUD (drawn outside the pixelated SubViewport so text stays sharp).
-## Positions are in the 1280x720 base canvas (window stretch mode = canvas_items).
+## Layout was designed for 1280x720 and is multiplied by UI_SCALE for the 1920x1080 canvas.
+
+const UI_SCALE := 1.5
 
 var font: Font
 var boot: Node
@@ -21,15 +23,15 @@ WASD 이동 · Shift 달리기 · 마우스 클릭 = 기본 공격 1회(마우�
 F  캠핑카 외부 라이트 (캠핑카 근처에서만)
 V  카메라 스타일 A(기존) → B(개선 탑다운) → C(디오라마) → D(데드셀풍)
 Z  스프라이트 파이프라인: 3D 모델→렌더→픽셀 스프라이트 ON/OFF
-O  픽셀 외곽선 ON/OFF (B/C/D)
-1/2/3/4  PXL-COARSE 320×180 / PXL-MID 427×240 / PXL-SOFT 640×360 / 3D-NATIVE
+O  픽셀 외곽선 ON/OFF (기본 OFF)
+1/2/3/4  PXL-COARSE 320×180 / PXL-MID 480×270 / PXL-SOFT 640×360 / 3D-NATIVE
 M  픽셀화 파이프라인 전환 (M1 SubViewport 확대 ↔ M2 3D 스케일링 nearest)
 P  모드3: 팔레트 제한 + 디더링 후처리 ON/OFF
 N  낮 ↔ 밤 (12:00 / 22:00)     T  시계 진행/정지 (1초 = 게임 1분)
 L  개인 등불(허리띠) ON/OFF       I  캠핑카 실내 ↔ 야외
 K  픽셀 스냅 카메라 ON/OFF (떨림 비교)   C  직교 ↔ 원근 투영
 X  가림 보조: 실루엣 → 수관 투명화 → 끔   - / =  카메라 규모(줌)
-F12 스크린샷 (user://captures)    ESC 일시정지    H 이 도움말"""
+F12 스크린샷 (user://captures)    F11 전체 화면    ESC 일시정지    H 이 도움말"""
 
 
 func _ready() -> void:
@@ -37,44 +39,44 @@ func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var t := Theme.new()
 	t.default_font = font
-	t.default_font_size = 15
+	t.default_font_size = roundi(15 * UI_SCALE)
 	t.set_color("font_outline_color", "Label", Color(0, 0, 0, 0.85))
-	t.set_constant("outline_size", "Label", 5)
+	t.set_constant("outline_size", "Label", roundi(5 * UI_SCALE))
 	theme = t
 
-	_status = _label(Vector2(14, 10), 15)
-	_context = _label(Vector2(14, 0), 17)
-	_context.position = Vector2(340, 648)
-	_context.size = Vector2(600, 24)
+	_status = _label(Vector2(14, 10) * UI_SCALE, roundi(15 * UI_SCALE))
+	_context = _label(Vector2(14, 0) * UI_SCALE, roundi(17 * UI_SCALE))
+	_context.position = Vector2(340, 648) * UI_SCALE
+	_context.size = Vector2(600, 24) * UI_SCALE
 	_context.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_context.add_theme_color_override("font_color", Color(1.0, 0.92, 0.6))
-	_hint = _label(Vector2.ZERO, 14)
-	_hint.position = Vector2(14, 690)
+	_hint = _label(Vector2.ZERO, roundi(14 * UI_SCALE))
+	_hint.position = Vector2(14, 690) * UI_SCALE
 	_hint.text = "WASD 이동 · 클릭 공격 · V 카메라 A~D · Z 스프라이트 · 1~4 렌더 · F 캠핑카 라이트 · N 낮밤 · L 등불 · I 실내 · H 도움말"
-	_toast = _label(Vector2.ZERO, 18)
-	_toast.position = Vector2(320, 150)
-	_toast.size = Vector2(640, 26)
+	_toast = _label(Vector2.ZERO, roundi(18 * UI_SCALE))
+	_toast.position = Vector2(320, 150) * UI_SCALE
+	_toast.size = Vector2(640, 26) * UI_SCALE
 	_toast.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_pause = _label(Vector2.ZERO, 32)
-	_pause.position = Vector2(440, 330)
-	_pause.size = Vector2(400, 40)
+	_pause = _label(Vector2.ZERO, roundi(32 * UI_SCALE))
+	_pause.position = Vector2(440, 330) * UI_SCALE
+	_pause.size = Vector2(400, 40) * UI_SCALE
 	_pause.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_pause.text = "일시정지 (ESC)"
 
-	_caption = _label(Vector2(14, 684), 18)
+	_caption = _label(Vector2(14, 684) * UI_SCALE, roundi(18 * UI_SCALE))
 	_caption.visible = false
 
 	_help = PanelContainer.new()
 	var sb := StyleBoxFlat.new()
 	sb.bg_color = Color(0.05, 0.06, 0.08, 0.82)
 	sb.set_corner_radius_all(6)
-	sb.set_content_margin_all(14)
+	sb.set_content_margin_all(14 * UI_SCALE)
 	_help.add_theme_stylebox_override("panel", sb)
-	_help.position = Vector2(668, 12)
-	_help.size = Vector2(600, 0)
+	_help.position = Vector2(668, 12) * UI_SCALE
+	_help.size = Vector2(600, 0) * UI_SCALE
 	var help_label := Label.new()
 	help_label.text = HELP_TEXT
-	help_label.add_theme_font_size_override("font_size", 13)
+	help_label.add_theme_font_size_override("font_size", roundi(13 * UI_SCALE))
 	_help.add_child(help_label)
 	add_child(_help)
 	_help.visible = true
