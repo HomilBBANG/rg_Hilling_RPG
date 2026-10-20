@@ -107,7 +107,8 @@ func _build() -> void:
 		ProtoMesh.sphere(hips, 0.08, Vector3(side * 0.3, 0.98, 0.02), skin_shade, Vector3(0.55, 1.0, 0.85), 6, 4)
 		ProtoMesh.sphere(hips, 0.04, Vector3(side * 0.335, 0.98, 0.0), ear_inner, Vector3(0.6, 1.0, 0.8), 6, 4)
 		# eyes sit on the curve of the face so they also show in 3/4 and profile views
-		ProtoMesh.box(hips, Vector3(0.06, 0.09, 0.06), Vector3(side * 0.12, 1.07, -0.27), dark, Vector3(0, side * -25.0, 0))
+		# single-pixel dot eyes (one render texel ~0.03 m)
+		ProtoMesh.box(hips, Vector3(0.032, 0.032, 0.05), Vector3(side * 0.11, 1.06, -0.28), dark, Vector3(0, side * -25.0, 0))
 		ProtoMesh.box(hips, Vector3(0.2, 0.11, 0.22), Vector3(side * 0.1, 0.88, -0.31), stache, Vector3(0, 0, side * 18.0))
 
 	# Arms: flannel sleeves rolled to the elbow, bare forearms
