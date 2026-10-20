@@ -1,12 +1,11 @@
 class_name PrototypePlayer
 extends CharacterBody3D
-## P0 visual-test player: procedural low-poly person, WASD walking, one swing motion,
-## belt lantern. No stats/combat logic (that is P1).
+## P0 visual-test player: WASD walking, one swing motion, belt lantern. No stats/combat (P1).
+## Visual: PlayerRig 3D model, optionally replaced on screen by its baked pixel sprite.
 
 const WALK_SPEED := 3.6
 const RUN_SPEED := 6.0
 const TURN_SHARPNESS := 14.0
-const ATTACK_TIME := 0.32
 ## Extra visual layer for the player's own meshes (excluded from the lantern's shadow casters).
 const SELF_LAYER := 1 << 19
 
@@ -18,24 +17,21 @@ var walk_bounds := Rect2(-1000, -1000, 2000, 2000)
 var scripted_move := Vector2.ZERO
 var scripted_running := false
 
-var model: Node3D
+var model: PlayerRig
 var lantern_light: OmniLight3D
 var silhouette_enabled := true
+## Pre-rendered pixel sprite (Dead Cells-style pipeline). null = draw the 3D model directly.
+var sprite: BakedSprite
 
-var _hips: Node3D
-var _leg_l: Node3D
-var _leg_r: Node3D
-var _arm_l: Node3D
-var _arm_r: Node3D
-var _lantern_glass: MeshInstance3D
-var _glass_on: Material
-var _glass_off: Material
 var _silhouette_mat: ShaderMaterial
 var _mesh_materials: Array[StandardMaterial3D] = []
+var _meshes: Array[MeshInstance3D] = []
+var _mesh_shadow_modes: Array[int] = []
 var _walk_phase := 0.0
 var _yaw := 0.0
 var _attack_t := -1.0
 var _speed_now := 0.0
+var _lantern_state := false
 
 
 func _ready() -> void:
@@ -47,72 +43,9 @@ func _ready() -> void:
 	shape.shape = cap
 	shape.position.y = 0.85
 	add_child(shape)
-	_build_model()
-	add_to_group("player")
-
-
-func _build_model() -> void:
-	model = Node3D.new()
+	model = PlayerRig.new()
 	model.name = "Model"
 	add_child(model)
-
-	var skin := ProtoMesh.mat(Color(0.93, 0.74, 0.6))
-	var hair := ProtoMesh.mat(Color(0.22, 0.14, 0.09))
-	var jacket := ProtoMesh.mat(Color(0.78, 0.33, 0.2))
-	var shirt := ProtoMesh.mat(Color(0.93, 0.89, 0.78))
-	var pants := ProtoMesh.mat(Color(0.2, 0.24, 0.38))
-	var shoes := ProtoMesh.mat(Color(0.16, 0.12, 0.1))
-	var leather := ProtoMesh.mat(Color(0.42, 0.27, 0.15))
-	var pack := ProtoMesh.mat(Color(0.36, 0.42, 0.26))
-	var steel := ProtoMesh.mat(Color(0.78, 0.8, 0.84), 0.35)
-	var dark := ProtoMesh.mat(Color(0.08, 0.07, 0.07))
-
-	_hips = Node3D.new()
-	_hips.position.y = 0.86
-	model.add_child(_hips)
-
-	# Legs
-	_leg_l = _limb(_hips, Vector3(-0.12, 0.0, 0.0))
-	_leg_r = _limb(_hips, Vector3(0.12, 0.0, 0.0))
-	for leg: Node3D in [_leg_l, _leg_r]:
-		ProtoMesh.capsule(leg, 0.11, 0.78, Vector3(0, -0.39, 0), pants)
-		ProtoMesh.box(leg, Vector3(0.18, 0.1, 0.3), Vector3(0, -0.8, -0.05), shoes)
-
-	# Torso (jacket over shirt, belt, backpack)
-	ProtoMesh.box(_hips, Vector3(0.48, 0.56, 0.3), Vector3(0, 0.3, 0), jacket)
-	ProtoMesh.box(_hips, Vector3(0.2, 0.4, 0.04), Vector3(0, 0.34, -0.15), shirt)
-	ProtoMesh.box(_hips, Vector3(0.5, 0.08, 0.32), Vector3(0, 0.03, 0), leather)
-	ProtoMesh.box(_hips, Vector3(0.38, 0.44, 0.2), Vector3(0, 0.32, 0.24), pack)
-	ProtoMesh.box(_hips, Vector3(0.42, 0.1, 0.22), Vector3(0, 0.58, 0.24), leather)
-
-	# Head
-	ProtoMesh.box(_hips, Vector3(0.14, 0.08, 0.14), Vector3(0, 0.62, 0), skin)
-	ProtoMesh.sphere(_hips, 0.2, Vector3(0, 0.8, 0), skin)
-	ProtoMesh.sphere(_hips, 0.215, Vector3(0, 0.86, 0.04), hair, Vector3(1.0, 0.8, 1.0))
-	ProtoMesh.box(_hips, Vector3(0.05, 0.06, 0.03), Vector3(-0.075, 0.8, -0.185), dark)
-	ProtoMesh.box(_hips, Vector3(0.05, 0.06, 0.03), Vector3(0.075, 0.8, -0.185), dark)
-
-	# Arms
-	_arm_l = _limb(_hips, Vector3(-0.31, 0.52, 0.0))
-	_arm_r = _limb(_hips, Vector3(0.31, 0.52, 0.0))
-	for arm: Node3D in [_arm_l, _arm_r]:
-		ProtoMesh.capsule(arm, 0.08, 0.58, Vector3(0, -0.26, 0), jacket)
-		ProtoMesh.sphere(arm, 0.085, Vector3(0, -0.56, 0), skin)
-	# Placeholder iron sword in right hand (blade continues the arm line).
-	ProtoMesh.box(_arm_r, Vector3(0.05, 0.16, 0.05), Vector3(0, -0.64, 0), leather)
-	ProtoMesh.box(_arm_r, Vector3(0.22, 0.04, 0.06), Vector3(0, -0.72, 0), steel)
-	ProtoMesh.box(_arm_r, Vector3(0.07, 0.62, 0.02), Vector3(0, -1.04, 0), steel)
-
-	# Belt lantern on the left hip (GDD 10.3: 허리띠에 끼우는 등불)
-	var lantern := Node3D.new()
-	lantern.position = Vector3(-0.3, 0.0, -0.06)
-	_hips.add_child(lantern)
-	ProtoMesh.box(lantern, Vector3(0.12, 0.03, 0.12), Vector3(0, 0.08, 0), dark)
-	ProtoMesh.box(lantern, Vector3(0.12, 0.03, 0.12), Vector3(0, -0.1, 0), dark)
-	_glass_off = ProtoMesh.mat(Color(0.55, 0.5, 0.35), 0.4)
-	_glass_on = ProtoMesh.mat(Color(1.0, 0.85, 0.5), 0.4, Color(1.0, 0.7, 0.3), 3.0)
-	_lantern_glass = ProtoMesh.box(lantern, Vector3(0.1, 0.15, 0.1), Vector3(0, -0.01, 0), _glass_off)
-	_lantern_glass.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	lantern_light = OmniLight3D.new()
 	lantern_light.position = Vector3(-0.1, 0.1, -0.1)
 	lantern_light.light_color = Color(1.0, 0.76, 0.48)
@@ -125,16 +58,62 @@ func _build_model() -> void:
 	# (otherwise a huge wedge of darkness follows the player).
 	lantern_light.shadow_caster_mask = 0xFFFFF & ~SELF_LAYER
 	lantern_light.visible = false
-	lantern.add_child(lantern_light)
-
+	model.lantern_anchor.add_child(lantern_light)
 	_setup_silhouette(Color(1.0, 0.95, 0.8, 0.4))
+	add_to_group("player")
 
 
-func _limb(parent: Node3D, pos: Vector3) -> Node3D:
-	var n := Node3D.new()
-	n.position = pos
-	parent.add_child(n)
-	return n
+## Bake request for SpriteBaker: every animation column x 8 facing directions.
+static func sprite_bake_spec() -> Dictionary:
+	return {
+		"builder": func(c: int, r: int) -> Node3D:
+			var rig := PlayerRig.new()
+			rig.rotation.y = PlayerRig.direction_yaw(r)
+			rig.pose_column(c)
+			return rig,
+		"cols": PlayerRig.column_count(),
+		"rows": PlayerRig.DIRECTIONS,
+		"cell": Vector2(2.7, 2.7),
+		"albedo_setup": func(insts: Array[Node3D]) -> void:
+			for i in insts:
+				(i as PlayerRig).set_lantern(false),
+		"emission": {
+			"default": func(insts: Array[Node3D]) -> void:
+				for i in insts:
+					(i as PlayerRig).set_lantern(true),
+		},
+	}
+
+
+## Switch to the baked sprite (or back to the 3D model with null).
+## The 3D rig stays as a shadow-only caster so the shadow keeps animating.
+func use_sprite_sheet(sheet: SpriteSheet) -> void:
+	if sheet == null:
+		if sprite:
+			sprite.queue_free()
+			sprite = null
+		_set_rig_visible(true)
+		return
+	if sprite == null:
+		sprite = BakedSprite.new()
+		sprite.name = "Sprite"
+		sprite.anchor = self
+		sprite.set_silhouette_color(Color(1.0, 0.95, 0.8, 0.4))
+		add_child(sprite)
+	sprite.set_sheet(sheet)
+	sprite.set_silhouette(silhouette_enabled)
+	_set_rig_visible(false)
+
+
+func _set_rig_visible(on: bool) -> void:
+	for i in _meshes.size():
+		var mi := _meshes[i]
+		var orig: int = _mesh_shadow_modes[i]
+		if orig == GeometryInstance3D.SHADOW_CASTING_SETTING_OFF:
+			mi.visible = on  # non-casting parts (lantern glass) simply disappear
+		else:
+			mi.cast_shadow = orig if on else GeometryInstance3D.SHADOW_CASTING_SETTING_SHADOWS_ONLY
+	set_silhouette(silhouette_enabled)
 
 
 ## "X-ray" pass: draws the character only where something else covers it.
@@ -144,17 +123,23 @@ func _setup_silhouette(color: Color) -> void:
 	_silhouette_mat.set_shader_parameter("color", color)
 	_silhouette_mat.render_priority = 1
 	for mi in model.find_children("*", "MeshInstance3D", true, false):
-		(mi as MeshInstance3D).layers = 1 | SELF_LAYER
-		var m := (mi as MeshInstance3D).material_override.duplicate() as StandardMaterial3D
-		(mi as MeshInstance3D).material_override = m
+		var m3 := mi as MeshInstance3D
+		m3.layers = 1 | SELF_LAYER
+		var m := m3.material_override.duplicate() as StandardMaterial3D
+		m3.material_override = m
 		_mesh_materials.append(m)
+		_meshes.append(m3)
+		_mesh_shadow_modes.append(m3.cast_shadow)
 	set_silhouette(silhouette_enabled)
 
 
 func set_silhouette(on: bool) -> void:
 	silhouette_enabled = on
+	var rig_sil := on and sprite == null
 	for m in _mesh_materials:
-		m.next_pass = _silhouette_mat if on else null
+		m.next_pass = _silhouette_mat if rig_sil else null
+	if sprite:
+		sprite.set_silhouette(on)
 
 
 func _physics_process(delta: float) -> void:
@@ -203,9 +188,10 @@ func _process(delta: float) -> void:
 	if Input.is_action_just_pressed("attack"):
 		start_attack()
 	var on := Game.lantern_on
-	if lantern_light.visible != on:
+	if _lantern_state != on:
+		_lantern_state = on
 		lantern_light.visible = on
-		_lantern_glass.material_override = _glass_on if on else _glass_off
+		model.set_lantern(on)
 	_animate(delta)
 
 
@@ -215,23 +201,27 @@ func _animate(delta: float) -> void:
 		_walk_phase += delta * _speed_now * 2.6
 	else:
 		_walk_phase = lerpf(_walk_phase, roundf(_walk_phase / PI) * PI, 1.0 - exp(-10.0 * delta))
-	var swing := sin(_walk_phase) * (0.65 if moving else 0.0)
-	_leg_l.rotation.x = swing
-	_leg_r.rotation.x = -swing
-	_arm_l.rotation.x = -swing * 0.7
-	_arm_r.rotation = Vector3(swing * 0.5 + 0.25, 0.0, 0.0)
-	_hips.position.y = 0.86 + absf(sin(_walk_phase)) * (0.05 if moving else 0.0)
-
 	if _attack_t >= 0.0:
 		_attack_t += delta
-		var t := clampf(_attack_t / ATTACK_TIME, 0.0, 1.0)
-		var e := 1.0 - pow(1.0 - t, 3.0)
-		# Horizontal slash: arm raised forward, sweeping right -> left.
-		_arm_r.rotation = Vector3(deg_to_rad(80.0), deg_to_rad(lerpf(75.0, -80.0, e)), 0.0)
-		_hips.rotation.y = deg_to_rad(lerpf(20.0, -15.0, e))
-		if _attack_t >= ATTACK_TIME + 0.08:
+		if _attack_t >= PlayerRig.ATTACK_TIME + 0.08:
 			_attack_t = -1.0
-			_hips.rotation.y = 0.0
+	model.pose(_walk_phase, 1.0 if moving else 0.0, _attack_t)
+	if sprite:
+		_update_sprite_frame(moving)
+
+
+func _update_sprite_frame(moving: bool) -> void:
+	var col: int
+	if _attack_t >= 0.0:
+		var n: int = PlayerRig.ANIMS[2][1]
+		col = PlayerRig.column_for("attack", int(clampf(_attack_t / PlayerRig.ATTACK_TIME, 0.0, 1.0) * (n - 1) + 0.5))
+	elif moving:
+		var n: int = PlayerRig.ANIMS[1][1]
+		col = PlayerRig.column_for("walk", int(fposmod(_walk_phase, TAU) / TAU * n) % n)
+	else:
+		col = PlayerRig.column_for("idle", int(Time.get_ticks_msec() / 600) % 2)
+	sprite.set_frame(col, PlayerRig.direction_index(_yaw))
+	sprite.set_emission("default", 1.0 if Game.lantern_on else 0.0)
 
 
 func face_direction(yaw: float) -> void:

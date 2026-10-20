@@ -205,6 +205,10 @@ func _process(_delta: float) -> void:
 		_fill_light.light_energy = lerpf(0.0, 0.8, Game.daylight())
 
 
+func sprite_targets() -> Array:
+	return [[player, PrototypePlayer.sprite_bake_spec(), "player"]]
+
+
 func cycle_occlusion_mode() -> String:
 	player.set_silhouette(not player.silhouette_enabled)
 	return occlusion_mode_name()

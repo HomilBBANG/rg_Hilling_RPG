@@ -373,6 +373,15 @@ func _spawn_actors() -> void:
 	_motes.visible = false
 
 
+## Objects drawn as pre-rendered pixel sprites: [node, bake spec, name].
+func sprite_targets() -> Array:
+	return [
+		[player, PrototypePlayer.sprite_bake_spec(), "player"],
+		[slime, SlimeVisual.sprite_bake_spec(), "slime"],
+		[camper, CamperExterior.sprite_bake_spec(CAMPER_YAW_DEG), "camper"],
+	]
+
+
 ## Extra atmosphere for the Dead Cells-like look (floating glowing motes).
 func set_fx(on: bool) -> void:
 	if _motes:

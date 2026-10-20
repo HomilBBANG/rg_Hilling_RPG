@@ -44,6 +44,7 @@ const ACTIONS := {
 	"preset_native": [KEY_4],
 	"cycle_camera_style": [KEY_V],
 	"toggle_outline": [KEY_O],
+	"toggle_sprites": [KEY_Z],
 	"toggle_pipeline": [KEY_M],
 	"toggle_post": [KEY_P],
 	"toggle_day_night": [KEY_N],

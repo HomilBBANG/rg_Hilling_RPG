@@ -20,7 +20,8 @@ const HELP_TEXT := """[P0 디버그 조작 — 프로토타입 전용, 최종 �
 WASD 이동 · Shift 달리기 · 마우스 클릭 = 기본 공격 1회(마우스 방향)
 F  캠핑카 외부 라이트 (캠핑카 근처에서만)
 V  카메라 스타일 A(기존) → B(개선 탑다운) → C(디오라마) → D(데드셀풍)
-O  픽셀 외곽선 ON/OFF (B/C)
+Z  스프라이트 파이프라인: 3D 모델→렌더→픽셀 스프라이트 ON/OFF
+O  픽셀 외곽선 ON/OFF (B/C/D)
 1/2/3/4  PXL-COARSE 320×180 / PXL-MID 427×240 / PXL-SOFT 640×360 / 3D-NATIVE
 M  픽셀화 파이프라인 전환 (M1 SubViewport 확대 ↔ M2 3D 스케일링 nearest)
 P  모드3: 팔레트 제한 + 디더링 후처리 ON/OFF
@@ -49,7 +50,7 @@ func _ready() -> void:
 	_context.add_theme_color_override("font_color", Color(1.0, 0.92, 0.6))
 	_hint = _label(Vector2.ZERO, 14)
 	_hint.position = Vector2(14, 690)
-	_hint.text = "WASD 이동 · 클릭 공격 · V 카메라 A/B/C · 1~4 렌더 · F 캠핑카 라이트 · N 낮밤 · L 등불 · I 실내 · H 도움말"
+	_hint.text = "WASD 이동 · 클릭 공격 · V 카메라 A~D · Z 스프라이트 · 1~4 렌더 · F 캠핑카 라이트 · N 낮밤 · L 등불 · I 실내 · H 도움말"
 	_toast = _label(Vector2.ZERO, 18)
 	_toast.position = Vector2(320, 150)
 	_toast.size = Vector2(640, 26)
@@ -124,6 +125,7 @@ func _process(delta: float) -> void:
 	var lines := PackedStringArray()
 	lines.append("Denial · P0 시각 검증 — %s" % w.world_title())
 	lines.append("카메라(V) %s · 외곽선(O) %s" % [boot.style_name(), "ON" if cam.outline_enabled and cam.outline_supported() else "OFF"])
+	lines.append("스프라이트 파이프라인(Z) %s" % ("ON · 3D→픽셀 스프라이트" if boot.sprites_enabled else "OFF · 실시간 3D"))
 	lines.append("시각 %s (%s)%s" % [Game.clock_text(), "밤" if Game.is_night() else "낮", "" if Game.clock_running else " ⏸"])
 	lines.append("렌더 %s  %d×%d ×%d  |  %s" % [r.preset_name(), rs.x, rs.y, int(r.texel_screen_size()), r.pipeline_name()])
 	lines.append("후처리(P) %s · 스냅(K) %s · 투영(C) %s · 화면높이 %.0fm" % [

@@ -16,6 +16,12 @@ var _zoom_index := 2
 ## Camera comparison style (TopdownCamera.STYLES): 0 = A, 1 = B, 2 = C, 3 = D (default).
 var style_index := 3
 var _outline_user := true
+## Pre-rendered sprite pipeline for player / slime / camper (key Z).
+var sprites_enabled := true
+var baker: SpriteBaker
+var last_sheets := {}
+var _bake_signature := ""
+var _baking := false
 var _capture_dir := ""
 var _touring := false
 
@@ -36,6 +42,9 @@ func _ready() -> void:
 	hud.boot = self
 	layer.add_child(hud)
 
+	baker = SpriteBaker.new()
+	baker.name = "SpriteBaker"
+	add_child(baker)
 	Game.world_change_requested.connect(_load_world)
 	render.settings_changed.connect(_on_render_settings_changed)
 	_load_world(Game.start_world)
@@ -113,6 +122,9 @@ func _unhandled_input(event: InputEvent) -> void:
 	elif event.is_action("cycle_camera_style"):
 		set_camera_style(style_index + 1)
 		hud.toast("카메라 스타일: " + style_name())
+	elif event.is_action("toggle_sprites"):
+		sprites_enabled = not sprites_enabled
+		hud.toast("스프라이트 파이프라인(3D→픽셀 스프라이트): " + ("ON" if sprites_enabled else "OFF (실시간 3D)"))
 	elif event.is_action("toggle_outline"):
 		_outline_user = not _outline_user
 		_configure_camera()
@@ -182,6 +194,8 @@ func _parse_args() -> void:
 		_run_shot_tour()
 	elif tour == "styles":
 		_run_style_tour()
+	elif tour == "sprites":
+		_run_sprite_tour()
 	elif tour == "night_outline":
 		_run_night_outline_check()
 	elif tour == "walk":
@@ -390,3 +404,105 @@ func _run_night_outline_check() -> void:
 	hud.set_capture_mode(true, "%s · 밤 · 외곽선 OFF" % style_name())
 	await _shot("night_outline_off.png")
 	get_tree().quit()
+
+
+# ---------------------------------------------------------------- sprite baking
+
+func _process(_delta: float) -> void:
+	if world == null or _baking:
+		return
+	var sig := _current_bake_signature()
+	if sig != _bake_signature:
+		_rebake(sig)
+
+
+func _current_bake_signature() -> String:
+	var cam: TopdownCamera = world.camera
+	var on := sprites_enabled and cam.orthogonal and world.has_method("sprite_targets")
+	return "%d|%s|%.2f|%d|%s|%d" % [world.get_instance_id(), on, cam.pitch_degrees, cam.zoom_index,
+		render.render_size(), render.preset_index]
+
+
+func _rebake(sig: String) -> void:
+	_baking = true
+	_bake_signature = sig
+	var w := world
+	var cam: TopdownCamera = w.camera
+	var on := sprites_enabled and cam.orthogonal and w.has_method("sprite_targets")
+	var targets: Array = w.sprite_targets() if w.has_method("sprite_targets") else []
+	if not on:
+		for t: Array in targets:
+			t[0].use_sprite_sheet(null)
+		_baking = false
+		return
+	var texel := cam.view_height() / float(render.render_texel_height())
+	var pitch := cam.pitch_degrees
+	var screen_px := render.render_size() + Vector2i(2, 2) * PixelRenderController.MARGIN_TEXELS
+	var t0 := Time.get_ticks_msec()
+	for t: Array in targets:
+		var spec: Dictionary = t[1]
+		spec["texel"] = texel
+		spec["pitch"] = pitch
+		spec["screen_px"] = screen_px
+		var sheet := await baker.bake(spec)
+		if w != world or not is_instance_valid(t[0]):
+			break
+		t[0].use_sprite_sheet(sheet)
+		last_sheets[t[2]] = sheet
+	print("[sprites] baked %d sheets in %d ms (texel %.3f m, pitch %.0f)" % [targets.size(), Time.get_ticks_msec() - t0, texel, pitch])
+	_baking = false
+
+
+func wait_for_sprites() -> void:
+	await get_tree().process_frame
+	while _baking or _bake_signature != _current_bake_signature():
+		await get_tree().process_frame
+
+
+## Pre-rendered sprite pipeline: export baked sheets + live 3D vs sprite comparison shots.
+func _run_sprite_tour() -> void:
+	_touring = true
+	hud.show_help_panel(false)
+	Game.clock_running = false
+	Game.minute_of_day = 10.5 * 60.0
+	render.set_preset(1)
+	set_camera_style(3)
+	await _frames(10)
+	await wait_for_sprites()
+	for k: String in last_sheets:
+		SpriteBaker.export_sheet(last_sheets[k], _capture_dir.path_join("sheets"), k)
+	var shots := [
+		["day", 10.5 * 60.0, false, Vector3(-4.3, 0, 1.1), PI * 0.8, 2],
+		["night", Game.NIGHT_PRESET_MINUTE, true, Vector3(-4.3, 0, 1.1), PI * 0.8, 2],
+		["closeup", 10.5 * 60.0, false, Vector3(-4.0, 0, 1.0), PI * 0.75, 0],
+		["slime", 10.5 * 60.0, false, Vector3(5.6, 0, 1.4), -PI * 0.4, 1],
+	]
+	for sdef: Array in shots:
+		Game.minute_of_day = sdef[1]
+		Game.camper_lights_on = sdef[2]
+		Game.lantern_on = sdef[2]
+		_zoom_index = sdef[5]
+		_configure_camera()
+		for mode in [true, false]:
+			sprites_enabled = mode
+			await wait_for_sprites()
+			_place_player(sdef[3], sdef[4])
+			hud.set_capture_mode(true, "%s · %s · %s" % [style_name(), sdef[0], "베이크 스프라이트" if mode else "실시간 3D"])
+			await _frames(25)
+			await _shot("sprite_%s_%s.png" % [sdef[0], "baked" if mode else "live3d"])
+	# Interior (player sprite only)
+	Game.minute_of_day = 12.0 * 60.0
+	Game.lantern_on = false
+	_zoom_index = 2
+	Game.request_world(Game.WORLD_INTERIOR)
+	for mode in [true, false]:
+		sprites_enabled = mode
+		await wait_for_sprites()
+		_place_player(Vector3(-2.2, 0, -0.4), -PI * 0.3)
+		hud.set_capture_mode(true, "%s · 실내 · %s" % [style_name(), "베이크 스프라이트" if mode else "실시간 3D"])
+		await _frames(25)
+		await _shot("sprite_interior_%s.png" % ("baked" if mode else "live3d"))
+	sprites_enabled = true
+	get_tree().quit()
+
+

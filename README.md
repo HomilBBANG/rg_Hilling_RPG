@@ -6,7 +6,8 @@
 
 ![데드셀풍 D · 밤](captures/visual_direction/style_D_night_PXL-MID.png)
 
-> **비주얼 방향 수정(디오라마형 3D 픽셀풍)과 카메라 A/B/C 비교 결과:** [`notes/VISUAL_DIRECTION.md`](notes/VISUAL_DIRECTION.md)
+> **비주얼 방향 수정(디오라마형 3D 픽셀풍)과 카메라 A/B/C/D 비교 결과:** [`notes/VISUAL_DIRECTION.md`](notes/VISUAL_DIRECTION.md)
+> **3D 모델 → 렌더 → 픽셀 스프라이트 파이프라인(캐릭터·몬스터·캠핑카):** [`notes/SPRITE_PIPELINE.md`](notes/SPRITE_PIPELINE.md)
 
 ## 요구 사항
 
@@ -46,7 +47,8 @@ git clone -b claude/gallant-edison-84bkyp https://github.com/HomilBBANG/rg_Hilli
 | 마우스 왼쪽 클릭 | 기본 공격 모션 1회 (마우스 방향, 누르고 있어도 반복 안 함) |
 | `F` | 캠핑카 외부 라이트 ON/OFF (캠핑카 7.5m 이내에서만) |
 | `V` | **카메라 스타일 A(기존 기능형) → B(개선된 탑다운) → C(기울어진 디오라마) → D(데드셀풍 픽셀)**. 시작은 D |
-| `O` | 픽셀 외곽선 ON/OFF (B/C, Forward+ 전용) |
+| `O` | 픽셀 외곽선 ON/OFF (B/C/D, Forward+ 전용) |
+| `Z` | 스프라이트 파이프라인 ON/OFF — 캐릭터·슬라임·캠핑카를 3D 모델에서 구운 픽셀 스프라이트로 그릴지, 실시간 3D로 그릴지 |
 | `1` / `2` / `3` / `4` | **PXL-COARSE 320×180** / **PXL-MID 427×240(기본)** / **PXL-SOFT 640×360** / **3D-NATIVE 1280×720(픽셀화 OFF)** |
 | `M` | 픽셀화 파이프라인 전환: M1 SubViewport 확대 ↔ M2 3D 해상도 스케일링(nearest) |
 | `P` | 모드 3: 색 단계 제한 + 4×4 디더 ON/OFF (색보정 셰이더 안의 옵션) |
@@ -96,12 +98,14 @@ scripts/core/      game.gd(오토로드), bootstrap.gd, visual_hud.gd
 scripts/visuals/   pixel_render_controller.gd, topdown_camera.gd, day_night_controller.gd
 scripts/world/     visual_lab.gd, camper_interior_lab.gd, terrain_field.gd, nature_props.gd, proto_mesh.gd,
                    organic_mesh.gd, stylized_materials.gd, ground_cover.gd, camp_props.gd, campfire_flame.gd
-scripts/actors/    prototype_player.gd, slime_visual.gd
+scripts/actors/    prototype_player.gd, player_rig.gd, slime_visual.gd, slime_rig.gd
+scripts/visuals/   sprite_baker.gd, sprite_sheet.gd, baked_sprite.gd (스프라이트 파이프라인)
 scripts/vehicle/   camper_exterior.gd, prototype_camper_lights.gd
 shaders/           terrain/foliage/rock_stylized, grass_blades, camper_paint, pixel_outline_post,
                    pixel_grade, occluded_silhouette (+ stylized_common.gdshaderinc)
 captures/visual_direction/  카메라 A/B/C 비교 (디오라마 방향)
 captures/p0_baseline/       P0 테스트 장면 6종 + 렌더 모드 비교 + 이동 영상
+captures/sprite_pipeline/   구운 스프라이트 시트(sheets/) + 베이크 vs 실시간 3D 비교
 notes/             VISUAL_DIRECTION.md, VISUAL_COMPARISON.md, IMPLEMENTATION_ASSUMPTIONS.md
 docs/              GDD.md, GRAPHICS_PROTOTYPE.md, CLAUDE_CODE_HANDOFF.md
 ```

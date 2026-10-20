@@ -26,6 +26,69 @@ func _ready() -> void:
 	lights.build(self)
 
 
+## Bake request: one static cell (lamps off / on emission variants).
+static func sprite_bake_spec(yaw_deg: float) -> Dictionary:
+	return {
+		"builder": func(_c: int, _r: int) -> Node3D:
+			var cam := CamperExterior.new()
+			cam.rotation_degrees.y = yaw_deg
+			return cam,
+		"cols": 1,
+		"rows": 1,
+		"cell": Vector2(10.5, 8.5),
+		"albedo_setup": func(insts: Array[Node3D]) -> void:
+			for i in insts:
+				(i as CamperExterior).lights._apply(false),
+		"emission": {
+			"off": func(insts: Array[Node3D]) -> void:
+				for i in insts:
+					(i as CamperExterior).lights._apply(false),
+			"on": func(insts: Array[Node3D]) -> void:
+				for i in insts:
+					(i as CamperExterior).lights._apply(true),
+		},
+	}
+
+
+var sprite: BakedSprite
+var _shadow_backup := {}
+
+
+## Show the baked pixel sprite instead of the 3D model (null = back to 3D).
+## Meshes stay as shadow-only casters; lights and collider are unchanged.
+func use_sprite_sheet(sheet: SpriteSheet) -> void:
+	if sheet and sprite == null:
+		sprite = BakedSprite.new()
+		sprite.name = "Sprite"
+		sprite.anchor = self
+		sprite.silhouette_enabled = false
+		add_child(sprite)
+	elif sheet == null and sprite:
+		sprite.queue_free()
+		sprite = null
+	if sprite:
+		sprite.set_sheet(sheet)
+	for mi in find_children("*", "MeshInstance3D", true, false):
+		if mi == sprite:
+			continue
+		var g := mi as MeshInstance3D
+		if not _shadow_backup.has(g):
+			_shadow_backup[g] = g.cast_shadow
+		var orig: int = _shadow_backup[g]
+		if sprite == null:
+			g.cast_shadow = orig
+			g.visible = true
+		elif orig == GeometryInstance3D.SHADOW_CASTING_SETTING_OFF:
+			g.visible = false
+		else:
+			g.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_SHADOWS_ONLY
+
+
+func _process(_delta: float) -> void:
+	if sprite:
+		sprite.set_emission("on" if Game.camper_lights_on else "off", 1.0)
+
+
 func door_world_position() -> Vector3:
 	return to_global(DOOR_LOCAL + Vector3(0, 0, 1.0))
 
