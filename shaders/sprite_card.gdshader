@@ -24,6 +24,8 @@ uniform bool inner_lines = false;
 uniform float crease_threshold = 0.93;
 uniform float depth_step = 0.18;
 uniform float line_darkness : hint_range(0.0, 1.0) = 0.42;
+// Hit reaction flash (P1): rgb = colour, a = strength. 0 = no change.
+uniform vec4 flash_color = vec4(1.0, 1.0, 1.0, 0.0);
 
 void fragment() {
 	vec2 uv = frame_rect.xy + UV * frame_rect.zw;
@@ -96,6 +98,10 @@ void fragment() {
 	// shadow-only mesh, which otherwise shows up as shadow-acne rings.
 	LIGHT_VERTEX = surface + NORMAL * light_offset + vec3(0.0, 0.0, self_shadow_escape);
 	EMISSION = border ? vec3(0.0) : texture(emission_tex, uv).rgb * emission_energy;
+	if (flash_color.a > 0.0) {
+		ALBEDO = mix(ALBEDO, flash_color.rgb, flash_color.a);
+		EMISSION += flash_color.rgb * flash_color.a * 0.8;
+	}
 	ROUGHNESS = roughness_value;
 }
 

@@ -9,6 +9,7 @@ const FONT := preload("res://assets/fonts/NanumGothic.ttf")
 var render: PixelRenderController
 var world: Node3D
 var hud: VisualHud
+var game_hud: GameHud
 
 var _snap := true
 var _orthogonal := true
@@ -20,10 +21,13 @@ var _outline_user := true  # thin dark silhouette outlines (O toggles)
 var sprites_enabled := true
 var baker: SpriteBaker
 var last_sheets := {}
+## Baked sheets by "name|render signature": shared by all slimes, reused across world reloads.
+var _sheet_cache := {}
 var _bake_signature := ""
 var _baking := false
 var _capture_dir := ""
 var _touring := false
+var _busy := false  # death / sleep sequence running
 
 
 func _ready() -> void:
@@ -37,6 +41,12 @@ func _ready() -> void:
 	var layer := CanvasLayer.new()
 	layer.layer = 10
 	add_child(layer)
+	game_hud = GameHud.new()
+	game_hud.font = FONT
+	game_hud.boot = self
+	layer.add_child(game_hud)
+	Game.hud = game_hud
+	Game.boot = self
 	hud = VisualHud.new()
 	hud.font = FONT
 	hud.boot = self
@@ -52,6 +62,11 @@ func _ready() -> void:
 
 
 func _load_world(world_id: StringName) -> void:
+	if world_id == Game.WORLD_INTERIOR and not Game.has_camper:
+		hud.toast("아직 캠핑카가 없습니다 (F9: 진행 단계 전환)")
+		return
+	if game_hud:
+		game_hud.close_panel()
 	var prev := &""
 	if world:
 		prev = Game.WORLD_INTERIOR if world is CamperInteriorLab else Game.WORLD_EXTERIOR
@@ -113,8 +128,21 @@ func current_world_id() -> StringName:
 func _unhandled_input(event: InputEvent) -> void:
 	if _touring or not event.is_pressed() or event.is_echo():
 		return
+	if _busy and not event.is_action("pause"):
+		return
 	if event.is_action("pause"):
 		get_tree().paused = not get_tree().paused
+	elif event.is_action("inventory"):
+		game_hud.toggle_inventory()
+	elif event.is_action("combat_log"):
+		game_hud.cycle_log_level()
+	elif event.is_action("debug_status"):
+		hud.toggle_debug()
+	elif event.is_action("debug_heal"):
+		Game.player_state.restore_all()
+		hud.toast("디버그: HP/SP/MP 전체 회복")
+	elif event.is_action("debug_stage"):
+		_cycle_story_stage()
 	elif event.is_action("preset_coarse"):
 		render.set_preset(0)
 	elif event.is_action("preset_mid"):
@@ -154,6 +182,8 @@ func _unhandled_input(event: InputEvent) -> void:
 	elif event.is_action("camper_lights"):
 		hud.toast(world.try_toggle_camper_lights())
 	elif event.is_action("toggle_interior"):
+		if world is VisualLab and world.vehicle.driving:
+			return
 		Game.request_world(Game.WORLD_EXTERIOR if current_world_id() == Game.WORLD_INTERIOR else Game.WORLD_INTERIOR)
 	elif event.is_action("toggle_help"):
 		hud.toggle_help()
@@ -213,6 +243,10 @@ func _parse_args() -> void:
 		_run_night_outline_check()
 	elif tour == "walk":
 		_run_walk_tour()
+	elif tour == "p1":
+		_run_p1_tour()
+	elif tour == "p1input":
+		_run_p1_input_tour()
 
 
 func _frames(n: int) -> void:
@@ -425,8 +459,13 @@ func _process(_delta: float) -> void:
 	if world == null or _baking:
 		return
 	var sig := _current_bake_signature()
-	if sig != _bake_signature:
+	if sig != _bake_signature or Game.sprites_dirty:
 		_rebake(sig)
+
+
+func _render_signature() -> String:
+	var cam: TopdownCamera = world.camera
+	return "%.2f|%d|%s|%d" % [cam.pitch_degrees, cam.zoom_index, render.render_size(), render.preset_index]
 
 
 func _current_bake_signature() -> String:
@@ -439,6 +478,7 @@ func _current_bake_signature() -> String:
 func _rebake(sig: String) -> void:
 	_baking = true
 	_bake_signature = sig
+	Game.sprites_dirty = false
 	var w := world
 	var cam: TopdownCamera = w.camera
 	var on := sprites_enabled and cam.orthogonal and w.has_method("sprite_targets")
@@ -452,24 +492,118 @@ func _rebake(sig: String) -> void:
 	var pitch := cam.pitch_degrees
 	var screen_px := render.render_size() + Vector2i(2, 2) * PixelRenderController.MARGIN_TEXELS
 	var t0 := Time.get_ticks_msec()
+	var rsig := _render_signature()
+	for k: String in _sheet_cache.keys():
+		if not k.ends_with("|" + rsig):
+			_sheet_cache.erase(k)
+	var baked := 0
 	for t: Array in targets:
-		var spec: Dictionary = t[1]
-		spec["texel"] = texel
-		spec["pitch"] = pitch
-		spec["screen_px"] = screen_px
-		var sheet := await baker.bake(spec)
-		if w != world or not is_instance_valid(t[0]):
+		var key: String = t[2] + "|" + rsig
+		var sheet: SpriteSheet = _sheet_cache.get(key)
+		if sheet == null:
+			var spec: Dictionary = t[1]
+			spec["texel"] = texel
+			spec["pitch"] = pitch
+			spec["screen_px"] = screen_px
+			sheet = await baker.bake(spec)
+			_sheet_cache[key] = sheet
+			baked += 1
+		if w != world:
 			break
+		if not is_instance_valid(t[0]):
+			continue
 		t[0].use_sprite_sheet(sheet)
 		last_sheets[t[2]] = sheet
-	print("[sprites] baked %d sheets in %d ms (texel %.3f m, pitch %.0f)" % [targets.size(), Time.get_ticks_msec() - t0, texel, pitch])
+	if baked > 0:
+		print("[sprites] baked %d new sheets (%d targets) in %d ms (texel %.3f m, pitch %.0f)" % [baked, targets.size(), Time.get_ticks_msec() - t0, texel, pitch])
 	_baking = false
 
 
 func wait_for_sprites() -> void:
 	await get_tree().process_frame
-	while _baking or _bake_signature != _current_bake_signature():
+	while _baking or _bake_signature != _current_bake_signature() or Game.sprites_dirty:
 		await get_tree().process_frame
+
+
+# ---------------------------------------------------------------- P1 flows
+
+func _cycle_story_stage() -> void:
+	if world is VisualLab and world.vehicle.driving:
+		world.vehicle.speed = 0.0
+		world.exit_vehicle()
+	Game.set_story_stage(Game.story_stage() + 1)
+	hud.toast("진행 단계 → " + Game.STAGE_NAMES[Game.story_stage()])
+	if not Game.has_camper and world is CamperInteriorLab:
+		Game.request_world(Game.WORLD_EXTERIOR)
+
+
+## Player HP reached 0 (GDD 2.4 / 12.3 [확정]): field loot is split (goblins take part, the rest
+## stays at the spot), then wake inside the camper if owned, else at the nearest safe checkpoint
+## (with the cat beside the player once it has joined). Unconscious time / wake HP are [미정].
+func on_player_died(death_pos: Vector3) -> void:
+	if _busy:
+		return
+	_busy = true
+	game_hud.close_panel()
+	Game.combat_log.add("주인공이 쓰러졌다", "주인공 HP 0 — 쓰러졌다", "death")
+	await game_hud.fade_to(1.0, 1.4, "쓰러졌다…")
+	var loss := {"taken": {}, "left": 0}
+	var cp := {}
+	if world is VisualLab:
+		loss = world.drop_death_loot(death_pos)
+		cp = world.nearest_checkpoint(death_pos)
+	Game.advance_minutes(60.0)
+	var st := Game.player_state
+	st.hp = ceilf(st.max_hp() * 0.5)
+	st.sp = st.max_sp()
+	st.changed.emit()
+	var where := ""
+	if Game.has_camper:
+		Game.spawn_override = {"kind": "rescued"}
+		where = "캠핑카 안에서 눈을 떴다"
+		Game.request_world(Game.WORLD_INTERIOR)
+	else:
+		var p: Vector3 = cp.get("pos", VisualLab.DEFAULT_SPAWN)
+		Game.spawn_override = {"kind": "checkpoint", "pos": p, "yaw": PI * 0.8, "name": cp.get("name", "")}
+		where = "%s에서 정신을 차렸다" % cp.get("name", "체크포인트")
+		Game.request_world(Game.WORLD_EXTERIOR)
+	await _frames(3)
+	await wait_for_sprites()
+	await _frames(10)
+	var taken: Dictionary = loss["taken"]
+	var detail := "가져갈 짐이 없었다"
+	if not taken.is_empty():
+		var names := PackedStringArray()
+		for id: String in taken:
+			names.append("%s ×%d" % [ItemDB.item_name(id), taken[id]])
+		detail = "고블린이 %s을(를) 가져갔다 · 나머지 %d개는 쓰러진 곳에 남아 있다" % [", ".join(names), loss["left"]]
+	Game.combat_log.add(where, "%s — %s" % [where, detail], "info")
+	await game_hud.fade_to(0.0, 1.2)
+	hud.toast(where)
+	await _frames(150)
+	hud.toast(detail)
+	_busy = false
+
+
+## Cot sleep (GDD 9.6 / 10.1 [확정]): chosen hours pass, cot restores HP 10 % of max [임시].
+func sleep(hours: int) -> void:
+	if _busy:
+		return
+	_busy = true
+	await game_hud.fade_to(1.0, 0.9, "zzz…")
+	Game.advance_minutes(hours * 60.0)
+	var st := Game.player_state
+	var before := st.hp
+	st.heal(st.max_hp() * 0.10)
+	st.sp = st.max_sp()
+	st.mp = st.max_mp()
+	st.changed.emit()
+	await _frames(20)
+	await game_hud.fade_to(0.0, 0.9)
+	var msg := "%d시간 잤다 — %s · HP +%d" % [hours, Game.clock_text(), roundi(st.hp - before)]
+	hud.toast(msg)
+	Game.combat_log.add(msg, "", "info")
+	_busy = false
 
 
 ## Pre-rendered sprite pipeline: export baked sheets + live 3D vs sprite comparison shots.
@@ -577,4 +711,302 @@ func _run_rawframes() -> void:
 		for i in ph[1]:
 			await RenderingServer.frame_post_draw
 			render.viewport.get_texture().get_image().save_png(_capture_dir.path_join("%s_%03d.png" % [ph[2], i]))
+	get_tree().quit()
+
+
+# ---------------------------------------------------------------- P1 verification tour
+
+func _seconds(t: float) -> void:
+	await get_tree().create_timer(t).timeout
+
+
+func _focus_interact(alt := false) -> void:
+	await _frames(3)
+	var p: PrototypePlayer = world.player
+	if p.focus == null:
+		print("[p1] no focus near ", p.global_position)
+		return
+	print("[p1] interact: ", p.focus.prompt_text())
+	if alt:
+		p.focus.interact_alt(p)
+	else:
+		p.focus.interact(p)
+
+
+func _nearest_monster(from: Vector3) -> SlimeMonster:
+	var best: SlimeMonster = null
+	for m in world.monsters:
+		if is_instance_valid(m) and (best == null or m.global_position.distance_to(from) < best.global_position.distance_to(from)):
+			best = m
+	return best
+
+
+func _p1_shot(name: String, caption: String, quick := false) -> void:
+	hud.set_capture_mode(false)
+	hud.show_help_panel(false)
+	print("[p1] ", caption)
+	if quick:
+		await _frames(3)
+		print("[tour] saved ", save_screenshot("p1_" + name + ".png"))
+	else:
+		await _shot("p1_" + name + ".png")
+
+
+func _wait_fade_clear() -> void:
+	await _frames(2)
+	while game_hud._fade.modulate.a > 0.02:
+		await _frames(1)
+
+
+## Exercises the P1 loop and saves screenshots: crate loot, weight, combat, corpse loot, death ->
+## camper wake, storage, cat pet/snack, sleep, death bag, driving, stage A cat encounter and
+## checkpoint wake with the cat.
+func _run_p1_tour() -> void:
+	_touring = true
+	Dice.rng.seed = 4
+	Game.clock_running = false
+	Game.minute_of_day = 10.5 * 60.0
+	Game.combat_log.level = 2
+	await wait_for_sprites()
+	var p: PrototypePlayer = world.player
+	# 1. Camp, HUD
+	_place_player(VisualLab.CRATE_POS + Vector3(0.3, 0, 1.2), 0.0)
+	await _p1_shot("01_camp_hud", "camp + HUD")
+	# 2. Supply crate inspection
+	await _focus_interact()
+	await _p1_shot("02_crate_loot", "crate loot panel")
+	game_hud.close_panel()
+	var crate: LootContainer = p.focus
+	for e in crate.inventory().duplicate_items():
+		game_hud._move(crate.inventory(), Game.player_state.inventory, e["id"], e["count"], game_hud._player_can_take)
+	Game.player_state.inventory.add("iron_ore", 3)
+	game_hud.toggle_inventory()
+	await _p1_shot("03_inventory_overweight", "inventory overweight %.1f kg x%.2f" % [Game.player_state.carried_weight(), Game.player_state.speed_factor()])
+	var before := Game.player_state.inventory.count("iron_ore")
+	Game.player_state.inventory.add("iron_ore", 0)
+	var tmp := Inventory.new()
+	tmp.add("iron_ore", 3)
+	var got := game_hud._move(tmp, Game.player_state.inventory, "iron_ore", 3, game_hud._player_can_take)
+	print("[p1] pickup over the limit: moved %d of 3 (ore %d -> %d, weight %.1f / limit %.1f)" % [got, before, Game.player_state.inventory.count("iron_ore"), Game.player_state.carried_weight(), Game.player_state.carry_limit()])
+	game_hud.close_panel()
+	# keep a few things for the death test, drop the ore
+	Game.player_state.inventory.remove("iron_ore", 99)
+	# 3. Fight the passive meadow slimes
+	_place_player(Vector3(12.0, 0, 5.0), -PI * 0.5)
+	await _frames(10)
+	Game.combat_log.level = 3
+	game_hud._refresh_log()
+	var target := _nearest_monster(p.global_position)
+	var swings := 0
+	var shot_taken := false
+	while is_instance_valid(target) and swings < 40:
+		var d := target.global_position - p.global_position
+		d.y = 0
+		if d.length() > 1.2:
+			p.scripted_move = Vector2(d.x, d.z).normalized()
+			await get_tree().physics_frame
+			continue
+		p.scripted_move = Vector2.ZERO
+		p.start_attack(target.global_position)
+		swings += 1
+		await _seconds(0.45)
+		if swings == 2 and not shot_taken:
+			shot_taken = true
+			await _p1_shot("04_combat_log3", "fight, log level 3")
+		Game.player_state.sp = Game.player_state.max_sp()
+	p.scripted_move = Vector2.ZERO
+	print("[p1] slime fight: %d swings, killed=%s, HP %d" % [swings, not is_instance_valid(target), Game.player_state.hp])
+	await _frames(20)
+	# 4. Corpse inspection
+	var corpse: LootContainer = null
+	for n in world.get_children():
+		if n is LootContainer and n.data["kind"] == "corpse":
+			corpse = n
+	if corpse:
+		_place_player(corpse.global_position + Vector3(0, 0, 1.0), 0.0)
+		await _focus_interact()
+		await _p1_shot("05_corpse_loot", "corpse loot")
+		for e in corpse.inventory().duplicate_items():
+			game_hud._move(corpse.inventory(), Game.player_state.inventory, e["id"], e["count"], game_hud._player_can_take)
+		game_hud.close_panel()
+	Game.combat_log.level = 2
+	game_hud._refresh_log()
+	# 5. Death with the camper owned -> wake inside the camper
+	var death_pos := p.global_position
+	Game.player_state.take_damage(999)
+	while not _busy:
+		await _frames(1)
+	await _seconds(1.0)
+	await _wait_fade_clear()
+	await _p1_shot("06_wake_in_camper", "death -> camper interior wake (cat beside)", true)
+	while _busy:
+		await _frames(1)
+	# 6. Storage: take snacks out, move everything in
+	p = world.player
+	_place_player(CamperInteriorLab.STORAGE_POS + Vector3(0, 0, -0.9), 0.0)
+	await _focus_interact()
+	game_hud._move(Game.storage, Game.player_state.inventory, "cat_snack", 3, game_hud._player_can_take)
+	game_hud._refresh_panel()
+	await _p1_shot("07_storage", "storage panel")
+	game_hud.close_panel()
+	# 7. Cat: pet + snack
+	var cat: CatCompanion = world.cat
+	cat.global_position = Vector3(1.4, 0, 0.2)
+	cat.mode = CatCompanion.Mode.HOME
+	_place_player(Vector3(0.4, 0, 0.35), -PI * 0.5)
+	await _frames(5)
+	await _focus_interact()
+	await _p1_shot("08_cat_pet", "pet the cat", true)
+	await _seconds(1.9)
+	await _focus_interact(true)
+	await _p1_shot("09_cat_snack", "snack: affection %d" % Game.cat_affection, true)
+	# 8. Sleep 10 h on the cot -> night
+	_place_player(CamperInteriorLab.COT_POS + Vector3(0, 0, 1.2), 0.0)
+	await _focus_interact()
+	game_hud._sleep_hours = 10
+	game_hud._refresh_panel()
+	await _p1_shot("10_sleep_panel", "sleep panel")
+	game_hud.close_panel()
+	sleep(10)
+	await _frames(2)
+	while _busy:
+		await _frames(1)
+	await _p1_shot("11_after_sleep", "after sleep %s" % Game.clock_text())
+	# 9. Out at night: lights, death bag
+	Game.request_world(Game.WORLD_EXTERIOR)
+	await wait_for_sprites()
+	Game.lantern_on = true
+	Game.camper_lights_on = true
+	await _frames(10)
+	await _p1_shot("12_night_exit", "night outside the camper")
+	_place_player(death_pos + Vector3(0, 0, 1.0), 0.0)
+	await _focus_interact()
+	await _p1_shot("13_death_bag", "death bag at the death spot")
+	game_hud.close_panel()
+	# 10. Drive
+	Game.minute_of_day = 10.5 * 60.0
+	_place_player(world.camper.to_global(Vector3(2.5, 0, 2.6)), 0.0)
+	await _focus_interact()
+	await _frames(5)
+	var v: CamperVehicle = world.vehicle
+	# Out of the camp: straight ahead past the blossom tree, then right (south-east) along the path.
+	v.scripted_input = Vector2(0.0, 0.8)
+	await _seconds(1.0)
+	print("[p1] drive 1: pos %s yaw %.0f speed %.1f" % [v.global_position, rad_to_deg(v.rotation.y), v.speed])
+	var col := v.get_last_slide_collision()
+	if col:
+		var c := col.get_collider() as Node
+		print("[p1] blocked by ", c.name, " parent ", c.get_parent().name, " at ", (c as Node3D).global_position)
+	v.scripted_input = Vector2(-1.0, 0.6)
+	await _seconds(1.3)
+	v.scripted_input = Vector2(0.15, 0.5)
+	await _seconds(1.2)
+	print("[p1] drive 2: pos %s yaw %.0f speed %.1f" % [v.global_position, rad_to_deg(v.rotation.y), v.speed])
+	await _p1_shot("14_driving", "driving yaw %.0f dir %d" % [rad_to_deg(v.rotation.y), v.sprite_direction()], true)
+	v.scripted_input = Vector2(0.0, 1.0)
+	await _seconds(1.5)
+	v.scripted_input = Vector2(0.0, -1.0)
+	while v.speed > 0.2:
+		await get_tree().physics_frame
+	v.scripted_input = Vector2.ZERO
+	await _seconds(0.3)
+	world.exit_vehicle()
+	await _frames(10)
+	await _p1_shot("15_parked", "parked elsewhere, player out")
+	# 11. Stage A: no camper, cat waits on the path and joins
+	Game.set_story_stage(0)
+	_place_player(Vector3(1.0, 0, 5.4), -PI * 0.5)
+	await wait_for_sprites()
+	await _frames(5)
+	await _p1_shot("16_stage_a_cat_waiting", "stage A: cat waiting")
+	p = world.player
+	for i in 240:
+		if Game.cat_joined:
+			break
+		p.scripted_move = Vector2(1, -0.2)
+		await get_tree().physics_frame
+	p.scripted_move = Vector2.ZERO
+	await _seconds(1.0)
+	await _p1_shot("17_cat_joined", "cat joined: %s" % Game.cat_joined)
+	# 12. Stage B death in the field -> nearest checkpoint with the cat's rescue behaviour
+	_place_player(Vector3(16.0, 0, 3.0), 0.0)
+	await _frames(5)
+	Game.player_state.take_damage(999)
+	while not _busy:
+		await _frames(1)
+	await _seconds(1.0)
+	await _wait_fade_clear()
+	await _p1_shot("18_checkpoint_wake_cat", "checkpoint wake with the cat", true)
+	while _busy:
+		await _frames(1)
+	await _seconds(1.0)
+	await _p1_shot("19_checkpoint_after", "after wake")
+	print("[p1] done: stage %d, hp %d, affection %d, field loot %d" % [Game.story_stage(), Game.player_state.hp, Game.cat_affection, Game.field["loot"].size()])
+	get_tree().quit()
+
+
+func _key(code: Key) -> void:
+	for pressed in [true, false]:
+		var ev := InputEventKey.new()
+		ev.physical_keycode = code
+		ev.pressed = pressed
+		Input.parse_input_event(ev)
+		await _frames(2)
+
+
+## Same flows through simulated key / mouse events (real input path, not direct calls).
+func _run_p1_input_tour() -> void:
+	Dice.rng.seed = 9
+	Game.clock_running = false
+	await wait_for_sprites()
+	var p: PrototypePlayer = world.player
+	_place_player(VisualLab.CRATE_POS + Vector3(0.3, 0, 1.2), 0.0)
+	await _frames(5)
+	await _key(KEY_E)
+	print("[input] E at crate -> panel %s (%s)" % [game_hud._panel_kind, game_hud.panel_open()])
+	await _key(KEY_E)
+	print("[input] E again -> panel open %s" % game_hud.panel_open())
+	await _key(KEY_TAB)
+	print("[input] Tab -> panel %s" % game_hud._panel_kind)
+	await _key(KEY_TAB)
+	print("[input] Tab again -> open %s" % game_hud.panel_open())
+	await _key(KEY_G)
+	print("[input] G -> log level %d" % Game.combat_log.level)
+	var sp0 := Game.player_state.sp
+	var mb := InputEventMouseButton.new()
+	mb.button_index = MOUSE_BUTTON_LEFT
+	mb.pressed = true
+	Input.parse_input_event(mb)
+	await _frames(2)
+	mb = mb.duplicate()
+	mb.pressed = false
+	Input.parse_input_event(mb)
+	await _frames(2)
+	print("[input] click -> SP %.0f -> %.0f" % [sp0, Game.player_state.sp])
+	# camper: get in with E, out with E, must stay out
+	_place_player(world.camper.to_global(Vector3(2.5, 0, 2.4)), 0.0)
+	await _frames(5)
+	await _key(KEY_E)
+	await _frames(5)
+	print("[input] E at cab -> driving %s" % world.vehicle.driving)
+	await _key(KEY_E)
+	await _frames(20)
+	print("[input] E while parked in the seat -> driving %s, player visible %s" % [world.vehicle.driving, world.player.visible])
+	# door -> interior, door mat -> exterior
+	_place_player(world.camper.door_world_position(), 0.0)
+	await _frames(5)
+	await _key(KEY_E)
+	await _frames(10)
+	print("[input] E at door -> world %s, cat present %s" % [current_world_id(), world.get("cat") != null])
+	await wait_for_sprites()
+	await _frames(5)
+	await _key(KEY_E)
+	await _frames(10)
+	print("[input] E at door mat -> world %s" % current_world_id())
+	await _key(KEY_F9)
+	print("[input] F9 -> stage %d camper visible %s" % [Game.story_stage(), world.vehicle.visible])
+	await _key(KEY_ESCAPE)
+	print("[input] ESC -> paused %s" % get_tree().paused)
+	await _key(KEY_ESCAPE)
+	print("[input] ESC -> paused %s" % get_tree().paused)
 	get_tree().quit()

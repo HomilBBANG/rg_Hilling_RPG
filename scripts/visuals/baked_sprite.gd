@@ -47,6 +47,11 @@ func set_inner_lines(on: bool, darkness := 0.42) -> void:
 	_mat.set_shader_parameter("line_darkness", darkness)
 
 
+## Hit flash: colour with strength in alpha (0 = off).
+func set_flash(c: Color) -> void:
+	_mat.set_shader_parameter("flash_color", c)
+
+
 func set_silhouette_color(c: Color, bias := 0.8) -> void:
 	_sil.set_shader_parameter("color", c)
 	_sil.set_shader_parameter("self_bias", bias)

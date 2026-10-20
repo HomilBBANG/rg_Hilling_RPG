@@ -18,8 +18,12 @@ var _toast_time := 0.0
 var _capture_mode := false
 var _caption: Label
 
-const HELP_TEXT := """[P0 디버그 조작 — 프로토타입 전용, 최종 키 아님]
-WASD 이동 · Shift 달리기 · 마우스 클릭 = 기본 공격 1회(마우스 방향)
+const HELP_TEXT := """[P1 조작 — 프로토타입 키, 최종 키 아님]
+WASD 이동 · Shift 달리기(SP) · 마우스 클릭 = 기본 공격 1회(마우스 방향, SP)
+E  조사/상호작용 (시체·상자·문·운전석·침대·창고·고양이)   R  고양이 간식
+Tab 소지품(게임 계속 진행)   G  전투 로그 1→2→3단계   ESC 일시정지
+운전: W/S 가속·후진 · A/D 조향 · 멈춘 뒤 E 내리기
+F9 진행 단계 A/B/C   F8 전체 회복   F3 디버그 정보
 F  캠핑카 외부 라이트 (캠핑카 근처에서만)
 V  카메라 스타일 A(기존) → B(개선 탑다운) → C(디오라마) → D(데드셀풍)
 Z  스프라이트 파이프라인: 3D 모델→렌더→픽셀 스프라이트 ON/OFF
@@ -28,10 +32,10 @@ O  픽셀 외곽선 ON/OFF (기본 ON)
 M  픽셀화 파이프라인 전환 (M1 SubViewport 확대 ↔ M2 3D 스케일링 nearest)
 P  모드3: 팔레트 제한 + 디더링 후처리 ON/OFF
 N  낮 ↔ 밤 (12:00 / 22:00)     T  시계 진행/정지 (1초 = 게임 1분)
-L  개인 등불(허리띠) ON/OFF       I  캠핑카 실내 ↔ 야외
+L  개인 등불(허리띠) ON/OFF       I  실내 ↔ 야외 (디버그, 캠핑카 보유 시)
 K  픽셀 스냅 카메라 ON/OFF (떨림 비교)   C  직교 ↔ 원근 투영
 X  가림 보조: 실루엣 → 수관 투명화 → 끔   - / =  카메라 규모(줌)
-F12 스크린샷 (user://captures)    F11 전체 화면    ESC 일시정지    H 이 도움말"""
+F12 스크린샷 (user://captures)    F11 전체 화면    H 이 도움말"""
 
 
 func _ready() -> void:
@@ -44,7 +48,7 @@ func _ready() -> void:
 	t.set_constant("outline_size", "Label", roundi(5 * UI_SCALE))
 	theme = t
 
-	_status = _label(Vector2(14, 10) * UI_SCALE, roundi(15 * UI_SCALE))
+	_status = _label(Vector2(22, 270), roundi(13 * UI_SCALE))  # below the game HUD bars (F3)
 	_context = _label(Vector2(14, 0) * UI_SCALE, roundi(17 * UI_SCALE))
 	_context.position = Vector2(340, 648) * UI_SCALE
 	_context.size = Vector2(600, 24) * UI_SCALE
@@ -52,7 +56,7 @@ func _ready() -> void:
 	_context.add_theme_color_override("font_color", Color(1.0, 0.92, 0.6))
 	_hint = _label(Vector2.ZERO, roundi(14 * UI_SCALE))
 	_hint.position = Vector2(14, 690) * UI_SCALE
-	_hint.text = "WASD 이동 · 클릭 공격 · V 카메라 A~D · Z 스프라이트 · 1~4 렌더 · F 캠핑카 라이트 · N 낮밤 · L 등불 · I 실내 · H 도움말"
+	_hint.text = "WASD 이동 · 클릭 공격 · E 조사/상호작용 · Tab 소지품 · G 로그 · F 캠핑카 라이트 · L 등불 · N 낮밤 · F9 진행 단계 · H 도움말"
 	_toast = _label(Vector2.ZERO, roundi(18 * UI_SCALE))
 	_toast.position = Vector2(320, 150) * UI_SCALE
 	_toast.size = Vector2(640, 26) * UI_SCALE
@@ -79,7 +83,9 @@ func _ready() -> void:
 	help_label.add_theme_font_size_override("font_size", roundi(13 * UI_SCALE))
 	_help.add_child(help_label)
 	add_child(_help)
-	_help.visible = true
+	_help.visible = false
+	_status.visible = false
+	_context.visible = false
 
 
 func _label(pos: Vector2, size: int) -> Label:
@@ -91,9 +97,20 @@ func _label(pos: Vector2, size: int) -> Label:
 
 
 ## Clean capture mode: hide debug text, show only a caption line.
+var show_debug := false
+
+
+func toggle_debug() -> void:
+	show_debug = not show_debug
+	_status.visible = show_debug and not _capture_mode
+
+
 func set_capture_mode(on: bool, caption := "") -> void:
-	for c in [_status, _hint, _context, _toast, _pause]:
+	for c in [_hint, _toast, _pause]:
 		c.visible = not on
+	_status.visible = show_debug and not on
+	if boot and boot.get("game_hud"):
+		boot.game_hud.set_capture_mode(on)
 	_capture_mode = on
 	_caption.text = caption
 	_caption.visible = on and caption != ""
@@ -125,7 +142,7 @@ func _process(delta: float) -> void:
 	var rs := r.render_size()
 	var cam: TopdownCamera = w.camera
 	var lines := PackedStringArray()
-	lines.append("Denial · P0 시각 검증 — %s" % w.world_title())
+	lines.append("Denial · P1 코어 플레이 — %s" % w.world_title())
 	lines.append("카메라(V) %s · 외곽선(O) %s" % [boot.style_name(), "ON" if cam.outline_enabled and cam.outline_supported() else "OFF"])
 	lines.append("스프라이트 파이프라인(Z) %s" % ("ON · 3D→픽셀 스프라이트" if boot.sprites_enabled else "OFF · 실시간 3D"))
 	lines.append("시각 %s (%s)%s" % [Game.clock_text(), "밤" if Game.is_night() else "낮", "" if Game.clock_running else " ⏸"])
@@ -137,4 +154,3 @@ func _process(delta: float) -> void:
 		"ON" if Game.lantern_on else "OFF", "ON" if Game.camper_lights_on else "OFF", w.occlusion_mode_name()])
 	lines.append("FPS %d" % Engine.get_frames_per_second())
 	_status.text = "\n".join(lines)
-	_context.text = w.context_hint()

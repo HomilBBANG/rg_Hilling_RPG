@@ -1,6 +1,8 @@
 class_name CamperInteriorLab
 extends Node3D
-## Minimal camper interior for visual checks (separate scene, GDD 3.1/9.1 [확정]).
+## Camper interior (separate scene, GDD 3.1/9.1 [확정]): door back out, folding cot for sleep
+## (9.6), weight-limited storage (8.3) and the black cat who is always here once the camper is
+## owned (2.5).
 ## Room is 9 x 4.4 m while the exterior body is 2.4 m wide: a first try at the
 ## "magically larger inside" feeling. Camera-side wall is cut down so the room stays readable.
 
@@ -8,9 +10,13 @@ const ROOM_X := 4.5
 const ROOM_Z := 2.2
 const WALL_H := 2.5
 const DOOR_X := -1.6
+const COT_POS := Vector3(-3.3, 0, -1.55)
+const STORAGE_POS := Vector3(3.2, 0, 1.4)
+const CAT_SPOTS: Array[Vector3] = [Vector3(1.4, 0, 0.2), Vector3(-1.9, 0, 0.6), Vector3(2.2, 0, -0.6), Vector3(-2.5, 0, -0.75)]
 
 var player: PrototypePlayer
 var camera: TopdownCamera
+var cat: CatCompanion
 var day_night: DayNightController
 var _fill_light: OmniLight3D
 
@@ -25,6 +31,7 @@ func _ready() -> void:
 	_build_furniture()
 	_build_lights()
 	_spawn_actors()
+	_build_interactions()
 
 
 func ground_height(_x: float, _z: float) -> float:
@@ -192,8 +199,25 @@ func _spawn_actors() -> void:
 	player.height_func = Callable(self, "ground_height")
 	player.walk_bounds = Rect2(-ROOM_X + 0.35, -ROOM_Z + 0.35, ROOM_X * 2.0 - 0.7, ROOM_Z * 2.0 - 0.7)
 	add_child(player)
-	player.global_position = Vector3(DOOR_X, 0.0, ROOM_Z - 0.6)
-	player.face_direction(0.0)
+	var ov := Game.take_spawn_override()
+	var rescued: bool = ov.get("kind", "") == "rescued"
+	if rescued:
+		# Woken on the cot after the cat brought the player home (GDD 2.4 [확정]).
+		player.global_position = COT_POS + Vector3(0.2, 0, 0.75)
+		player.face_direction(PI)
+	else:
+		player.global_position = Vector3(DOOR_X, 0.0, ROOM_Z - 0.6)
+		player.face_direction(0.0)
+	if Game.has_camper:
+		cat = CatCompanion.new()
+		cat.name = "BlackCat"
+		cat.mode = CatCompanion.Mode.HOME
+		cat.player = player
+		cat.home_spots = CAT_SPOTS
+		cat.height_func = Callable(self, "ground_height")
+		cat.position = player.global_position + Vector3(0.75, 0, 0.1) if rescued else CAT_SPOTS[0]
+		add_child(cat)
+		cat.face(player.global_position)
 	camera = TopdownCamera.new()
 	camera.name = "Camera"
 	camera.target = player
@@ -206,7 +230,19 @@ func _process(_delta: float) -> void:
 
 
 func sprite_targets() -> Array:
-	return [[player, PrototypePlayer.sprite_bake_spec(), "player"]]
+	var out := [[player, PrototypePlayer.sprite_bake_spec(), "player"]]
+	if cat:
+		out.append([cat, CatCompanion.sprite_bake_spec(), "cat"])
+	return out
+
+
+func _build_interactions() -> void:
+	InteractPoint.make(self, Vector3(DOOR_X, 0, ROOM_Z - 0.35), "E 밖으로 나가기",
+			func(_p: Node) -> void: Game.request_world(Game.WORLD_EXTERIOR), 1.1)
+	var cot := InteractPoint.make(self, COT_POS + Vector3(0, 0, 0.6), "E 간이침대에서 자기 (수면 시간 선택)", Callable(), 1.3)
+	cot.action = func(_p: Node) -> void: Game.hud.open_sleep(cot)
+	var box := InteractPoint.make(self, STORAGE_POS + Vector3(0, 0, -0.55), "E 캠핑카 창고 열기", Callable(), 1.4)
+	box.action = func(_p: Node) -> void: Game.hud.open_storage(box)
 
 
 func cycle_occlusion_mode() -> String:
@@ -219,11 +255,11 @@ func occlusion_mode_name() -> String:
 
 
 func try_toggle_camper_lights() -> String:
-	return "실내에서는 외부 라이트를 조작하지 않습니다 (P0)"
+	return "실내에서는 외부 라이트를 조작하지 않습니다"
 
 
 func context_hint() -> String:
-	return "캠핑카 실내 — I: 밖으로"
+	return ""
 
 
 func world_title() -> String:

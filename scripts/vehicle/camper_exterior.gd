@@ -11,31 +11,41 @@ const HEADLIGHT_LOCAL := Vector3(3.8, 0.98, 0.78)
 const TAILLIGHT_LOCAL := Vector3(-3.63, 1.05, 0.92)
 const WHEEL_X := [2.5, -2.0]
 
+## Baked sprite directions (P1 driving): 16 yaws in a 4 x 4 atlas, starting at the parking yaw.
+const SPRITE_DIRECTIONS := 16
+const SPRITE_COLS := 4
+
 var lights: PrototypeCamperLights
 var paint: ShaderMaterial
+## False when a CamperVehicle body provides the collision (and in bake instances).
+var with_collider := true
+var sprite_dir := 0
 
 
 func _ready() -> void:
 	_build_body()
 	_build_details()
 	_build_awning()
-	ProtoMesh.static_box_collider(self, Vector3(LENGTH, 6.0, WIDTH), Vector3(0, 2.0, 0))
+	if with_collider:
+		ProtoMesh.static_box_collider(self, Vector3(LENGTH, 6.0, WIDTH), Vector3(0, 2.0, 0))
 	lights = PrototypeCamperLights.new()
 	lights.name = "Lights"
 	add_child(lights)
 	lights.build(self)
 
 
-## Bake request: one static cell (lamps off / on emission variants).
-static func sprite_bake_spec(yaw_deg: float) -> Dictionary:
+## Bake request: 16 yaws (cell i = base_yaw + i * 22.5 deg), lamps off / on emission variants.
+static func sprite_bake_spec(base_yaw_deg: float) -> Dictionary:
 	return {
-		"builder": func(_c: int, _r: int) -> Node3D:
+		"builder": func(c: int, r: int) -> Node3D:
 			var cam := CamperExterior.new()
-			cam.rotation_degrees.y = yaw_deg
+			cam.with_collider = false
+			cam.rotation_degrees.y = base_yaw_deg + (r * SPRITE_COLS + c) * 360.0 / SPRITE_DIRECTIONS
 			return cam,
-		"cols": 1,
-		"rows": 1,
-		"cell": Vector2(10.5, 8.5),
+		"cols": SPRITE_COLS,
+		"rows": SPRITE_DIRECTIONS / SPRITE_COLS,
+		# Facing the camera the long body stands up to ~4.9 m above the anchor.
+		"cell": Vector2(10.5, 10.2),
 		"albedo_setup": func(insts: Array[Node3D]) -> void:
 			for i in insts:
 				(i as CamperExterior).lights._apply(false),
@@ -67,8 +77,9 @@ func use_sprite_sheet(sheet: SpriteSheet) -> void:
 	elif sheet == null and sprite:
 		sprite.queue_free()
 		sprite = null
-	if sprite:
+	if sprite and sprite.sheet != sheet:
 		sprite.set_sheet(sheet)
+		set_sprite_dir(sprite_dir)
 	for mi in find_children("*", "MeshInstance3D", true, false):
 		if mi == sprite:
 			continue
@@ -83,6 +94,12 @@ func use_sprite_sheet(sheet: SpriteSheet) -> void:
 			g.visible = false
 		else:
 			g.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_SHADOWS_ONLY
+
+
+func set_sprite_dir(i: int) -> void:
+	sprite_dir = posmod(i, SPRITE_DIRECTIONS)
+	if sprite:
+		sprite.set_frame(sprite_dir % SPRITE_COLS, sprite_dir / SPRITE_COLS)
 
 
 func _process(_delta: float) -> void:

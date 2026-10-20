@@ -180,6 +180,15 @@ func screen_to_viewport(screen_pos: Vector2) -> Vector2:
 	return local * Vector2(viewport.size) / display.size
 
 
+## World position -> screen (canvas) position, for sharp HUD text over the pixel world.
+func world_to_screen(p: Vector3) -> Variant:
+	var cam := get_world_camera()
+	if cam == null or cam.is_position_behind(p):
+		return null
+	var vp := cam.unproject_position(p)
+	return display.global_position + vp * display.size / Vector2(viewport.size)
+
+
 func get_world_camera() -> Camera3D:
 	return viewport.get_camera_3d()
 

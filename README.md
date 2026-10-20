@@ -1,10 +1,26 @@
-# Denial — P0 그래픽 기술 검증 프로토타입
+# Denial — P1 코어 플레이 프로토타입
 
-힐링 판타지 RPG(가칭, Godot 프로젝트명 **Denial**)의 **P0 시각 기술 검증**용 Godot 프로젝트입니다.
-완성 게임이 아니라 **고정 탑다운 카메라 + 3D 월드의 픽셀화 렌더**가 이 게임의 아트 스타일로 쓸 만한지를
-직접 걸어 다니며 비교하기 위한 테스트 씬입니다. 기획 기준 문서는 [`docs/`](docs/)에 있습니다.
+힐링 판타지 RPG(가칭, Godot 프로젝트명 **Denial**)의 Godot 프로젝트입니다. P0(고정 탑다운 + 3D 픽셀화 렌더,
+데드셀풍 D 스타일) 위에 **P1 코어 플레이 루프**를 올렸습니다: 야외 지역 1곳에서 전투 → 시체 조사 → 중량 인벤토리 →
+캠핑카 운전·실내·창고·수면 → 사망/복귀 → 검은 고양이 동행·교감. 기획 기준은 [`docs/GDD.md`](docs/GDD.md) **v10.2**와
+[`docs/CAT_COMPANION_HANDOFF.md`](docs/CAT_COMPANION_HANDOFF.md)이며, 미정 사항을 임시로 정한 값은
+[`notes/IMPLEMENTATION_ASSUMPTIONS.md`](notes/IMPLEMENTATION_ASSUMPTIONS.md)에 모두 적었습니다(정식 규칙 아님).
 
-![데드셀풍 D · 밤](captures/visual_direction/style_D_night_PXL-MID.png)
+![P1 전투 · 로그 3단계](captures/p1/p1_04_combat_log3.png)
+
+## P1에서 해 볼 수 있는 것
+
+| 흐름 | 방법 |
+|---|---|
+| 전투 | 마우스 방향 클릭 1회 = 1회 공격(SP 4). 무기 영역이 닿아야 판정 → d20 명중 → 별도 치명 굴림 → 1d4 피해. 풀밭 슬라임(캠프 동쪽, 비선공)·숲 슬라임(북동쪽 숲, 선공). 한 마리를 치면 근처 같은 종이 합류 |
+| 전투 로그 | 좌하단. `G`(또는 클릭)로 1 아이콘 → 2 한 줄 → 3 상세(주사위·계산식) |
+| 시체 조사 | 처치한 자리의 시체 앞에서 `E` → 원하는 것만 "가져가기"/"모두"/"전부 가져가기". 게임 시간 60분 뒤 사라짐 |
+| 중량 | `Tab` 소지품(게임은 계속 진행). 30kg 초과 시 느려지고 45kg을 넘기는 획득은 거부. 캠프의 **보급 상자**(철광석)로 시험 |
+| 캠핑카 | 문 앞 `E` 실내, 운전석(앞바퀴 옆) `E` 운전: W/S 가속·후진, A/D 조향, 멈춘 뒤 `E` 하차. `F` 외부 라이트 |
+| 실내 | 문 매트 `E` 밖으로, 오른쪽 아래 선반 `E` **창고**(개별/모두/소지품 전체 옮기기), 간이침대 `E` **수면**(1~12시간, HP 10%) |
+| 고양이 | 실내에 항상 있음: `E` 쓰다듬기, `R` 간식(소지품의 고양이 간식 1개 → 호감도 +10). 창고에 간식 6개가 있음 |
+| 사망/복귀 | 캠핑카 보유(단계 C) → 실내 간이침대 옆에서 기상. 미보유(A/B) → 가장 가까운 안전 체크포인트(캠프 모닥불·갈림길 돌무지·호숫가 쉼터). B에서는 고양이가 곁을 돌다 앉음. 가방의 일부는 고블린이 가져가고 나머지는 쓰러진 자리의 "짐 꾸러미"로 남음 |
+| 진행 단계 | `F9`: A 혼자 → B 고양이 동행 → C 캠핑카+고양이(시작). A에서는 길가의 고양이에게 다가가면 따라오기 시작(→B). `F8` 전체 회복 |
 
 > **비주얼 방향 수정(디오라마형 3D 픽셀풍)과 카메라 A/B/C/D 비교 결과:** [`notes/VISUAL_DIRECTION.md`](notes/VISUAL_DIRECTION.md)
 > **3D 모델 → 렌더 → 픽셀 스프라이트 파이프라인(캐릭터·몬스터·캠핑카):** [`notes/SPRITE_PIPELINE.md`](notes/SPRITE_PIPELINE.md)
@@ -40,12 +56,16 @@ git clone -b claude/gallant-edison-84bkyp https://github.com/HomilBBANG/rg_Hilli
   픽셀 렌더 파이프라인과 HUD를 갖춘 bootstrap으로 자동 전환되며 해당 씬에서 시작합니다.
 - GPU가 Vulkan을 지원하지 않으면: `Godot.exe --path C:/Game/denial --rendering-method gl_compatibility`
 
-## 조작 (P0 디버그 전용 임시 키 — 최종 게임 키가 아님)
+## 조작 (프로토타입 임시 키 — 최종 게임 키가 아님)
 
 | 키 | 기능 |
 |---|---|
-| `WASD` / 방향키 | 이동 (`Shift` 달리기 — P0에서는 SP 소모 없음) |
-| 마우스 왼쪽 클릭 | 기본 공격 모션 1회 (마우스 방향, 누르고 있어도 반복 안 함) |
+| `WASD` / 방향키 | 이동 (걷기 SP 0, `Shift` 달리기 SP 8/초) |
+| 마우스 왼쪽 클릭 | 기본 공격 1회 (마우스 방향, 누르고 있어도 반복 안 함, SP 4) |
+| `E` / `R` | 조사·상호작용(시체·상자·짐 꾸러미·문·운전석·창고·침대·고양이) / 고양이 간식 |
+| `Tab` | 소지품 (열어도 게임은 멈추지 않음) |
+| `G` | 전투 로그 1 → 2 → 3단계 |
+| `F9` / `F8` / `F3` | 진행 단계 A/B/C / 전체 회복 / 디버그 정보(렌더 상태 등) |
 | `F` | 캠핑카 외부 라이트 ON/OFF (캠핑카 7.5m 이내에서만) |
 | `V` | **카메라 스타일 A(기존 기능형) → B(개선된 탑다운) → C(기울어진 디오라마) → D(데드셀풍 픽셀)**. 시작은 D |
 | `O` | 픽셀 외곽선 ON/OFF (**기본 ON**: 실루엣 1픽셀 짙은 선, Forward+ 전용) |
@@ -56,7 +76,7 @@ git clone -b claude/gallant-edison-84bkyp https://github.com/HomilBBANG/rg_Hilli
 | `N` | 낮(12:00) ↔ 밤(22:00) |
 | `T` | 게임 시계 진행/정지 (현실 1초 = 게임 1분) |
 | `L` | 개인 등불(허리띠) ON/OFF |
-| `I` | 캠핑카 실내 ↔ 야외 씬 전환 |
+| `I` | 캠핑카 실내 ↔ 야외 씬 전환 (디버그 순간이동, 캠핑카 보유 시) |
 | `K` | 픽셀 스냅 카메라 ON/OFF (떨림 비교용) |
 | `C` | 직교 ↔ 원근 투영 비교 (카메라 **회전은 없음**) |
 | `X` | 가림 보조: 실루엣 → 수관 디더 투명화 → 끔 |
@@ -64,7 +84,7 @@ git clone -b claude/gallant-edison-84bkyp https://github.com/HomilBBANG/rg_Hilli
 | `F12` | 스크린샷 → `user://captures` (Windows: `%APPDATA%\Godot\app_userdata\Denial\captures`) |
 | `F11` | 전체 화면 전환 |
 | `ESC` | 일시정지 |
-| `H` | 도움말 패널 표시/숨김 (시작 시 표시됨) |
+| `H` | 도움말 패널 표시/숨김 |
 
 ## 렌더 구조 (P1 재사용 대상)
 
@@ -100,16 +120,21 @@ scripts/core/      game.gd(오토로드), bootstrap.gd, visual_hud.gd
 scripts/visuals/   pixel_render_controller.gd, topdown_camera.gd, day_night_controller.gd
 scripts/world/     visual_lab.gd, camper_interior_lab.gd, terrain_field.gd, nature_props.gd, proto_mesh.gd,
                    organic_mesh.gd, stylized_materials.gd, ground_cover.gd, camp_props.gd, campfire_flame.gd
-scripts/actors/    prototype_player.gd, player_rig.gd, slime_visual.gd, slime_rig.gd
+scripts/actors/    prototype_player.gd, player_rig.gd, slime_monster.gd(P1 AI), slime_visual.gd, slime_rig.gd,
+                   cat_companion.gd, cat_rig.gd (검은 고양이)
+scripts/game/      dice.gd, combat.gd, player_state.gd, inventory.gd, item_db.gd, combat_log.gd (P1 규칙·데이터)
+scripts/ui/        game_hud.gd (HP/SP/MP, 전투 로그, 조사·소지품·창고·수면 패널)
+scripts/world/     interact_point.gd, loot_container.gd (상호작용·시체/상자/짐 꾸러미)
 scripts/visuals/   sprite_baker.gd, sprite_sheet.gd, baked_sprite.gd (스프라이트 파이프라인)
-scripts/vehicle/   camper_exterior.gd, prototype_camper_lights.gd
+scripts/vehicle/   camper_exterior.gd, camper_vehicle.gd(운전), prototype_camper_lights.gd
 shaders/           terrain/foliage/rock_stylized, grass_blades, camper_paint, pixel_outline_post,
                    pixel_grade, occluded_silhouette (+ stylized_common.gdshaderinc)
 captures/visual_direction/  카메라 A/B/C 비교 (디오라마 방향)
 captures/p0_baseline/       P0 테스트 장면 6종 + 렌더 모드 비교 + 이동 영상
 captures/sprite_pipeline/   구운 스프라이트 시트(sheets/) + 베이크 vs 실시간 3D 비교
+captures/p1/                P1 흐름 검증 캡처 19장 (--tour=p1)
 notes/             VISUAL_DIRECTION.md, VISUAL_COMPARISON.md, IMPLEMENTATION_ASSUMPTIONS.md
-docs/              GDD.md, GRAPHICS_PROTOTYPE.md, CLAUDE_CODE_HANDOFF.md
+docs/              GDD.md(v10.2), CAT_COMPANION_HANDOFF.md, GRAPHICS_PROTOTYPE.md, CLAUDE_CODE_HANDOFF.md
 ```
 
 `GRAPHICS_PROTOTYPE.md` 6장의 `actors/*.tscn`, `props/*.tscn`은 별도 씬 파일로 만들지 않고, 같은 역할을
@@ -120,6 +145,10 @@ docs/              GDD.md, GRAPHICS_PROTOTYPE.md, CLAUDE_CODE_HANDOFF.md
 모든 `captures/` 파일은 아래 자동 투어로 생성되었습니다(같은 카메라 위치에서 모드만 바꿔 촬영).
 
 ```bat
+:: P1 흐름 검증 19장 (상자·과적·전투·시체·사망→실내·창고·고양이·수면·짐 꾸러미·운전·고양이 합류·체크포인트)
+Godot.exe --path C:/Game/denial -- --tour=p1 --capture-dir=C:/Game/denial/captures/p1
+:: 같은 흐름을 실제 키 입력 이벤트로 점검 (콘솔에 [input] 결과 출력)
+Godot.exe --path C:/Game/denial -- --tour=p1input
 :: 카메라 A/B/C 비교 8장
 Godot.exe --path C:/Game/denial -- --tour=styles --capture-dir=C:/Game/denial/captures/visual_direction
 :: P0 스크린샷 18장
@@ -137,5 +166,10 @@ Godot.exe --path C:/Game/denial --write-movie C:/Game/walk.avi --fixed-fps 30 --
 - Forward+와 Compatibility의 밤 밝기가 다릅니다(Compatibility가 더 밝고 헤드라이트 빔이 더 뚜렷함).
 - 창 크기를 1920×1080이 아닌 크기로 바꾸면 `canvas_items` 스트레치 때문에 픽셀이 비정수 배율로 늘어납니다.
 - 1080p 전환 이전에 찍은 `captures/` 이미지(p0_baseline, visual_direction, sprite_pipeline)는 1280×720 기준입니다. 최신 화면은 `captures/hd_1080p/`.
+- **P1 스프라이트 베이크 시간**: 캠핑카를 16방향으로 구우면서 첫 로딩·렌더 프리셋(1~4) 변경 시 소프트웨어
+  렌더러에서 약 16초 걸렸습니다(GPU에서는 훨씬 짧을 것으로 예상, 미검증). 그동안 3D 모델이 그대로 보이며,
+  한 번 구운 시트는 실내/야외 전환 때 재사용합니다.
+- P1 흐름은 자동 투어(직접 호출 + 시뮬레이션 키 입력)로만 확인했습니다. 마우스 조준 감각, 전투 난이도, 운전 조작감은
+  직접 플레이해서 판단해 주세요. 주인공에게 무기 모델은 아직 없습니다(외형 변경은 승인 후 진행).
 - 자세한 시각 평가와 P0 통과/보류 체크리스트: [`notes/VISUAL_COMPARISON.md`](notes/VISUAL_COMPARISON.md)
 - 임시로 정한 값과 미정 사항 처리: [`notes/IMPLEMENTATION_ASSUMPTIONS.md`](notes/IMPLEMENTATION_ASSUMPTIONS.md)

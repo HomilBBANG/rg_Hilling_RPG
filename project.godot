@@ -6,7 +6,7 @@ config_version=5
 [application]
 
 config/name="Denial"
-config/description="P0 그래픽 기술 검증 프로토타입: 고정 탑다운 3D + 픽셀화 렌더"
+config/description="P1 코어 플레이 프로토타입: 고정 탑다운 3D + 픽셀화 렌더, 전투·시체·중량·캠핑카·고양이"
 run/main_scene="res://scenes/bootstrap.tscn"
 config/features=PackedStringArray("4.7", "Forward Plus")
 
