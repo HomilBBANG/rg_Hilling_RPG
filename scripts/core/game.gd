@@ -20,6 +20,8 @@ var minute_of_day: float = 10.0 * 60.0
 var clock_running := true
 
 var lantern_on := false
+## CamperExterior.Variant (0 procedural, 1 GLB PBR, 2 GLB toon) — key G.
+var camper_variant := 0
 var camper_lights_on := false
 
 ## World that bootstrap loads first (set when a lab scene is run directly with F6).
@@ -44,6 +46,7 @@ const ACTIONS := {
 	"preset_native": [KEY_4],
 	"cycle_camera_style": [KEY_V],
 	"toggle_outline": [KEY_O],
+	"cycle_camper_model": [KEY_G],
 	"toggle_pipeline": [KEY_M],
 	"toggle_post": [KEY_P],
 	"toggle_day_night": [KEY_N],

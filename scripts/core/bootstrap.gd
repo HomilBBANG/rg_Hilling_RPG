@@ -107,6 +107,11 @@ func _unhandled_input(event: InputEvent) -> void:
 	elif event.is_action("cycle_camera_style"):
 		set_camera_style(style_index + 1)
 		hud.toast("카메라 스타일: " + style_name())
+	elif event.is_action("cycle_camper_model"):
+		if world is VisualLab:
+			Game.camper_variant = (Game.camper_variant + 1) % CamperExterior.VARIANT_NAMES.size()
+			world.camper.set_variant(Game.camper_variant)
+			hud.toast("캠핑카 모델: " + world.camper.variant_name())
 	elif event.is_action("toggle_outline"):
 		_outline_user = not _outline_user
 		_configure_camera()
@@ -178,6 +183,8 @@ func _parse_args() -> void:
 		_run_style_tour()
 	elif tour == "night_outline":
 		_run_night_outline_check()
+	elif tour == "camper_models":
+		_run_camper_model_tour()
 	elif tour == "walk":
 		_run_walk_tour()
 
@@ -363,4 +370,35 @@ func _run_night_outline_check() -> void:
 	_configure_camera()
 	hud.set_capture_mode(true, "%s · 밤 · 외곽선 OFF" % style_name())
 	await _shot("night_outline_off.png")
+	get_tree().quit()
+
+
+## Procedural camper vs the user-provided Tripo GLB (PBR as imported / toon-converted).
+func _run_camper_model_tour() -> void:
+	_touring = true
+	hud.show_help_panel(false)
+	Game.clock_running = false
+	Game.minute_of_day = 10.5 * 60.0
+	render.set_preset(1)
+	await _frames(30)
+	var lab := world as VisualLab
+	for style_i in [2, 1]:
+		set_camera_style(style_i)
+		for v in CamperExterior.VARIANT_NAMES.size():
+			lab.camper.set_variant(v)
+			_place_player(Vector3(-4.3, 0, 1.1), PI * 0.8)
+			hud.set_capture_mode(true, "%s · %s" % [style_name(), lab.camper.variant_name()])
+			await _frames(20)
+			await _shot("camper_%s_%d.png" % [TopdownCamera.STYLES[style_i]["id"], v])
+	# Close-up at native resolution to judge the model itself
+	set_camera_style(2)
+	render.set_preset(3)
+	_zoom_index = 0
+	_configure_camera()
+	for v in CamperExterior.VARIANT_NAMES.size():
+		lab.camper.set_variant(v)
+		_place_player(Vector3(-6.0, 0, 0.6), PI)
+		hud.set_capture_mode(true, "근접 · 3D-NATIVE · %s" % lab.camper.variant_name())
+		await _frames(20)
+		await _shot("camper_closeup_native_%d.png" % v)
 	get_tree().quit()
