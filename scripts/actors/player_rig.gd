@@ -53,7 +53,7 @@ static func direction_yaw(index: int) -> float:
 
 
 ## Protagonist (pixel concept art, simplified to chibi proportions): big round bald head,
-## dot eyes and a bushy brown moustache, round belly in a white tank top under an open red
+## bushy brows (no visible eyes) and a bushy brown moustache, round belly in a white tank top under an open red
 ## plaid flannel, brown belt, tiny round olive legs and brown boots.
 ## Flat colours only; shading comes from the cel lighting.
 func _build() -> void:
@@ -98,7 +98,7 @@ func _build() -> void:
 		ProtoMesh.box(hips, Vector3(0.06, 0.46, 0.05), Vector3(side * 0.23, 0.38, -0.3), flannel_dark, Vector3(0, side * 35.0, 0))
 		ProtoMesh.box(hips, Vector3(0.12, 0.06, 0.16), Vector3(side * 0.15, 0.73, -0.12), flannel_dark, Vector3(0, side * 25.0, side * -20.0))
 
-	# Head: big round bald head, simple face: dot eyes, small nose, bushy moustache, shaded ears
+	# Head: big round bald head, simple face: bushy brows (no eyes), small nose, bushy moustache, shaded ears
 	ProtoMesh.cylinder(hips, 0.12, 0.08, Vector3(0, 0.74, 0), skin, Vector3.ZERO, 8)
 	ProtoMesh.sphere(hips, 0.31, Vector3(0, 1.0, 0), skin, Vector3(1.0, 0.97, 0.95), 12, 8)
 	# nose + moustache stick out in front so the profile reads in side views
@@ -107,17 +107,19 @@ func _build() -> void:
 		ProtoMesh.sphere(hips, 0.08, Vector3(side * 0.3, 0.98, 0.02), skin_shade, Vector3(0.55, 1.0, 0.85), 6, 4)
 		ProtoMesh.sphere(hips, 0.04, Vector3(side * 0.335, 0.98, 0.0), ear_inner, Vector3(0.6, 1.0, 0.8), 6, 4)
 		# eyes sit on the curve of the face so they also show in 3/4 and profile views
-		# single-pixel dot eyes painted flat on the face: a paper-thin square lying on the head
-		# surface, aligned to its normal (no bump in profile or lighting)
-		var eye := ProtoMesh.box(hips, Vector3(0.032, 0.032, 0.004), Vector3.ZERO, dark)
-		eye.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-		var radii := Vector3(0.31, 0.31 * 0.97, 0.31 * 0.95)
-		var ux := 0.11 / radii.x
-		var uy := 0.06 / radii.y
-		var unit := Vector3(side * ux, uy, -sqrt(1.0 - ux * ux - uy * uy))
-		var surface := Vector3(0, 1.0, 0) + unit * radii
-		var normal := (unit / radii).normalized()
-		eye.transform = Transform3D(Basis.looking_at(-normal), surface + normal * 0.002)
+		# No eyes: thick bushy brows painted flat over the eye area carry the expression.
+		# Each brow = a full-width bottom row plus a shorter top row on the inner side, so the
+		# outer end sits lower (soft, kind look) without tilting (tilts alias into a frown).
+		for piece in [[0.105, 0.06, 0.12, 0.04], [0.085, 0.095, 0.08, 0.04]]:
+			var brow := ProtoMesh.box(hips, Vector3(piece[2], piece[3], 0.004), Vector3.ZERO, stache)
+			brow.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+			var radii := Vector3(0.31, 0.31 * 0.97, 0.31 * 0.95)
+			var ux: float = piece[0] / radii.x
+			var uy: float = piece[1] / radii.y
+			var unit := Vector3(side * ux, uy, -sqrt(1.0 - ux * ux - uy * uy))
+			var surface := Vector3(0, 1.0, 0) + unit * radii
+			var normal := (unit / radii).normalized()
+			brow.transform = Transform3D(Basis.looking_at(-normal), surface + normal * 0.002)
 		ProtoMesh.box(hips, Vector3(0.2, 0.11, 0.22), Vector3(side * 0.1, 0.88, -0.31), stache, Vector3(0, 0, side * 18.0))
 
 	# Arms: flannel sleeves rolled to the elbow, bare forearms
