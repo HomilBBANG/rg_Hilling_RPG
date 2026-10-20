@@ -6,7 +6,6 @@ shader_type spatial;
 render_mode specular_disabled, shadows_disabled;
 
 #include "res://shaders/stylized_common.gdshaderinc"
-#include "res://shaders/cel_light.gdshaderinc"
 
 uniform sampler2D noise_detail : filter_linear, repeat_enable;
 uniform vec3 leaf_dark : source_color = vec3(0.16, 0.36, 0.22);
@@ -49,5 +48,12 @@ void fragment() {
 	col.r += hue_shift * 0.06;
 	col.b -= hue_shift * 0.04;
 	ALBEDO = col;
-	ROUGHNESS = 0.93;
+	ROUGHNESS = 0.91;  // tag read by the outline pass (foliage-only outlines)
+}
+
+// Three-tone cel light for leaves (shadow / mid / lit), like pixel-art tree canopies.
+void light() {
+	float ndl = dot(NORMAL, LIGHT);
+	float lit = smoothstep(0.0, 0.04, ndl) * 0.55 + smoothstep(0.45, 0.5, ndl) * 0.45;
+	DIFFUSE_LIGHT += lit * ATTENUATION * LIGHT_COLOR / PI;
 }

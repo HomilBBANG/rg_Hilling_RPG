@@ -23,6 +23,9 @@ uniform vec3 rim_color : source_color = vec3(1.0, 0.82, 0.62);
 uniform float rim_strength : hint_range(0.0, 1.0) = 0.65;
 uniform vec3 outline_tint : source_color = vec3(0.08, 0.04, 0.12);
 uniform float outline_tint_amount : hint_range(0.0, 1.0) = 0.0;
+// Foliage-only mode: outline just the leaf clumps (roughness tag 0.91), nothing else.
+uniform bool foliage_only = false;
+uniform vec3 foliage_outline_tint : source_color = vec3(0.04, 0.12, 0.12);
 
 void vertex() {
 	POSITION = vec4(VERTEX.xy, 1.0, 1.0);
@@ -47,6 +50,10 @@ void fragment() {
 	if (c_nr.w >= 0.97) {
 		discard;
 	}
+	bool is_foliage = abs(c_nr.w - 0.91) < 0.012;
+	if (foliage_only && !is_foliage) {
+		discard;
+	}
 	float c_d = lin_depth(uv, INV_PROJECTION_MATRIX);
 	vec2 offs[4] = vec2[](vec2(px.x, 0.0), vec2(-px.x, 0.0), vec2(0.0, px.y), vec2(0.0, -px.y));
 	float depth_edge = 0.0;
@@ -62,7 +69,13 @@ void fragment() {
 		normal_edge += max(0.0, along) * same_surface * step(normal_threshold, length(diff));
 	}
 	vec3 base = texture(screen_tex, uv).rgb;
-	if (depth_edge > depth_threshold) {
+	if (foliage_only) {
+		if (depth_edge > depth_threshold) {
+			ALBEDO = mix(base * 0.42, foliage_outline_tint, 0.35);
+		} else {
+			discard;
+		}
+	} else if (depth_edge > depth_threshold) {
 		if (rim_enabled && dot(c_nr.xyz, normalize(rim_dir)) > 0.25) {
 			ALBEDO = mix(base, max(base, rim_color), rim_strength);
 		} else {

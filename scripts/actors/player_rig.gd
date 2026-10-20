@@ -5,6 +5,8 @@ extends Node3D
 ## and live (shadow-only) so the baked sprite still casts a correct animated shadow.
 
 const ATTACK_TIME := 0.32
+## Short legs: hip height 0.6 m (was 0.8) for chubby, cute proportions.
+const HIP_HEIGHT := 0.6
 ## Sprite sheet columns: [animation, frame count]. Rows are 8 facing directions.
 const ANIMS := [["idle", 2], ["walk", 8], ["attack", 5]]
 const DIRECTIONS := 8
@@ -51,7 +53,7 @@ static func direction_yaw(index: int) -> float:
 
 
 ## Protagonist (based on the concept art, then revised): chubby adult traveller, bald,
-## thick black brows and moustache, stubble, big red nose, white short-sleeve tee,
+## thick black brows and moustache, stubble, big red nose, white sleeveless tank top,
 ## compass necklace, khaki cargo shorts, sandals, wristwatch. No bag.
 ## Flat colours only; shading comes from the cel lighting.
 func _build() -> void:
@@ -69,29 +71,32 @@ func _build() -> void:
 	var dark := ProtoMesh.mat(Color(0.1, 0.09, 0.09))
 
 	hips = Node3D.new()
-	hips.position.y = 0.8
+	hips.position.y = HIP_HEIGHT
 	add_child(hips)
 
-	# Legs: khaki shorts with rolled cuffs and cargo pockets, bare calves, sandals
+	# Short, stubby legs (cute proportions): khaki shorts with rolled cuffs, bare calves, sandals
 	_leg_l = _limb(hips, Vector3(-0.15, 0.0, 0.0))
 	_leg_r = _limb(hips, Vector3(0.15, 0.0, 0.0))
 	for i in 2:
 		var leg: Node3D = [_leg_l, _leg_r][i]
 		var side := -1.0 if i == 0 else 1.0
-		ProtoMesh.capsule(leg, 0.15, 0.42, Vector3(0, -0.17, 0), shorts)
-		ProtoMesh.cylinder(leg, 0.155, 0.06, Vector3(0, -0.36, 0), shorts_dark, Vector3.ZERO, 10)
-		ProtoMesh.box(leg, Vector3(0.05, 0.15, 0.13), Vector3(side * 0.15, -0.2, 0.0), shorts_dark)
-		ProtoMesh.capsule(leg, 0.105, 0.42, Vector3(0, -0.56, 0), skin)
-		ProtoMesh.box(leg, Vector3(0.2, 0.05, 0.32), Vector3(0, -0.78, -0.05), sandal)
-		ProtoMesh.box(leg, Vector3(0.21, 0.04, 0.06), Vector3(0, -0.73, -0.12), sandal)
-		ProtoMesh.box(leg, Vector3(0.21, 0.04, 0.06), Vector3(0, -0.72, 0.03), sandal)
-		ProtoMesh.box(leg, Vector3(0.16, 0.05, 0.08), Vector3(0, -0.745, -0.17), skin)
+		ProtoMesh.capsule(leg, 0.15, 0.32, Vector3(0, -0.11, 0), shorts)
+		ProtoMesh.cylinder(leg, 0.155, 0.05, Vector3(0, -0.25, 0), shorts_dark, Vector3.ZERO, 10)
+		ProtoMesh.box(leg, Vector3(0.05, 0.12, 0.13), Vector3(side * 0.15, -0.13, 0.0), shorts_dark)
+		ProtoMesh.capsule(leg, 0.11, 0.3, Vector3(0, -0.4, 0), skin)
+		ProtoMesh.box(leg, Vector3(0.21, 0.05, 0.32), Vector3(0, -0.575, -0.05), sandal)
+		ProtoMesh.box(leg, Vector3(0.22, 0.04, 0.06), Vector3(0, -0.53, -0.12), sandal)
+		ProtoMesh.box(leg, Vector3(0.22, 0.04, 0.06), Vector3(0, -0.52, 0.03), sandal)
+		ProtoMesh.box(leg, Vector3(0.17, 0.05, 0.08), Vector3(0, -0.545, -0.17), skin)
 
-	# Torso: plain white short-sleeve tee over a round belly, crew neck
+	# Torso: white sleeveless tank top over a round belly; bare shoulders, thin straps
 	ProtoMesh.box(hips, Vector3(0.6, 0.12, 0.42), Vector3(0, 0.03, 0.0), shorts)
 	ProtoMesh.sphere(hips, 0.36, Vector3(0, 0.36, 0.0), tee, Vector3(1.0, 1.05, 0.95), 12, 8)
-	ProtoMesh.box(hips, Vector3(0.46, 0.26, 0.32), Vector3(0, 0.6, 0.02), tee)
-	ProtoMesh.cylinder(hips, 0.12, 0.04, Vector3(0, 0.735, 0.0), tee_shade, Vector3.ZERO, 10)
+	ProtoMesh.box(hips, Vector3(0.36, 0.22, 0.3), Vector3(0, 0.58, 0.02), tee)
+	ProtoMesh.box(hips, Vector3(0.52, 0.16, 0.34), Vector3(0, 0.65, 0.02), skin)
+	for side in [-1.0, 1.0]:
+		ProtoMesh.box(hips, Vector3(0.07, 0.04, 0.32), Vector3(side * 0.13, 0.735, 0.02), tee)
+	ProtoMesh.box(hips, Vector3(0.18, 0.1, 0.05), Vector3(0, 0.66, -0.16), tee_shade)
 	# Compass necklace
 	ProtoMesh.box(hips, Vector3(0.012, 0.16, 0.012), Vector3(-0.05, 0.64, -0.15), cord, Vector3(0, 0, -25))
 	ProtoMesh.box(hips, Vector3(0.012, 0.16, 0.012), Vector3(0.05, 0.64, -0.15), cord, Vector3(0, 0, 25))
@@ -110,19 +115,19 @@ func _build() -> void:
 		ProtoMesh.box(hips, Vector3(0.11, 0.04, 0.04), Vector3(side * 0.09, 1.07, -0.23), hair, Vector3(0, 0, side * -10.0))
 		ProtoMesh.sphere(hips, 0.06, Vector3(side * 0.25, 0.98, 0.02), skin, Vector3(0.6, 1.0, 1.0), 6, 4)
 
-	# Arms with elbows: white short sleeves, bare forearms, watch on the left wrist
+	# Arms with elbows: bare arms (tank top), watch on the left wrist
 	_arm_l = _limb(hips, Vector3(-0.38, 0.62, 0.0))
 	_arm_r = _limb(hips, Vector3(0.38, 0.62, 0.0))
 	for i in 2:
 		var arm: Node3D = [_arm_l, _arm_r][i]
-		ProtoMesh.capsule(arm, 0.12, 0.3, Vector3(0, -0.08, 0), tee)
-		ProtoMesh.cylinder(arm, 0.115, 0.04, Vector3(0, -0.19, 0), tee_shade, Vector3.ZERO, 10)
+		ProtoMesh.sphere(arm, 0.12, Vector3(0, 0.0, 0), skin)
+		ProtoMesh.capsule(arm, 0.105, 0.3, Vector3(0, -0.1, 0), skin)
 		var elbow := _limb(arm, Vector3(0, -0.24, 0))
-		ProtoMesh.capsule(elbow, 0.09, 0.32, Vector3(0, -0.13, 0), skin)
-		ProtoMesh.sphere(elbow, 0.1, Vector3(0, -0.31, 0), skin)
+		ProtoMesh.capsule(elbow, 0.09, 0.28, Vector3(0, -0.11, 0), skin)
+		ProtoMesh.sphere(elbow, 0.1, Vector3(0, -0.27, 0), skin)
 		if i == 0:
 			_elbow_l = elbow
-			ProtoMesh.cylinder(elbow, 0.095, 0.05, Vector3(0, -0.22, 0), dark, Vector3.ZERO, 8)
+			ProtoMesh.cylinder(elbow, 0.095, 0.05, Vector3(0, -0.19, 0), dark, Vector3.ZERO, 8)
 		else:
 			_elbow_r = elbow
 
@@ -159,7 +164,7 @@ func pose(walk_phase: float, moving: float, attack_t: float, breathe := 0.0) -> 
 	_elbow_l.rotation = Vector3(lerpf(0.5, 0.25, moving), 0, 0)
 	_arm_r.rotation = Vector3(swing * 0.8 - 0.05, 0, deg_to_rad(10.0))
 	_elbow_r.rotation = Vector3(lerpf(0.25, 0.3, moving), 0, 0)
-	hips.position.y = 0.8 + absf(sin(walk_phase)) * 0.04 * moving + breathe
+	hips.position.y = HIP_HEIGHT + absf(sin(walk_phase)) * 0.04 * moving + breathe
 	hips.rotation = Vector3(0, 0, sin(walk_phase) * 0.04 * moving)
 	if attack_t >= 0.0:
 		var t := clampf(attack_t / ATTACK_TIME, 0.0, 1.0)

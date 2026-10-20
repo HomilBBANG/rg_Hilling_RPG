@@ -19,7 +19,8 @@ const STYLES: Array[Dictionary] = [
 	# D: C's camera + a Dead Cells-like pixel look: flat colours with two-tone cel light,
 	# violet shadows, warm key light, light bloom, a few particles.
 	{"id": "D", "name": "D 데드셀풍 픽셀", "pitch": 40.0, "zoom": 4, "offset": Vector3(0, 0, -1.0),
-		"outline": true, "grade": true, "ssao": false, "fog": true, "stylized": true, "look": "deadcells", "detail": 0.0},
+		"outline": true, "grade": true, "ssao": false, "fog": true, "stylized": true, "look": "deadcells", "detail": 0.0,
+		"foliage_outline": true},
 ]
 
 ## Visible world height (metres) of the output frame, without the snap margin.
@@ -71,13 +72,28 @@ func _build_outline_quad() -> void:
 	_outline_quad.material_override = m
 	_outline_quad.position = Vector3(0, 0, -1.0)
 	add_child(_outline_quad)
-	_outline_quad.visible = outline_enabled
+	_update_outline_quad()
 
 
 func set_outline(on: bool) -> void:
 	outline_enabled = on
-	if _outline_quad:
-		_outline_quad.visible = on
+	_update_outline_quad()
+
+
+## Leaf-clump outlines only (pixel-art trees), independent of the full outline pass.
+var foliage_outline := false
+
+
+func set_foliage_outline(on: bool) -> void:
+	foliage_outline = on
+	_update_outline_quad()
+
+
+func _update_outline_quad() -> void:
+	if _outline_quad == null:
+		return
+	_outline_quad.visible = outline_enabled or foliage_outline
+	(_outline_quad.material_override as ShaderMaterial).set_shader_parameter("foliage_only", foliage_outline and not outline_enabled)
 
 
 func outline_supported() -> bool:

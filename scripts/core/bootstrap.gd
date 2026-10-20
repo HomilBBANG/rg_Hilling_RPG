@@ -72,6 +72,7 @@ func _configure_camera() -> void:
 	cam.orthogonal = _orthogonal
 	cam.zoom_index = _zoom_index
 	cam.set_outline(style["outline"] and _outline_user)
+	cam.set_foliage_outline(style.get("foliage_outline", false))
 	cam.snap_to_target()
 	if render.grade_strength != (1.0 if style["grade"] else 0.0):
 		render.grade_strength = 1.0 if style["grade"] else 0.0

@@ -34,5 +34,5 @@ void fragment() {
 		col = mix(stone_base, moss, step(0.68, wnormal.y) * step(0.01, moss_amount));
 	}
 	ALBEDO = col;
-	ROUGHNESS = 0.93;
+	ROUGHNESS = 0.95;
 }
