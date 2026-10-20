@@ -13,6 +13,7 @@ static func mat(color: Color, roughness := 0.9, emission := Color.BLACK, emissio
 	var m := StandardMaterial3D.new()
 	m.albedo_color = color
 	m.roughness = roughness
+	_stylize(m)
 	if color.a < 1.0:
 		m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 	if emission_energy > 0.0:
@@ -28,7 +29,16 @@ static func unique_mat(color: Color, roughness := 0.9) -> StandardMaterial3D:
 	var m := StandardMaterial3D.new()
 	m.albedo_color = color
 	m.roughness = roughness
+	_stylize(m)
 	return m
+
+
+## Toon diffuse (hard light/shadow terminator) reads as painted shading once pixelated.
+## Roughness stays <= 0.7 so the pixel outline pass treats these as hard props (outline + highlight).
+static func _stylize(m: StandardMaterial3D) -> void:
+	m.diffuse_mode = BaseMaterial3D.DIFFUSE_TOON
+	m.specular_mode = BaseMaterial3D.SPECULAR_TOON if m.roughness < 0.5 else BaseMaterial3D.SPECULAR_DISABLED
+	m.roughness = minf(m.roughness, 0.7)
 
 
 static func _add(parent: Node3D, mesh: Mesh, pos: Vector3, material: Material, rot_deg := Vector3.ZERO, shadows := true) -> MeshInstance3D:

@@ -1,18 +1,24 @@
 class_name CamperExterior
 extends Node3D
-## Modern Class-C motorhome placeholder built from primitives. Front faces local +X.
-## Has headlights (spot), marker/porch light; toggled via Game.camper_lights_on.
+## Stylized modern Class-C motorhome. Front faces local +X, door side is local +Z (camera side).
+## Body = extruded rounded side profile with bevelled edges + painted livery shader,
+## rounded windows, awning with string lights, roof cargo box, spare wheel cover.
 
-const LENGTH := 7.2
+const LENGTH := 7.4
 const WIDTH := 2.4
-## Local position of the entry door (on the +Z side, i.e. the side facing the camera).
-const DOOR_LOCAL := Vector3(-1.2, 0.0, 1.25)
+const DOOR_LOCAL := Vector3(-1.0, 0.0, 1.25)
+const HEADLIGHT_LOCAL := Vector3(3.8, 0.98, 0.78)
+const TAILLIGHT_LOCAL := Vector3(-3.63, 1.05, 0.92)
+const WHEEL_X := [2.5, -2.0]
 
 var lights: PrototypeCamperLights
+var paint: ShaderMaterial
 
 
 func _ready() -> void:
-	_build()
+	_build_body()
+	_build_details()
+	_build_awning()
 	ProtoMesh.static_box_collider(self, Vector3(LENGTH, 6.0, WIDTH), Vector3(0, 2.0, 0))
 	lights = PrototypeCamperLights.new()
 	lights.name = "Lights"
@@ -21,73 +27,163 @@ func _ready() -> void:
 
 
 func door_world_position() -> Vector3:
-	return to_global(DOOR_LOCAL + Vector3(0, 0, 0.9))
+	return to_global(DOOR_LOCAL + Vector3(0, 0, 1.0))
 
 
-func _build() -> void:
-	var white := ProtoMesh.mat(Color(0.93, 0.93, 0.9), 0.5)
-	var cream := ProtoMesh.mat(Color(0.86, 0.85, 0.8), 0.6)
-	var trim := ProtoMesh.mat(Color(0.25, 0.27, 0.3), 0.6)
-	var glass := ProtoMesh.mat(Color(0.12, 0.2, 0.3), 0.15)
-	var stripe_a := ProtoMesh.mat(Color(0.12, 0.55, 0.62), 0.5)
-	var stripe_b := ProtoMesh.mat(Color(0.95, 0.55, 0.18), 0.5)
-	var tire := ProtoMesh.mat(Color(0.08, 0.08, 0.09), 0.95)
-	var hub := ProtoMesh.mat(Color(0.7, 0.72, 0.75), 0.3)
-	var solar := ProtoMesh.mat(Color(0.12, 0.17, 0.35), 0.2)
-	var awning := ProtoMesh.mat(Color(0.5, 0.53, 0.56), 0.6)
+static func _profile() -> PackedVector2Array:
+	return PackedVector2Array([
+		Vector2(-3.55, 0.5), Vector2(3.6, 0.5), Vector2(3.76, 0.6), Vector2(3.8, 0.95),
+		Vector2(3.74, 1.18), Vector2(3.58, 1.31), Vector2(3.22, 1.42), Vector2(2.8, 2.12),
+		Vector2(2.88, 2.2), Vector2(3.06, 2.3), Vector2(3.16, 2.52), Vector2(3.12, 2.76),
+		Vector2(2.96, 2.94), Vector2(2.7, 3.07), Vector2(2.3, 3.14), Vector2(-3.05, 3.14),
+		Vector2(-3.32, 3.1), Vector2(-3.49, 2.98), Vector2(-3.58, 2.78), Vector2(-3.6, 0.9),
+		Vector2(-3.58, 0.62),
+	])
 
-	# Living box + alcove over the cab + cab + hood
-	ProtoMesh.box(self, Vector3(5.5, 2.5, WIDTH), Vector3(-0.85, 1.85, 0), white)
-	ProtoMesh.box(self, Vector3(1.3, 0.85, WIDTH - 0.04), Vector3(2.5, 2.62, 0), white)
-	ProtoMesh.box(self, Vector3(0.5, 0.55, WIDTH - 0.1), Vector3(3.02, 2.55, 0), white, Vector3(0, 0, -25))
-	ProtoMesh.box(self, Vector3(1.4, 1.45, WIDTH - 0.1), Vector3(2.55, 1.32, 0), cream)
-	ProtoMesh.box(self, Vector3(0.65, 0.75, WIDTH - 0.14), Vector3(3.3, 0.95, 0), cream)
-	# Windshield (slanted)
-	ProtoMesh.box(self, Vector3(0.08, 0.85, WIDTH - 0.3), Vector3(3.12, 1.62, 0), glass, Vector3(0, 0, -28))
-	# Bumpers / skirt
-	ProtoMesh.box(self, Vector3(0.2, 0.3, WIDTH), Vector3(3.62, 0.62, 0), trim)
-	ProtoMesh.box(self, Vector3(0.15, 0.3, WIDTH), Vector3(-3.62, 0.62, 0), trim)
-	ProtoMesh.box(self, Vector3(6.9, 0.22, WIDTH + 0.02), Vector3(-0.1, 0.62, 0), trim)
-	# Grille
-	ProtoMesh.box(self, Vector3(0.04, 0.3, 1.0), Vector3(3.64, 0.98, 0), trim)
 
-	for side in [-1.0, 1.0]:
-		var z: float = side * (WIDTH * 0.5 + 0.005)
-		# Side stripes (modern RV livery)
-		ProtoMesh.box(self, Vector3(5.4, 0.12, 0.02), Vector3(-0.85, 1.05, z), stripe_a)
-		ProtoMesh.box(self, Vector3(4.2, 0.06, 0.02), Vector3(-1.45, 1.2, z), stripe_b)
-		ProtoMesh.box(self, Vector3(1.25, 0.08, 0.02), Vector3(2.5, 2.3, z), stripe_a)
-		# Living windows
-		ProtoMesh.box(self, Vector3(1.0, 0.55, 0.03), Vector3(-2.6, 2.15, z), glass)
-		ProtoMesh.box(self, Vector3(1.2, 0.55, 0.03), Vector3(0.6, 2.15, z), glass)
-		# Cab side window
-		ProtoMesh.box(self, Vector3(0.7, 0.55, 0.03), Vector3(2.65, 1.65, z), glass)
-		# Mirrors
-		ProtoMesh.box(self, Vector3(0.1, 0.28, 0.12), Vector3(3.0, 1.72, side * (WIDTH * 0.5 + 0.18)), trim)
-		# Wheels: front + tandem rear
-		for wx in [2.55, -1.75, -2.55]:
-			ProtoMesh.cylinder(self, 0.42, 0.3, Vector3(wx, 0.42, side * (WIDTH * 0.5 - 0.12)), tire, Vector3(90, 0, 0), 10)
-			ProtoMesh.cylinder(self, 0.2, 0.32, Vector3(wx, 0.42, side * (WIDTH * 0.5 - 0.12)), hub, Vector3(90, 0, 0), 8)
+func _build_body() -> void:
+	paint = ShaderMaterial.new()
+	paint.shader = preload("res://shaders/camper_paint.gdshader")
+	paint.set_shader_parameter("wheel_a", Vector2(WHEEL_X[0], 0.42))
+	paint.set_shader_parameter("wheel_b", Vector2(WHEEL_X[1], 0.42))
+	var body := MeshInstance3D.new()
+	body.name = "Body"
+	body.mesh = OrganicMesh.extrude_profile(_profile(), WIDTH, 0.12)
+	body.material_override = paint
+	add_child(body)
 
-	# Entry door (+Z side, facing the camera) with window, handle and step
-	var dz := WIDTH * 0.5 + 0.015
-	ProtoMesh.box(self, Vector3(0.78, 1.85, 0.03), Vector3(DOOR_LOCAL.x, 1.62, dz), cream)
-	ProtoMesh.box(self, Vector3(0.4, 0.4, 0.03), Vector3(DOOR_LOCAL.x, 2.15, dz + 0.01), glass)
-	ProtoMesh.box(self, Vector3(0.12, 0.05, 0.05), Vector3(DOOR_LOCAL.x + 0.25, 1.55, dz + 0.02), trim)
-	ProtoMesh.box(self, Vector3(0.8, 0.08, 0.4), Vector3(DOOR_LOCAL.x, 0.4, dz + 0.2), trim)
 
-	# Rear: window, ladder
-	ProtoMesh.box(self, Vector3(0.03, 0.5, 1.0), Vector3(-3.61, 2.2, 0), glass)
+## Rounded panel (window, door...) lying on a side of the body.
+func _panel(size: Vector2, center: Vector3, radius: float, depth: float, material: Material, facing_z := 1.0) -> MeshInstance3D:
+	var mi := MeshInstance3D.new()
+	mi.mesh = OrganicMesh.extrude_profile(OrganicMesh.rounded_rect(-size * 0.5, size * 0.5, radius, 3), depth, minf(depth * 0.4, 0.02))
+	mi.position = center + Vector3(0, 0, facing_z * depth * 0.5)
+	mi.material_override = material
+	add_child(mi)
+	return mi
+
+
+func _window(size: Vector2, center_xy: Vector2, radius := 0.12) -> void:
+	var frame := ProtoMesh.mat(Color(0.25, 0.26, 0.3), 0.6)
+	var glass := ProtoMesh.mat(Color(0.2, 0.32, 0.45), 0.15)
+	var shine := ProtoMesh.mat(Color(0.62, 0.78, 0.88), 0.2)
+	for s in [1.0, -1.0]:
+		var z: float = s * WIDTH * 0.5
+		_panel(size + Vector2(0.1, 0.1), Vector3(center_xy.x, center_xy.y, z), radius + 0.04, 0.03, frame, s)
+		_panel(size, Vector3(center_xy.x, center_xy.y, z + s * 0.02), radius, 0.03, glass, s)
+		# diagonal reflection streak
+		var streak := ProtoMesh.box(self, Vector3(0.07, size.y * 0.8, 0.01), Vector3(center_xy.x - size.x * 0.22, center_xy.y, z + s * 0.055), shine, Vector3(0, 0, -25))
+		streak.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+
+
+func _build_details() -> void:
+	var trim := ProtoMesh.mat(Color(0.27, 0.28, 0.32), 0.6)
+	var chrome := ProtoMesh.mat(Color(0.82, 0.84, 0.86), 0.3)
+	var tire := ProtoMesh.mat(Color(0.12, 0.12, 0.13))
+	var door_mat := ProtoMesh.mat(Color(0.9, 0.86, 0.77), 0.5)
+	var glass := ProtoMesh.mat(Color(0.2, 0.32, 0.45), 0.15)
+	var teal := ProtoMesh.mat(Color(0.32, 0.6, 0.58), 0.5)
+	var mustard := ProtoMesh.mat(Color(0.95, 0.74, 0.3), 0.6)
+	var cream := ProtoMesh.mat(Color(0.95, 0.93, 0.87), 0.5)
+
+	# Windows
+	_window(Vector2(1.0, 0.62), Vector2(-2.45, 2.12))
+	_window(Vector2(1.35, 0.62), Vector2(0.45, 2.12))
+	_window(Vector2(0.62, 0.5), Vector2(2.62, 1.76), 0.1)
+	_window(Vector2(0.5, 0.24), Vector2(2.35, 2.66), 0.08)
+	# Windshield along the slanted face
+	var ws := ProtoMesh.box(self, Vector3(0.04, 0.78, WIDTH - 0.36), Vector3(3.03, 1.78, 0), glass, Vector3(0, 0, 31))
+	ws.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	ProtoMesh.box(self, Vector3(0.05, 0.6, 0.08), Vector3(3.06, 1.8, 0.4), ProtoMesh.mat(Color(0.62, 0.78, 0.88), 0.2), Vector3(0, 0, 31))
+
+	# Door (camera side) with window, handle, step and mat
+	var dz := WIDTH * 0.5
+	_panel(Vector2(0.78, 1.86), Vector3(DOOR_LOCAL.x, 1.56, dz), 0.1, 0.04, door_mat)
+	_panel(Vector2(0.42, 0.42), Vector3(DOOR_LOCAL.x, 2.1, dz + 0.04), 0.1, 0.02, glass)
+	ProtoMesh.box(self, Vector3(0.14, 0.05, 0.05), Vector3(DOOR_LOCAL.x + 0.26, 1.5, dz + 0.07), chrome)
+	ProtoMesh.box(self, Vector3(0.82, 0.07, 0.42), Vector3(DOOR_LOCAL.x, 0.36, dz + 0.22), trim)
+	ProtoMesh.box(self, Vector3(1.0, 0.02, 0.6), Vector3(DOOR_LOCAL.x, 0.01, dz + 0.75), ProtoMesh.mat(Color(0.8, 0.42, 0.32)))
+	ProtoMesh.box(self, Vector3(0.9, 0.025, 0.5), Vector3(DOOR_LOCAL.x, 0.015, dz + 0.75), ProtoMesh.mat(Color(0.93, 0.78, 0.5)))
+
+	# Wheels: tyre, rim, hub
+	for wx: float in WHEEL_X:
+		for s in [1.0, -1.0]:
+			var z: float = s * (WIDTH * 0.5 - 0.05)
+			ProtoMesh.cylinder(self, 0.42, 0.3, Vector3(wx, 0.42, z), tire, Vector3(90, 0, 0), 12)
+			ProtoMesh.cylinder(self, 0.25, 0.32, Vector3(wx, 0.42, z), chrome, Vector3(90, 0, 0), 10)
+			ProtoMesh.cylinder(self, 0.1, 0.34, Vector3(wx, 0.42, z), trim, Vector3(90, 0, 0), 8)
+
+	# Front: grille, bumper, mirrors
+	ProtoMesh.box(self, Vector3(0.05, 0.32, 1.0), Vector3(3.8, 0.88, 0), trim)
+	for i in 3:
+		ProtoMesh.box(self, Vector3(0.06, 0.03, 0.9), Vector3(3.82, 0.79 + i * 0.09, 0), chrome)
+	ProtoMesh.capsule(self, 0.08, WIDTH + 0.05, Vector3(3.84, 0.56, 0), trim, Vector3(90, 0, 0))
+	ProtoMesh.capsule(self, 0.07, WIDTH, Vector3(-3.64, 0.56, 0), trim, Vector3(90, 0, 0))
+	for s in [1.0, -1.0]:
+		ProtoMesh.box(self, Vector3(0.05, 0.05, 0.25), Vector3(3.0, 1.78, s * (WIDTH * 0.5 + 0.12)), trim)
+		ProtoMesh.box(self, Vector3(0.08, 0.3, 0.14), Vector3(3.0, 1.75, s * (WIDTH * 0.5 + 0.27)), trim)
+
+	# Rear: ladder and spare wheel cover
 	for i in 6:
-		ProtoMesh.box(self, Vector3(0.04, 0.04, 0.42), Vector3(-3.66, 1.0 + i * 0.4, -0.6), trim)
-	for lz in [-0.8, -0.4]:
-		ProtoMesh.box(self, Vector3(0.04, 2.3, 0.04), Vector3(-3.66, 2.05, lz), trim)
+		ProtoMesh.box(self, Vector3(0.04, 0.04, 0.42), Vector3(-3.68, 1.05 + i * 0.36, -0.62), chrome)
+	for lz in [-0.83, -0.41]:
+		ProtoMesh.box(self, Vector3(0.04, 2.2, 0.04), Vector3(-3.68, 2.0, lz), chrome)
+	ProtoMesh.cylinder(self, 0.36, 0.2, Vector3(-3.7, 1.75, 0.45), teal, Vector3(0, 0, 90), 12)
+	ProtoMesh.cylinder(self, 0.2, 0.22, Vector3(-3.7, 1.75, 0.45), cream, Vector3(0, 0, 90), 10)
 
-	# Roof: AC unit, solar panels, skylight
-	ProtoMesh.box(self, Vector3(0.9, 0.3, 0.8), Vector3(-0.2, 3.25, 0), cream)
-	ProtoMesh.box(self, Vector3(1.4, 0.05, 0.9), Vector3(-2.3, 3.13, -0.45), solar)
-	ProtoMesh.box(self, Vector3(1.4, 0.05, 0.9), Vector3(-2.3, 3.13, 0.5), solar)
-	ProtoMesh.box(self, Vector3(0.6, 0.12, 0.6), Vector3(1.2, 3.15, 0.3), glass)
+	# Roof: AC unit, solar panels, rack + mustard cargo box, skylight
+	var ac := MeshInstance3D.new()
+	ac.mesh = OrganicMesh.extrude_profile(OrganicMesh.rounded_rect(Vector2(-0.45, 0.0), Vector2(0.45, 0.32), 0.1, 3), 0.8, 0.05)
+	ac.position = Vector3(-0.3, 3.14, 0)
+	ac.material_override = cream
+	add_child(ac)
+	ProtoMesh.box(self, Vector3(0.7, 0.03, 0.6), Vector3(-0.3, 3.47, 0), ProtoMesh.mat(Color(0.75, 0.75, 0.72)))
+	var solar := ProtoMesh.mat(Color(0.16, 0.24, 0.45), 0.25)
+	var grid := ProtoMesh.mat(Color(0.5, 0.6, 0.8), 0.3)
+	for pz in [-0.5, 0.5]:
+		ProtoMesh.box(self, Vector3(1.3, 0.05, 0.85), Vector3(-2.35, 3.17, pz), solar)
+		ProtoMesh.box(self, Vector3(0.02, 0.055, 0.85), Vector3(-2.35, 3.175, pz), grid)
+		ProtoMesh.box(self, Vector3(1.3, 0.055, 0.02), Vector3(-2.35, 3.175, pz), grid)
+	for rz in [-0.85, 0.85]:
+		ProtoMesh.box(self, Vector3(1.6, 0.05, 0.05), Vector3(1.2, 3.25, rz), trim)
+	var cargo := MeshInstance3D.new()
+	cargo.mesh = OrganicMesh.extrude_profile(OrganicMesh.rounded_rect(Vector2(-0.7, 0.0), Vector2(0.7, 0.38), 0.16, 3), 1.2, 0.08)
+	cargo.position = Vector3(1.25, 3.18, 0)
+	cargo.material_override = mustard
+	add_child(cargo)
+	ProtoMesh.box(self, Vector3(0.5, 0.06, 0.5), Vector3(0.75, 3.15, 0), ProtoMesh.mat(Color(0.55, 0.7, 0.85), 0.2))
 
-	# Rolled awning along the door side
-	ProtoMesh.cylinder(self, 0.1, 4.6, Vector3(-1.0, 2.9, WIDTH * 0.5 + 0.12), awning, Vector3(0, 0, 90), 8)
+
+func _build_awning() -> void:
+	## Extended striped awning over the door, poles, valance and string lights.
+	var x0 := -2.8
+	var x1 := 0.8
+	var z_in := WIDTH * 0.5 + 0.05
+	var z_out := WIDTH * 0.5 + 2.1
+	var y_in := 2.88
+	var y_out := 2.42
+	var stripes := 8
+	var col_a := ProtoMesh.mat(Color(0.97, 0.94, 0.86), 0.8)
+	var col_b := ProtoMesh.mat(Color(0.93, 0.5, 0.4), 0.8)
+	var slope := rad_to_deg(atan2(y_in - y_out, z_out - z_in))
+	var depth := Vector2(z_out - z_in, y_in - y_out).length()
+	var w := (x1 - x0) / stripes
+	for i in stripes:
+		var cx := x0 + w * (i + 0.5)
+		ProtoMesh.box(self, Vector3(w, 0.03, depth), Vector3(cx, (y_in + y_out) * 0.5, (z_in + z_out) * 0.5), col_a if i % 2 == 0 else col_b, Vector3(slope, 0, 0))
+		# scalloped valance
+		ProtoMesh.box(self, Vector3(w, 0.14, 0.03), Vector3(cx, y_out - 0.07, z_out), col_b if i % 2 == 0 else col_a)
+	var trim := ProtoMesh.mat(Color(0.55, 0.57, 0.6), 0.5)
+	ProtoMesh.cylinder(self, 0.08, x1 - x0 + 0.1, Vector3((x0 + x1) * 0.5, y_in + 0.02, z_in), trim, Vector3(0, 0, 90), 8)
+	for px in [x0 + 0.05, x1 - 0.05]:
+		ProtoMesh.cylinder(self, 0.03, y_out, Vector3(px, y_out * 0.5, z_out - 0.05), trim, Vector3.ZERO, 6)
+	# String lights (subtle by day; glow at night via emission)
+	var bulb_cols := [Color(1.0, 0.85, 0.45), Color(0.98, 0.55, 0.45), Color(0.5, 0.85, 0.8), Color(1.0, 0.95, 0.85)]
+	var n := 11
+	for i in n:
+		var t := float(i) / (n - 1)
+		var x := lerpf(x0 + 0.1, x1 - 0.1, t)
+		var sag := sin(t * PI * 3.0) * 0.06
+		var c: Color = bulb_cols[i % bulb_cols.size()]
+		var b := ProtoMesh.sphere(self, 0.05, Vector3(x, y_out - 0.2 - absf(sag), z_out + 0.02), ProtoMesh.mat(c, 0.4, c, 1.2), Vector3.ONE, 6, 3)
+		b.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF

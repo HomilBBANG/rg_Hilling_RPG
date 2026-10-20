@@ -12,7 +12,10 @@ var hud: VisualHud
 
 var _snap := true
 var _orthogonal := true
-var _zoom_index := 1
+var _zoom_index := 2
+## Camera comparison style (TopdownCamera.STYLES): 0 = A, 1 = B, 2 = C.
+var style_index := 2
+var _outline_user := true
 var _capture_dir := ""
 var _touring := false
 
@@ -53,11 +56,30 @@ func _load_world(world_id: StringName) -> void:
 
 func _configure_camera() -> void:
 	var cam: TopdownCamera = world.camera
+	var style: Dictionary = TopdownCamera.STYLES[style_index]
 	cam.render = render
+	cam.apply_style(style)
 	cam.snap_enabled = _snap
 	cam.orthogonal = _orthogonal
 	cam.zoom_index = _zoom_index
+	cam.set_outline(style["outline"] and _outline_user)
 	cam.snap_to_target()
+	if render.grade_strength != (1.0 if style["grade"] else 0.0):
+		render.grade_strength = 1.0 if style["grade"] else 0.0
+		render.apply_settings()  # re-enters _configure_camera once via settings_changed
+	StylizedMaterials.set_stylized(style["stylized"])
+	if world.get("day_night"):
+		world.day_night.set_style(style["ssao"], style["fog"], style["grade"], cam.ortho_distance)
+
+
+func set_camera_style(index: int) -> void:
+	style_index = posmod(index, TopdownCamera.STYLES.size())
+	_zoom_index = TopdownCamera.STYLES[style_index]["zoom"]
+	_configure_camera()
+
+
+func style_name() -> String:
+	return TopdownCamera.STYLES[style_index]["name"]
 
 
 func _on_render_settings_changed() -> void:
@@ -76,10 +98,19 @@ func _unhandled_input(event: InputEvent) -> void:
 		get_tree().paused = not get_tree().paused
 	elif event.is_action("preset_coarse"):
 		render.set_preset(0)
-	elif event.is_action("preset_soft"):
+	elif event.is_action("preset_mid"):
 		render.set_preset(1)
-	elif event.is_action("preset_native"):
+	elif event.is_action("preset_soft"):
 		render.set_preset(2)
+	elif event.is_action("preset_native"):
+		render.set_preset(3)
+	elif event.is_action("cycle_camera_style"):
+		set_camera_style(style_index + 1)
+		hud.toast("카메라 스타일: " + style_name())
+	elif event.is_action("toggle_outline"):
+		_outline_user = not _outline_user
+		_configure_camera()
+		hud.toast("픽셀 외곽선: " + ("ON" if _outline_user else "OFF"))
 	elif event.is_action("toggle_pipeline"):
 		render.toggle_pipeline()
 		hud.toast("파이프라인: " + render.pipeline_name())
@@ -143,6 +174,10 @@ func _parse_args() -> void:
 			tour = a.trim_prefix("--tour=")
 	if tour == "shots":
 		_run_shot_tour()
+	elif tour == "styles":
+		_run_style_tour()
+	elif tour == "night_outline":
+		_run_night_outline_check()
 	elif tour == "walk":
 		_run_walk_tour()
 
@@ -191,9 +226,9 @@ func _run_shot_tour() -> void:
 	# 3. Camper front / ratio, then pixel comparison at the same spot
 	_place_player(Vector3(-2.0, 0, 1.6), -PI * 0.25)
 	await _shot("03_day_camper_PXL-COARSE.png")
-	render.set_preset(1)
-	await _shot("06a_compare_PXL-SOFT.png")
 	render.set_preset(2)
+	await _shot("06a_compare_PXL-SOFT.png")
+	render.set_preset(3)
 	await _shot("06b_compare_3D-NATIVE.png")
 	render.set_preset(0)
 	render.toggle_pipeline()
@@ -216,7 +251,7 @@ func _run_shot_tour() -> void:
 	await _shot("05a_night_camper_lights_OFF_PXL-COARSE.png")
 	Game.camper_lights_on = true
 	await _shot("05b_night_camper_lights_ON_PXL-COARSE.png")
-	render.set_preset(1)
+	render.set_preset(2)
 	await _shot("05c_night_camper_lights_ON_PXL-SOFT.png")
 	render.set_preset(0)
 	# 6. Interior day & night
@@ -227,7 +262,7 @@ func _run_shot_tour() -> void:
 	Game.minute_of_day = Game.DAY_PRESET_MINUTE
 	Game.lantern_on = false
 	await _shot("07b_interior_day_PXL-COARSE.png")
-	render.set_preset(1)
+	render.set_preset(2)
 	await _shot("07c_interior_day_PXL-SOFT.png")
 	hud.show_help_panel(true)
 	await _shot("08_help_overlay.png")
@@ -246,10 +281,10 @@ func _run_walk_tour() -> void:
 	var route: Array[Vector2] = [Vector2(17, -2), Vector2(23, -6.8), Vector2(30, -9.8), Vector2(37, -8)]
 	for i in route.size():
 		if i == 2:
-			render.set_preset(1)
+			render.set_preset(2)
 			hud.toast("PXL-SOFT")
 		await _walk_to(p, route[i])
-	render.set_preset(2)
+	render.set_preset(3)
 	hud.toast("3D-NATIVE")
 	await _walk_to(p, Vector2(42, -2))
 	# Night section with lantern back toward the camper (coarse)
@@ -274,3 +309,58 @@ func _walk_to(p: PrototypePlayer, goal: Vector2) -> void:
 			return
 		p.scripted_move = d.normalized()
 		await get_tree().physics_frame
+
+
+## Camera style comparison (visual direction test): same spot, daylight, A / B / C.
+func _run_style_tour() -> void:
+	_touring = true
+	hud.show_help_panel(false)
+	Game.clock_running = false
+	Game.minute_of_day = 10.5 * 60.0
+	render.set_preset(1)
+	await _frames(30)
+	for i in TopdownCamera.STYLES.size():
+		set_camera_style(i)
+		_place_player(Vector3(-4.3, 0, 1.1), PI * 0.8)
+		await _frames(30)
+		var id: String = TopdownCamera.STYLES[i]["id"]
+		hud.set_capture_mode(true, "%s · PXL-MID 427×240" % style_name())
+		await _shot("style_%s_PXL-MID.png" % id)
+	# C at other densities for reference
+	render.set_preset(0)
+	hud.set_capture_mode(true, "%s · PXL-COARSE 320×180" % style_name())
+	await _shot("style_C_PXL-COARSE.png")
+	render.set_preset(2)
+	hud.set_capture_mode(true, "%s · PXL-SOFT 640×360" % style_name())
+	await _shot("style_C_PXL-SOFT.png")
+	render.set_preset(1)
+	set_camera_style(1)
+	_place_player(Vector3(22.2, 0, -5.7), PI * 0.6)
+	hud.set_capture_mode(true, "%s · 숲길(나무 뒤)" % style_name())
+	await _shot("style_B_forest_occlusion.png")
+	set_camera_style(2)
+	hud.set_capture_mode(true, "%s · 숲길(나무 뒤)" % style_name())
+	await _shot("style_C_forest_occlusion.png")
+	_place_player(Vector3(6.0, 0, 4.2), -PI * 0.5)
+	hud.set_capture_mode(true, "%s · 흙길과 슬라임" % style_name())
+	await _shot("style_C_path_slime.png")
+	get_tree().quit()
+
+
+## Night view with outline pass on/off (diagnostic for the outline/highlight pass).
+func _run_night_outline_check() -> void:
+	_touring = true
+	hud.show_help_panel(false)
+	Game.clock_running = false
+	Game.minute_of_day = Game.NIGHT_PRESET_MINUTE
+	Game.lantern_on = true
+	render.set_preset(1)
+	await _frames(20)
+	_place_player(Vector3(4.0, 0, -0.5), -PI * 0.4)
+	hud.set_capture_mode(true, "%s · 밤 · 외곽선 ON" % style_name())
+	await _shot("night_outline_on.png")
+	_outline_user = false
+	_configure_camera()
+	hud.set_capture_mode(true, "%s · 밤 · 외곽선 OFF" % style_name())
+	await _shot("night_outline_off.png")
+	get_tree().quit()

@@ -5,11 +5,24 @@ extends Camera3D
 ## sub-texel remainder to the PixelRenderController, which shifts the displayed image.
 ## Result: static scenery doesn't shimmer while the camera still scrolls smoothly.
 
-const ZOOM_STEPS: Array[float] = [9.0, 11.0, 13.0, 15.0, 18.0, 22.0]
+const ZOOM_STEPS: Array[float] = [8.0, 9.0, 10.0, 11.0, 13.0, 15.0, 18.0, 22.0]
+
+## Camera comparison styles (P0 visual direction test). Pitch = degrees below horizon.
+## A reproduces the previous functional prototype view; B/C are the reworked looks.
+const STYLES: Array[Dictionary] = [
+	{"id": "A", "name": "A 기능형 탑다운(기존)", "pitch": 50.0, "zoom": 3, "offset": Vector3.ZERO,
+		"outline": false, "grade": false, "ssao": false, "fog": false, "stylized": false},
+	{"id": "B", "name": "B 개선된 탑다운", "pitch": 62.0, "zoom": 2, "offset": Vector3(0, 0, -1.6),
+		"outline": true, "grade": true, "ssao": true, "fog": false, "stylized": true},
+	{"id": "C", "name": "C 기울어진 디오라마 탑다운", "pitch": 40.0, "zoom": 2, "offset": Vector3(0, 0, -1.0),
+		"outline": true, "grade": true, "ssao": true, "fog": true, "stylized": true},
+]
 
 ## Visible world height (metres) of the 1280x720 frame, without the snap margin.
-@export var zoom_index := 1
-@export var pitch_degrees := 50.0
+@export var zoom_index := 2
+@export var pitch_degrees := 40.0
+## World-space shift of the look-at point (composition: keep the player a bit below centre).
+@export var focus_offset := Vector3.ZERO
 @export var follow_sharpness := 10.0
 @export var ortho_distance := 40.0
 @export var perspective_fov := 25.0
@@ -19,8 +32,11 @@ var render: PixelRenderController
 var snap_enabled := true
 var orthogonal := true
 
+var outline_enabled := true
+
 var _focus := Vector3.ZERO
 var _has_focus := false
+var _outline_quad: MeshInstance3D
 
 
 func _ready() -> void:
@@ -32,6 +48,44 @@ func _ready() -> void:
 	far = 160.0
 	current = true
 	_apply_projection()
+	_build_outline_quad()
+
+
+func _build_outline_quad() -> void:
+	# The outline pass needs the depth/normal buffers of the Forward+ renderer.
+	if RenderingServer.get_current_rendering_method() != "forward_plus":
+		return
+	_outline_quad = MeshInstance3D.new()
+	var quad := QuadMesh.new()
+	quad.size = Vector2(2, 2)
+	_outline_quad.mesh = quad
+	_outline_quad.extra_cull_margin = 16384.0
+	_outline_quad.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	var m := ShaderMaterial.new()
+	m.shader = preload("res://shaders/pixel_outline_post.gdshader")
+	m.render_priority = 10
+	_outline_quad.material_override = m
+	_outline_quad.position = Vector3(0, 0, -1.0)
+	add_child(_outline_quad)
+	_outline_quad.visible = outline_enabled
+
+
+func set_outline(on: bool) -> void:
+	outline_enabled = on
+	if _outline_quad:
+		_outline_quad.visible = on
+
+
+func outline_supported() -> bool:
+	return _outline_quad != null
+
+
+func apply_style(style: Dictionary) -> void:
+	pitch_degrees = style["pitch"]
+	zoom_index = style["zoom"]
+	focus_offset = style["offset"]
+	set_outline(style["outline"])
+	snap_to_target()
 
 
 func view_height() -> float:
@@ -77,7 +131,7 @@ func _process(delta: float) -> void:
 	_apply_projection()
 	if target == null or not is_instance_valid(target):
 		return
-	var goal := target.global_position + Vector3(0.0, 0.8, 0.0)
+	var goal := target.global_position + Vector3(0.0, 0.8, 0.0) + focus_offset
 	if not _has_focus:
 		_focus = goal
 		_has_focus = true

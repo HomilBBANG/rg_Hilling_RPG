@@ -4,7 +4,9 @@
 완성 게임이 아니라 **고정 탑다운 카메라 + 3D 월드의 픽셀화 렌더**가 이 게임의 아트 스타일로 쓸 만한지를
 직접 걸어 다니며 비교하기 위한 테스트 씬입니다. 기획 기준 문서는 [`docs/`](docs/)에 있습니다.
 
-![낮 숲길 PXL-COARSE](captures/01_day_forest_path_PXL-COARSE.png)
+![디오라마 탑다운 C](captures/visual_direction/style_C_PXL-MID.png)
+
+> **비주얼 방향 수정(디오라마형 3D 픽셀풍)과 카메라 A/B/C 비교 결과:** [`notes/VISUAL_DIRECTION.md`](notes/VISUAL_DIRECTION.md)
 
 ## 요구 사항
 
@@ -43,16 +45,18 @@ git clone -b claude/gallant-edison-84bkyp https://github.com/HomilBBANG/rg_Hilli
 | `WASD` / 방향키 | 이동 (`Shift` 달리기 — P0에서는 SP 소모 없음) |
 | 마우스 왼쪽 클릭 | 기본 공격 모션 1회 (마우스 방향, 누르고 있어도 반복 안 함) |
 | `F` | 캠핑카 외부 라이트 ON/OFF (캠핑카 7.5m 이내에서만) |
-| `1` / `2` / `3` | **PXL-COARSE 320×180** / **PXL-SOFT 640×360** / **3D-NATIVE 1280×720(픽셀화 OFF)** |
+| `V` | **카메라 스타일 A(기존 기능형) → B(개선된 탑다운) → C(기울어진 디오라마)**. 시작은 C |
+| `O` | 픽셀 외곽선 ON/OFF (B/C, Forward+ 전용) |
+| `1` / `2` / `3` / `4` | **PXL-COARSE 320×180** / **PXL-MID 427×240(기본)** / **PXL-SOFT 640×360** / **3D-NATIVE 1280×720(픽셀화 OFF)** |
 | `M` | 픽셀화 파이프라인 전환: M1 SubViewport 확대 ↔ M2 3D 해상도 스케일링(nearest) |
-| `P` | 모드 3: 팔레트 제한 + 4×4 디더 후처리 ON/OFF |
+| `P` | 모드 3: 색 단계 제한 + 4×4 디더 ON/OFF (색보정 셰이더 안의 옵션) |
 | `N` | 낮(12:00) ↔ 밤(22:00) |
 | `T` | 게임 시계 진행/정지 (현실 1초 = 게임 1분) |
 | `L` | 개인 등불(허리띠) ON/OFF |
 | `I` | 캠핑카 실내 ↔ 야외 씬 전환 |
 | `K` | 픽셀 스냅 카메라 ON/OFF (떨림 비교용) |
 | `C` | 직교 ↔ 원근 투영 비교 (카메라 **회전은 없음**) |
-| `X` | 가림 보조: 실루엣 → 수관 투명화 → 끔 |
+| `X` | 가림 보조: 실루엣 → 수관 디더 투명화 → 끔 |
 | `-` / `=` | 카메라 규모(화면 세로 9~22m) |
 | `F12` | 스크린샷 → `user://captures` (Windows: `%APPDATA%\Godot\app_userdata\Denial\captures`) |
 | `ESC` | 일시정지 |
@@ -72,6 +76,11 @@ bootstrap (Node)
   격자에 위치를 맞추고, 남는 서브텍셀 오차는 TextureRect를 화면 픽셀 단위로 밀어 보정합니다(1텍셀 여백 렌더).
   배경은 떨리지 않고 스크롤은 부드럽게 유지하는 표준 기법입니다.
 - **M2**는 Godot 4.7의 `Viewport.scaling_3d_mode = SCALING_3D_MODE_NEAREST`를 사용합니다.
+- **픽셀 외곽선** (`shaders/pixel_outline_post.gdshader`): 카메라에 붙은 전체 화면 쿼드가 저해상도 렌더의 깊이·노멀 버퍼를
+  읽어, 앞 물체의 경계 텍셀을 어둡게(색 있는 외곽선), 단단한 소품의 볼록 모서리를 밝게 칠합니다. 지형·풀(roughness 1.0)과
+  잎·바위(0.93)는 하이라이트에서 제외합니다.
+- **색보정** (`shaders/pixel_grade.gdshader`): 업스케일 TextureRect에서 텍셀 단위로 스플릿 토닝·채도·비네트(+선택 디더).
+- **스타일라이즈드 재질** (`scripts/world/stylized_materials.gd`): 지형·잎·바위·풀 셰이더와 절차적 노이즈 텍스처.
 - 낮/밤: `scripts/visuals/day_night_controller.gd`, 오토로드 `Game`(`scripts/core/game.gd`)이 시계·라이트 상태 보관.
 - 가림 실루엣: `shaders/occluded_silhouette.gdshader` (`depth_test_inverted` + 자기 가림 방지 바이어스).
 
@@ -85,12 +94,15 @@ project.godot
 scenes/        bootstrap.tscn, visual_lab.tscn, camper_interior_lab.tscn (루트 노드 + 스크립트만)
 scripts/core/      game.gd(오토로드), bootstrap.gd, visual_hud.gd
 scripts/visuals/   pixel_render_controller.gd, topdown_camera.gd, day_night_controller.gd
-scripts/world/     visual_lab.gd, camper_interior_lab.gd, terrain_field.gd, nature_props.gd, proto_mesh.gd
+scripts/world/     visual_lab.gd, camper_interior_lab.gd, terrain_field.gd, nature_props.gd, proto_mesh.gd,
+                   organic_mesh.gd, stylized_materials.gd, ground_cover.gd, camp_props.gd, campfire_flame.gd
 scripts/actors/    prototype_player.gd, slime_visual.gd
 scripts/vehicle/   camper_exterior.gd, prototype_camper_lights.gd
-shaders/           optional_palette_dither.gdshader, occluded_silhouette.gdshader
-captures/          자동 캡처 투어로 생성한 PNG/MP4
-notes/             VISUAL_COMPARISON.md, IMPLEMENTATION_ASSUMPTIONS.md
+shaders/           terrain/foliage/rock_stylized, grass_blades, camper_paint, pixel_outline_post,
+                   pixel_grade, occluded_silhouette (+ stylized_common.gdshaderinc)
+captures/visual_direction/  카메라 A/B/C 비교 (디오라마 방향)
+captures/p0_baseline/       P0 테스트 장면 6종 + 렌더 모드 비교 + 이동 영상
+notes/             VISUAL_DIRECTION.md, VISUAL_COMPARISON.md, IMPLEMENTATION_ASSUMPTIONS.md
 docs/              GDD.md, GRAPHICS_PROTOTYPE.md, CLAUDE_CODE_HANDOFF.md
 ```
 
@@ -102,8 +114,10 @@ docs/              GDD.md, GRAPHICS_PROTOTYPE.md, CLAUDE_CODE_HANDOFF.md
 모든 `captures/` 파일은 아래 자동 투어로 생성되었습니다(같은 카메라 위치에서 모드만 바꿔 촬영).
 
 ```bat
-:: 스크린샷 18장
-Godot.exe --path C:/Game/denial -- --tour=shots --capture-dir=C:/Game/denial/captures
+:: 카메라 A/B/C 비교 8장
+Godot.exe --path C:/Game/denial -- --tour=styles --capture-dir=C:/Game/denial/captures/visual_direction
+:: P0 스크린샷 18장
+Godot.exe --path C:/Game/denial -- --tour=shots --capture-dir=C:/Game/denial/captures/p0_baseline
 :: 14초 이동 영상 (Movie Maker, AVI → 필요 시 ffmpeg로 MP4 변환)
 Godot.exe --path C:/Game/denial --write-movie C:/Game/walk.avi --fixed-fps 30 -- --tour=walk
 ```
@@ -111,7 +125,8 @@ Godot.exe --path C:/Game/denial --write-movie C:/Game/walk.avi --fixed-fps 30 --
 ## 알려진 문제 / 미검증
 
 - **실제 GPU에서 실행하지 않았습니다.** 검증은 클라우드 컨테이너의 소프트웨어 렌더러(Mesa llvmpipe, Vulkan
-  Forward+ 및 OpenGL Compatibility)에서 했습니다. FPS 수치(15~30)는 소프트웨어 렌더 기준이라 의미가 없습니다.
+  Forward+ 및 OpenGL Compatibility)에서 했습니다. FPS 수치(8~30)는 소프트웨어 렌더 기준이라 의미가 없습니다.
+- 픽셀 외곽선은 Forward+ 전용이며 Compatibility에서는 자동으로 꺼집니다(디오라마 버전은 Compatibility에서 미검증).
 - 이동 중 픽셀 떨림은 녹화 영상의 프레임으로만 확인했습니다. **실시간 체감은 직접 실행해서 판단**해 주세요.
 - Forward+와 Compatibility의 밤 밝기가 다릅니다(Compatibility가 더 밝고 헤드라이트 빔이 더 뚜렷함).
 - 창 크기를 1280×720이 아닌 크기로 바꾸면 `canvas_items` 스트레치 때문에 픽셀이 비정수 배율로 늘어납니다.

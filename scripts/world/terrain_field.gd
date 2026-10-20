@@ -6,16 +6,16 @@ extends RefCounted
 
 const MIN := Vector2(-44.0, -40.0)
 const MAX := Vector2(56.0, 44.0)
-const CELL := 1.0
+const CELL := 0.5
 
 const POND_CENTER := Vector2(12.0, 19.0)
 const POND_RADIUS := 6.5
 const WATER_LEVEL := -0.45
-const CAMP_CENTER := Vector2(-6.0, -2.0)
+const CAMP_CENTER := Vector2(-4.5, -0.5)
 
 ## Dirt path centre line (x, z).
 const PATH: PackedVector2Array = [
-	Vector2(-30, 4), Vector2(-18, 5), Vector2(-8, 4.5), Vector2(2, 4), Vector2(10, 2),
+	Vector2(-30, 8), Vector2(-19, 8.5), Vector2(-9, 7.2), Vector2(0, 6.8), Vector2(6, 5.0), Vector2(11, 2),
 	Vector2(17, -2), Vector2(23, -7), Vector2(30, -10), Vector2(37, -8), Vector2(42, -2),
 	Vector2(42, 6), Vector2(36, 13), Vector2(27, 17), Vector2(21, 23), Vector2(14, 30),
 	Vector2(4, 32),
@@ -116,57 +116,75 @@ func ground_color(x: float, z: float, rng: RandomNumberGenerator) -> Color:
 	return c
 
 
-func build_mesh() -> ArrayMesh:
+## Vertex masks for the stylized terrain shader: r = path, g = shore, b = forest, a = camp wear.
+func masks(x: float, z: float) -> Color:
+	var pd := path_distance(x, z)
+	var wd := pond_distance(x, z)
+	var fd := Vector2(x, z).distance_to(FOREST_CENTER)
+	var cd := Vector2(x, z).distance_to(CAMP_CENTER)
+	return Color(
+		1.0 - smoothstep(0.4, 2.4, pd),
+		1.0 - smoothstep(-0.6, 2.2, wd),
+		1.0 - smoothstep(FOREST_RADIUS - 6.0, FOREST_RADIUS + 3.0, fd),
+		1.0 - smoothstep(2.0, 7.0, cd))
+
+
+func build_mesh(stylized_material: Material = null) -> ArrayMesh:
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 3
 	var nx := int((MAX.x - MIN.x) / CELL)
 	var nz := int((MAX.y - MIN.y) / CELL)
+	var row := nx + 1
 	var heights := PackedFloat32Array()
-	var vcolors := PackedColorArray()
-	heights.resize((nx + 1) * (nz + 1))
-	vcolors.resize((nx + 1) * (nz + 1))
+	heights.resize(row * (nz + 1))
 	for iz in nz + 1:
-		for ix in nx + 1:
-			var x := MIN.x + ix * CELL
-			var z := MIN.y + iz * CELL
-			heights[iz * (nx + 1) + ix] = height(x, z)
-			vcolors[iz * (nx + 1) + ix] = ground_color(x, z, rng)
-
+		for ix in row:
+			heights[iz * row + ix] = height(MIN.x + ix * CELL, MIN.y + iz * CELL)
 	var verts := PackedVector3Array()
 	var normals := PackedVector3Array()
 	var colors := PackedColorArray()
+	verts.resize(row * (nz + 1))
+	normals.resize(verts.size())
+	colors.resize(verts.size())
+	for iz in nz + 1:
+		for ix in row:
+			var i := iz * row + ix
+			var x := MIN.x + ix * CELL
+			var z := MIN.y + iz * CELL
+			verts[i] = Vector3(x, heights[i], z)
+			# Smooth normal from central differences (toon light stays clean on gentle slopes).
+			var hl := heights[iz * row + maxi(ix - 1, 0)]
+			var hr := heights[iz * row + mini(ix + 1, nx)]
+			var hd := heights[maxi(iz - 1, 0) * row + ix]
+			var hu := heights[mini(iz + 1, nz) * row + ix]
+			normals[i] = Vector3(hl - hr, 2.0 * CELL, hd - hu).normalized()
+			if stylized_material:
+				colors[i] = masks(x, z)
+			else:
+				colors[i] = ground_color(x, z, rng)
+	var indices := PackedInt32Array()
 	for iz in nz:
 		for ix in nx:
-			var i00 := iz * (nx + 1) + ix
+			var i00 := iz * row + ix
 			var i10 := i00 + 1
-			var i01 := i00 + nx + 1
+			var i01 := i00 + row
 			var i11 := i01 + 1
-			# Alternate the diagonal for a less regular facet pattern.
-			var tris: Array
-			if (ix + iz) % 2 == 0:
-				tris = [[i00, i10, i11], [i00, i11, i01]]
-			else:
-				tris = [[i00, i10, i01], [i10, i11, i01]]
-			for t: Array in tris:
-				var pts: Array[Vector3] = []
-				for idx: int in t:
-					pts.append(Vector3(MIN.x + (idx % (nx + 1)) * CELL, heights[idx], MIN.y + floori(float(idx) / (nx + 1)) * CELL))
-				# Flat (per-face) normal; Godot uses clockwise winding for front faces.
-				var n := (pts[2] - pts[0]).cross(pts[1] - pts[0]).normalized()
-				for k in 3:
-					verts.append(pts[k])
-					normals.append(n)
-					colors.append(vcolors[t[k]])
+			# Clockwise (seen from above) = front face in Godot.
+			indices.append_array([i00, i10, i11, i00, i11, i01])
 	var arrays := []
 	arrays.resize(Mesh.ARRAY_MAX)
 	arrays[Mesh.ARRAY_VERTEX] = verts
 	arrays[Mesh.ARRAY_NORMAL] = normals
 	arrays[Mesh.ARRAY_COLOR] = colors
+	arrays[Mesh.ARRAY_INDEX] = indices
 	var mesh := ArrayMesh.new()
 	mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
-	var m := StandardMaterial3D.new()
-	m.vertex_color_use_as_albedo = true
-	m.vertex_color_is_srgb = true
-	m.roughness = 1.0
-	mesh.surface_set_material(0, m)
+	if stylized_material:
+		mesh.surface_set_material(0, stylized_material)
+	else:
+		var m := StandardMaterial3D.new()
+		m.vertex_color_use_as_albedo = true
+		m.vertex_color_is_srgb = true
+		m.roughness = 1.0
+		mesh.surface_set_material(0, m)
 	return mesh

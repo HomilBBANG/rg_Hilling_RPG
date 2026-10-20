@@ -15,6 +15,7 @@ enum Pipeline { SUBVIEWPORT, SCALING_3D }
 const OUTPUT_SIZE := Vector2i(1280, 720)
 const PRESETS: Array[Dictionary] = [
 	{"name": "PXL-COARSE", "size": Vector2i(320, 180)},
+	{"name": "PXL-MID", "size": Vector2i(427, 240)},
 	{"name": "PXL-SOFT", "size": Vector2i(640, 360)},
 	{"name": "3D-NATIVE", "size": Vector2i(1280, 720)},
 ]
@@ -22,16 +23,19 @@ const MARGIN_TEXELS := 1
 
 signal settings_changed
 
-@export var preset_index := 0
+@export var preset_index := 1
 @export var pipeline: Pipeline = Pipeline.SUBVIEWPORT
+## Mode 3: limited colour levels + ordered dither.
 @export var post_enabled := false
+## Colour grade (split toning, saturation, vignette). 0 = raw render.
+@export var grade_strength := 1.0
 
 var viewport: SubViewport
 var display: TextureRect
 ## World scenes are added under this node.
 var world_root: Node3D
 
-var _post_material: ShaderMaterial
+var _grade_material: ShaderMaterial
 var _texel_screen := 4.0
 
 
@@ -64,8 +68,9 @@ func _ready() -> void:
 	display.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(display)
 
-	_post_material = ShaderMaterial.new()
-	_post_material.shader = preload("res://shaders/optional_palette_dither.gdshader")
+	_grade_material = ShaderMaterial.new()
+	_grade_material.shader = preload("res://shaders/pixel_grade.gdshader")
+	display.material = _grade_material
 
 	apply_settings()
 
@@ -123,14 +128,17 @@ func apply_settings() -> void:
 		display.size = Vector2(viewport.size * factor)
 	display.position = Vector2(-margin_px, -margin_px)
 
-	if post_enabled:
-		display.material = _post_material
-		# In SCALING_3D the texture is full-res, so the dither must work on factor-sized blocks.
-		var block := factor if pipeline == Pipeline.SCALING_3D else 1
-		_post_material.set_shader_parameter("block_size", float(block))
-	else:
-		display.material = null
+	# In SCALING_3D the texture is full-res, so per-texel effects must work on factor-sized blocks.
+	var block := factor if pipeline == Pipeline.SCALING_3D else 1
+	_grade_material.set_shader_parameter("block_size", float(block))
+	_grade_material.set_shader_parameter("dither_enabled", post_enabled)
+	_grade_material.set_shader_parameter("grade_strength", grade_strength)
 	settings_changed.emit()
+
+
+func set_grade_strength(v: float) -> void:
+	grade_strength = v
+	apply_settings()
 
 
 ## Vertical texel count the camera must cover (render height incl. margin) and the

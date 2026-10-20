@@ -13,11 +13,15 @@ var _toast: Label
 var _help: PanelContainer
 var _pause: Label
 var _toast_time := 0.0
+var _capture_mode := false
+var _caption: Label
 
 const HELP_TEXT := """[P0 디버그 조작 — 프로토타입 전용, 최종 키 아님]
 WASD 이동 · Shift 달리기 · 마우스 클릭 = 기본 공격 1회(마우스 방향)
 F  캠핑카 외부 라이트 (캠핑카 근처에서만)
-1 / 2 / 3  PXL-COARSE 320×180 / PXL-SOFT 640×360 / 3D-NATIVE
+V  카메라 스타일 A(기존) → B(개선 탑다운) → C(기울어진 디오라마)
+O  픽셀 외곽선 ON/OFF (B/C)
+1/2/3/4  PXL-COARSE 320×180 / PXL-MID 427×240 / PXL-SOFT 640×360 / 3D-NATIVE
 M  픽셀화 파이프라인 전환 (M1 SubViewport 확대 ↔ M2 3D 스케일링 nearest)
 P  모드3: 팔레트 제한 + 디더링 후처리 ON/OFF
 N  낮 ↔ 밤 (12:00 / 22:00)     T  시계 진행/정지 (1초 = 게임 1분)
@@ -45,7 +49,7 @@ func _ready() -> void:
 	_context.add_theme_color_override("font_color", Color(1.0, 0.92, 0.6))
 	_hint = _label(Vector2.ZERO, 14)
 	_hint.position = Vector2(14, 690)
-	_hint.text = "WASD 이동 · 클릭 공격 · F 캠핑카 라이트 · 1/2/3 렌더 · M 파이프라인 · N 낮밤 · L 등불 · I 실내 · H 도움말"
+	_hint.text = "WASD 이동 · 클릭 공격 · V 카메라 A/B/C · 1~4 렌더 · F 캠핑카 라이트 · N 낮밤 · L 등불 · I 실내 · H 도움말"
 	_toast = _label(Vector2.ZERO, 18)
 	_toast.position = Vector2(320, 150)
 	_toast.size = Vector2(640, 26)
@@ -56,17 +60,20 @@ func _ready() -> void:
 	_pause.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_pause.text = "일시정지 (ESC)"
 
+	_caption = _label(Vector2(14, 684), 18)
+	_caption.visible = false
+
 	_help = PanelContainer.new()
 	var sb := StyleBoxFlat.new()
 	sb.bg_color = Color(0.05, 0.06, 0.08, 0.82)
 	sb.set_corner_radius_all(6)
 	sb.set_content_margin_all(14)
 	_help.add_theme_stylebox_override("panel", sb)
-	_help.position = Vector2(720, 12)
-	_help.size = Vector2(546, 0)
+	_help.position = Vector2(668, 12)
+	_help.size = Vector2(600, 0)
 	var help_label := Label.new()
 	help_label.text = HELP_TEXT
-	help_label.add_theme_font_size_override("font_size", 14)
+	help_label.add_theme_font_size_override("font_size", 13)
 	_help.add_child(help_label)
 	add_child(_help)
 	_help.visible = true
@@ -78,6 +85,15 @@ func _label(pos: Vector2, size: int) -> Label:
 	l.add_theme_font_size_override("font_size", size)
 	add_child(l)
 	return l
+
+
+## Clean capture mode: hide debug text, show only a caption line.
+func set_capture_mode(on: bool, caption := "") -> void:
+	for c in [_status, _hint, _context, _toast]:
+		c.visible = not on
+	_capture_mode = on
+	_caption.text = caption
+	_caption.visible = on and caption != ""
 
 
 func toggle_help() -> void:
@@ -94,6 +110,8 @@ func toast(msg: String) -> void:
 
 
 func _process(delta: float) -> void:
+	if _capture_mode:
+		return
 	_toast_time -= delta
 	_toast.visible = _toast_time > 0.0
 	_pause.visible = get_tree().paused
@@ -105,6 +123,7 @@ func _process(delta: float) -> void:
 	var cam: TopdownCamera = w.camera
 	var lines := PackedStringArray()
 	lines.append("Denial · P0 시각 검증 — %s" % w.world_title())
+	lines.append("카메라(V) %s · 외곽선(O) %s" % [boot.style_name(), "ON" if cam.outline_enabled and cam.outline_supported() else "OFF"])
 	lines.append("시각 %s (%s)%s" % [Game.clock_text(), "밤" if Game.is_night() else "낮", "" if Game.clock_running else " ⏸"])
 	lines.append("렌더 %s  %d×%d ×%d  |  %s" % [r.preset_name(), rs.x, rs.y, int(r.texel_screen_size()), r.pipeline_name()])
 	lines.append("후처리(P) %s · 스냅(K) %s · 투영(C) %s · 화면높이 %.0fm" % [

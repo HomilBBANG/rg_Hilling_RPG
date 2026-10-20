@@ -20,7 +20,7 @@
 |---|---|---|
 | 3.2 픽셀 밀도 / 내부 렌더 해상도 | 실험 프리셋 320×180, 640×360, 1280×720 (`GRAPHICS_PROTOTYPE.md` 표 그대로) | `pixel_render_controller.gd` |
 | 3.2 카메라 고정 높이·시야 | 직교 투영, 피치 50°, 화면 세로 11m (9~22m 6단계 조절 가능). 처음 55°/13m는 인물이 너무 작아 변경 | `topdown_camera.gd` |
-| 3.2 색 팔레트 / 디더 | 기본 OFF. 실험용 8단계 + 4×4 Bayer 디더(강도 0.35) | `optional_palette_dither.gdshader` |
+| 3.2 색 팔레트 / 디더 | 기본 OFF. 실험용 10단계 + 4×4 Bayer 디더(강도 0.35) | `pixel_grade.gdshader` (`dither_enabled`) |
 | 3.2 낮/밤 색보정 | 낮 태양 에너지 1.0, 밤 달빛 0.3 + 푸른 환경광 0.42, Filmic 톤맵, 약한 glow | `day_night_controller.gd` |
 | 10.1 새벽/낮/저녁/밤 경계 | 05:00~07:00 일출 전환, 18:00~20:00 일몰 전환. `N` 키는 12:00 / 22:00으로 이동 | `game.gd` |
 | 10.3 광원 밝기·범위 | 등불: 따뜻한 색, 반경 8m, 에너지 1.8, 그림자 ON(플레이어 자신은 그림자 제외). 헤드라이트: 스포트 24m, 반각 24°, 그림자 ON. 현관등: 반경 6.5m, 그림자 OFF | `prototype_player.gd`, `prototype_camper_lights.gd` |
@@ -32,6 +32,8 @@
 | 9.1 캠핑카 외형 | 현대식 C급 모터홈 임시 모델(길이 7.2m, 폭 2.4m, 운전석 위 알코브, 측면 줄무늬). 이름·색은 미정 | `camper_exterior.gd` |
 | 9.1 실내 확장 | 외부 폭 2.4m 대비 실내 9×4.4m 방 1개로 "마법 확장" 느낌만 실험. 모듈·배치 시스템 없음 | `camper_interior_lab.gd` |
 | 9.6 휴식 시설 | 라꾸라꾸형 간이침대 모형만 배치. 수면 기능 없음 | `camper_interior_lab.gd` |
+| 3.2 최종 모델링 스타일 / 픽셀 밀도 | 비주얼 방향 실험: 툰 셰이딩 + 픽셀 외곽선 + 핸드페인팅풍 절차 셰이더, 기본 PXL-MID 427×240. 카메라 A(50°)/B(62°)/C(40°, 시작값) 비교용 | `topdown_camera.gd` STYLES, `notes/VISUAL_DIRECTION.md` |
+| 9.1 캠핑카 외장 색 | 크림 + 청록 하단 + 코랄/머스터드 줄무늬, 줄무늬 차양. **외장 커스터마이즈(9.2-5) 확정이 아님**, 시각 검증용 기본 도색 | `camper_paint.gdshader` |
 | 3.2 가림 처리 | 기본은 가려진 부분 실루엣 표시. `X`로 수관 투명화/끔 비교 | `occluded_silhouette.gdshader`, `visual_lab.gd` |
 | 17 HUD | 디버그 정보 텍스트만 표시(시각, 렌더 모드, 라이트 상태, FPS). 정식 HUD 아님 | `visual_hud.gd` |
 | 17 플랫폼/입력 | PC 키보드·마우스, 1280×720 창, `canvas_items` 스트레치 | `project.godot` |

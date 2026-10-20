@@ -11,12 +11,21 @@ var environment: Environment
 ## Materials that glow as "daylight through windows" (interior).
 var window_materials: Array[StandardMaterial3D] = []
 
-const SUN_DAY := Color(1.0, 0.95, 0.86)
+const SUN_DAY := Color(1.0, 0.9, 0.74)
 const SUN_TWILIGHT := Color(1.0, 0.62, 0.38)
 const MOON := Color(0.6, 0.7, 1.0)
-const AMBIENT_DAY := Color(0.66, 0.72, 0.8)
+const AMBIENT_DAY := Color(0.6, 0.7, 0.88)
 const AMBIENT_NIGHT := Color(0.24, 0.3, 0.5)
-const BG_DAY := Color(0.42, 0.56, 0.38)
+const BG_DAY := Color(0.55, 0.68, 0.5)
+## Haze colour for the tilted diorama camera (depth fog).
+const HAZE_DAY := Color(0.78, 0.86, 0.95)
+const HAZE_NIGHT := Color(0.1, 0.13, 0.22)
+
+## Camera-style dependent extras (set by bootstrap through the world).
+var style_ssao := true
+var style_fog := false
+var style_grade := true
+var camera_distance := 40.0
 const BG_NIGHT := Color(0.04, 0.05, 0.09)
 
 
@@ -28,10 +37,25 @@ static func make_environment() -> Environment:
 	env.tonemap_mode = Environment.TONE_MAPPER_FILMIC
 	env.tonemap_exposure = 1.0
 	env.glow_enabled = true
-	env.glow_intensity = 0.35
+	env.glow_intensity = 0.25
 	env.glow_bloom = 0.0
-	env.glow_hdr_threshold = 1.1
+	env.glow_hdr_threshold = 1.5
+	env.ssao_radius = 0.9
+	env.ssao_intensity = 1.3
+	env.ssao_power = 1.3
+	env.ssao_detail = 0.5
+	env.fog_mode = Environment.FOG_MODE_DEPTH
+	env.fog_sky_affect = 0.0
+	env.fog_depth_curve = 1.6
+	env.adjustment_enabled = true
 	return env
+
+
+func set_style(ssao: bool, fog: bool, grade: bool, cam_distance: float) -> void:
+	style_ssao = ssao
+	style_fog = fog
+	style_grade = grade
+	camera_distance = cam_distance
 
 
 func _process(_delta: float) -> void:
@@ -46,8 +70,17 @@ func apply(d: float, tw: float) -> void:
 			environment.background_color = Color(0.02, 0.02, 0.03)
 		else:
 			environment.ambient_light_color = AMBIENT_NIGHT.lerp(AMBIENT_DAY, d)
-			environment.ambient_light_energy = lerpf(0.42, 0.45, d)
+			environment.ambient_light_energy = lerpf(0.42, 0.5 if style_grade else 0.45, d)
 			environment.background_color = BG_NIGHT.lerp(BG_DAY, d)
+			environment.fog_enabled = style_fog
+			environment.fog_light_color = HAZE_NIGHT.lerp(HAZE_DAY, d)
+			environment.fog_light_energy = 1.0
+			environment.fog_density = 0.55
+			environment.fog_depth_begin = camera_distance - 2.0
+			environment.fog_depth_end = camera_distance + 26.0
+		environment.ssao_enabled = style_ssao
+		environment.adjustment_saturation = 1.04 if style_grade else 1.0
+		environment.adjustment_contrast = 1.06 if style_grade else 1.0
 	if sun:
 		var col := MOON.lerp(SUN_DAY, d)
 		col = col.lerp(SUN_TWILIGHT, tw * 0.7)

@@ -19,12 +19,14 @@ func build(camper: Node3D) -> void:
 	_off_mat = ProtoMesh.mat(Color(0.75, 0.78, 0.8), 0.2)
 	_tail_on = ProtoMesh.mat(Color(1, 0.2, 0.15), 0.3, Color(1.0, 0.1, 0.05), 3.0)
 	_tail_off = ProtoMesh.mat(Color(0.5, 0.1, 0.08), 0.3)
-	var half := CamperExterior.WIDTH * 0.5
+	var hl := CamperExterior.HEADLIGHT_LOCAL
+	var tl := CamperExterior.TAILLIGHT_LOCAL
 	for side in [-1.0, 1.0]:
-		_lamp_meshes.append(ProtoMesh.box(camper, Vector3(0.05, 0.16, 0.34), Vector3(3.64, 1.0, side * (half - 0.32)), _off_mat))
-		_tail_meshes.append(ProtoMesh.box(camper, Vector3(0.05, 0.4, 0.18), Vector3(-3.64, 1.0, side * (half - 0.15)), _tail_off))
+		var lamp_pos := Vector3(hl.x, hl.y, side * hl.z)
+		_lamp_meshes.append(ProtoMesh.cylinder(camper, 0.13, 0.06, lamp_pos, _off_mat, Vector3(0, 0, 90), 10))
+		_tail_meshes.append(ProtoMesh.box(camper, Vector3(0.05, 0.36, 0.16), Vector3(tl.x, tl.y, side * tl.z), _tail_off))
 		var spot := SpotLight3D.new()
-		spot.position = Vector3(3.75, 1.0, side * (half - 0.32))
+		spot.position = lamp_pos + Vector3(0.1, 0, 0)
 		# SpotLight shines along local -Z; turn to +X and tilt slightly down.
 		spot.rotation_degrees = Vector3(-9.0, -90.0, 0.0)
 		spot.light_color = Color(1.0, 0.96, 0.86)
