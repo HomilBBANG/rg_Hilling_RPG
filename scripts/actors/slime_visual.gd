@@ -41,7 +41,7 @@ static func sprite_bake_spec() -> Dictionary:
 			return rig,
 		"cols": SlimeRig.FRAMES,
 		"rows": SlimeRig.DIRECTIONS,
-		"cell": Vector2(1.6, 1.8),
+		"cell": Vector2(1.6, 2.8),
 	}
 
 

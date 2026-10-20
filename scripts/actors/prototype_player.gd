@@ -73,7 +73,9 @@ static func sprite_bake_spec() -> Dictionary:
 			return rig,
 		"cols": PlayerRig.column_count(),
 		"rows": PlayerRig.DIRECTIONS,
-		"cell": Vector2(2.7, 2.7),
+		# Cell is centred on the feet, so its half-height must exceed the projected head height
+		# (~2.05 m * cos(pitch)); 2.7 m clipped the top of the head.
+		"cell": Vector2(2.7, 4.2),
 		"albedo_setup": func(insts: Array[Node3D]) -> void:
 			for i in insts:
 				(i as PlayerRig).set_lantern(false),
