@@ -5,8 +5,8 @@ extends Node3D
 ## and live (shadow-only) so the baked sprite still casts a correct animated shadow.
 
 const ATTACK_TIME := 0.32
-## Short legs: hip height 0.6 m (was 0.8) for chubby, cute proportions.
-const HIP_HEIGHT := 0.6
+## Chibi proportions: tiny stubby legs (hip height 0.42 m), big round head and belly.
+const HIP_HEIGHT := 0.42
 ## Sprite sheet columns: [animation, frame count]. Rows are 8 facing directions.
 const ANIMS := [["idle", 2], ["walk", 8], ["attack", 5]]
 const DIRECTIONS := 8
@@ -52,13 +52,12 @@ static func direction_yaw(index: int) -> float:
 	return index * TAU / DIRECTIONS
 
 
-## Protagonist (pixel concept art, simplified and cute): chubby bald man, big brown moustache
-## and brows, rosy cheeks, open red plaid flannel over a white tank top, brown belt,
-## olive cargo pants, brown boots, short legs.
+## Protagonist (pixel concept art, simplified to chibi proportions): big round bald head,
+## dot eyes and a bushy brown moustache, round belly in a white tank top under an open red
+## plaid flannel, brown belt, tiny round olive legs and brown boots.
 ## Flat colours only; shading comes from the cel lighting.
 func _build() -> void:
 	var skin := ProtoMesh.mat(Color(0.95, 0.68, 0.5))
-	var cheek := ProtoMesh.mat(Color(0.96, 0.52, 0.46))
 	var stache := ProtoMesh.mat(Color(0.36, 0.22, 0.14))
 	var dark := ProtoMesh.mat(Color(0.1, 0.08, 0.08))
 	var tank := ProtoMesh.mat(Color(0.97, 0.96, 0.93))
@@ -75,53 +74,47 @@ func _build() -> void:
 	hips.position.y = HIP_HEIGHT
 	add_child(hips)
 
-	# Short legs: olive cargo pants with side pockets and a rolled hem, chunky brown boots
-	_leg_l = _limb(hips, Vector3(-0.15, 0.0, 0.0))
-	_leg_r = _limb(hips, Vector3(0.15, 0.0, 0.0))
+	# Tiny round legs: short olive pants, round brown boots
+	_leg_l = _limb(hips, Vector3(-0.14, 0.0, 0.0))
+	_leg_r = _limb(hips, Vector3(0.14, 0.0, 0.0))
 	for i in 2:
 		var leg: Node3D = [_leg_l, _leg_r][i]
-		var side := -1.0 if i == 0 else 1.0
-		ProtoMesh.capsule(leg, 0.15, 0.52, Vector3(0, -0.22, 0), pants)
-		ProtoMesh.box(leg, Vector3(0.06, 0.13, 0.15), Vector3(side * 0.15, -0.2, 0.0), pants_dark)
-		ProtoMesh.cylinder(leg, 0.15, 0.06, Vector3(0, -0.43, 0), pants_dark, Vector3.ZERO, 10)
-		ProtoMesh.cylinder(leg, 0.12, 0.09, Vector3(0, -0.5, -0.01), boot, Vector3.ZERO, 10)
-		ProtoMesh.box(leg, Vector3(0.22, 0.09, 0.34), Vector3(0, -0.555, -0.06), boot)
-		ProtoMesh.box(leg, Vector3(0.23, 0.03, 0.35), Vector3(0, -0.59, -0.06), boot_dark)
+		ProtoMesh.sphere(leg, 0.15, Vector3(0, -0.1, 0), pants, Vector3(1.0, 1.25, 1.0), 10, 6)
+		ProtoMesh.sphere(leg, 0.13, Vector3(0, -0.25, 0), pants_dark, Vector3(1.0, 0.7, 1.0), 10, 6)
+		ProtoMesh.sphere(leg, 0.13, Vector3(0, -0.34, -0.04), boot, Vector3(1.0, 0.75, 1.3), 10, 6)
+		ProtoMesh.box(leg, Vector3(0.2, 0.03, 0.3), Vector3(0, -0.405, -0.04), boot_dark)
 
 	# Torso: round belly in a white tank top, brown belt with a silver buckle
-	ProtoMesh.sphere(hips, 0.34, Vector3(0, 0.36, -0.06), tank, Vector3(0.95, 1.0, 0.95), 12, 8)
-	ProtoMesh.box(hips, Vector3(0.44, 0.26, 0.32), Vector3(0, 0.6, 0.02), tank)
+	ProtoMesh.sphere(hips, 0.36, Vector3(0, 0.34, -0.06), tank, Vector3(1.0, 1.0, 0.95), 12, 8)
+	ProtoMesh.sphere(hips, 0.26, Vector3(0, 0.6, 0.02), tank, Vector3(1.0, 0.7, 0.9), 12, 6)
 	ProtoMesh.box(hips, Vector3(0.18, 0.08, 0.05), Vector3(0, 0.7, -0.15), skin)
 	ProtoMesh.cylinder(hips, 0.33, 0.08, Vector3(0, 0.06, 0.0), belt, Vector3.ZERO, 12)
 	ProtoMesh.box(hips, Vector3(0.1, 0.07, 0.04), Vector3(0, 0.06, -0.33), buckle)
 	# Open red flannel shirt: back + side panels and collar, chest left open
 	ProtoMesh.sphere(hips, 0.36, Vector3(0, 0.4, 0.06), flannel, Vector3(1.05, 1.05, 0.9), 12, 8)
 	for side in [-1.0, 1.0]:
-		ProtoMesh.box(hips, Vector3(0.17, 0.64, 0.44), Vector3(side * 0.3, 0.4, -0.02), flannel, Vector3(0, 0, side * -4.0))
-		ProtoMesh.box(hips, Vector3(0.1, 0.58, 0.06), Vector3(side * 0.21, 0.4, -0.27), flannel, Vector3(0, side * 18.0, 0))
+		ProtoMesh.sphere(hips, 0.2, Vector3(side * 0.24, 0.42, 0.0), flannel, Vector3(0.75, 1.5, 1.05), 10, 6)
+		ProtoMesh.box(hips, Vector3(0.1, 0.5, 0.06), Vector3(side * 0.22, 0.42, -0.28), flannel, Vector3(0, side * 18.0, 0))
 		ProtoMesh.box(hips, Vector3(0.12, 0.06, 0.16), Vector3(side * 0.15, 0.73, -0.12), flannel_dark, Vector3(0, side * 25.0, side * -20.0))
 
-	# Head: big round bald head, ears, rosy cheeks, bushy brown moustache and brows
-	ProtoMesh.cylinder(hips, 0.12, 0.08, Vector3(0, 0.75, 0), skin, Vector3.ZERO, 8)
-	ProtoMesh.sphere(hips, 0.28, Vector3(0, 1.0, 0), skin, Vector3(1.0, 0.98, 0.95), 12, 8)
-	ProtoMesh.sphere(hips, 0.065, Vector3(0, 0.96, -0.27), skin, Vector3(1.1, 0.9, 1.0), 8, 5)
+	# Head: big round bald head, simple face: two dot eyes and a bushy moustache, small ears
+	ProtoMesh.cylinder(hips, 0.12, 0.08, Vector3(0, 0.74, 0), skin, Vector3.ZERO, 8)
+	ProtoMesh.sphere(hips, 0.31, Vector3(0, 1.0, 0), skin, Vector3(1.0, 0.97, 0.95), 12, 8)
 	for side in [-1.0, 1.0]:
-		ProtoMesh.sphere(hips, 0.07, Vector3(side * 0.28, 0.99, 0.02), skin, Vector3(0.55, 1.0, 0.9), 6, 4)
-		ProtoMesh.sphere(hips, 0.06, Vector3(side * 0.15, 0.93, -0.22), cheek, Vector3(1.0, 0.7, 0.5), 6, 4)
-		ProtoMesh.box(hips, Vector3(0.045, 0.07, 0.03), Vector3(side * 0.09, 1.03, -0.255), dark)
-		ProtoMesh.box(hips, Vector3(0.12, 0.045, 0.05), Vector3(side * 0.1, 1.1, -0.24), stache, Vector3(0, 0, side * -12.0))
-		ProtoMesh.box(hips, Vector3(0.19, 0.1, 0.08), Vector3(side * 0.1, 0.89, -0.25), stache, Vector3(0, 0, side * 20.0))
+		ProtoMesh.sphere(hips, 0.065, Vector3(side * 0.31, 0.98, 0.02), skin, Vector3(0.55, 1.0, 0.9), 6, 4)
+		ProtoMesh.box(hips, Vector3(0.06, 0.09, 0.05), Vector3(side * 0.1, 1.02, -0.3), dark)
+		ProtoMesh.box(hips, Vector3(0.2, 0.1, 0.08), Vector3(side * 0.1, 0.9, -0.28), stache, Vector3(0, 0, side * 18.0))
 
 	# Arms: flannel sleeves rolled to the elbow, bare forearms
-	_arm_l = _limb(hips, Vector3(-0.4, 0.62, 0.0))
-	_arm_r = _limb(hips, Vector3(0.4, 0.62, 0.0))
+	_arm_l = _limb(hips, Vector3(-0.4, 0.58, 0.0))
+	_arm_r = _limb(hips, Vector3(0.4, 0.58, 0.0))
 	for i in 2:
 		var arm: Node3D = [_arm_l, _arm_r][i]
-		ProtoMesh.capsule(arm, 0.13, 0.34, Vector3(0, -0.1, 0), flannel)
-		ProtoMesh.cylinder(arm, 0.135, 0.07, Vector3(0, -0.22, 0), flannel_dark, Vector3.ZERO, 10)
-		var elbow := _limb(arm, Vector3(0, -0.24, 0))
-		ProtoMesh.capsule(elbow, 0.095, 0.28, Vector3(0, -0.11, 0), skin)
-		ProtoMesh.sphere(elbow, 0.105, Vector3(0, -0.27, 0), skin)
+		ProtoMesh.sphere(arm, 0.14, Vector3(0, -0.06, 0), flannel, Vector3(1.0, 1.3, 1.0), 10, 6)
+		ProtoMesh.cylinder(arm, 0.13, 0.06, Vector3(0, -0.2, 0), flannel_dark, Vector3.ZERO, 10)
+		var elbow := _limb(arm, Vector3(0, -0.22, 0))
+		ProtoMesh.capsule(elbow, 0.095, 0.22, Vector3(0, -0.08, 0), skin)
+		ProtoMesh.sphere(elbow, 0.11, Vector3(0, -0.2, 0), skin)
 		if i == 0:
 			_elbow_l = elbow
 		else:
