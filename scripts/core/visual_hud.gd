@@ -1,0 +1,117 @@
+class_name VisualHud
+extends Control
+## High-resolution debug HUD (drawn outside the pixelated SubViewport so text stays sharp).
+## Positions are in the 1280x720 base canvas (window stretch mode = canvas_items).
+
+var font: Font
+var boot: Node
+
+var _status: Label
+var _hint: Label
+var _context: Label
+var _toast: Label
+var _help: PanelContainer
+var _pause: Label
+var _toast_time := 0.0
+
+const HELP_TEXT := """[P0 디버그 조작 — 프로토타입 전용, 최종 키 아님]
+WASD 이동 · Shift 달리기 · 마우스 클릭 = 기본 공격 1회(마우스 방향)
+F  캠핑카 외부 라이트 (캠핑카 근처에서만)
+1 / 2 / 3  PXL-COARSE 320×180 / PXL-SOFT 640×360 / 3D-NATIVE
+M  픽셀화 파이프라인 전환 (M1 SubViewport 확대 ↔ M2 3D 스케일링 nearest)
+P  모드3: 팔레트 제한 + 디더링 후처리 ON/OFF
+N  낮 ↔ 밤 (12:00 / 22:00)     T  시계 진행/정지 (1초 = 게임 1분)
+L  개인 등불(허리띠) ON/OFF       I  캠핑카 실내 ↔ 야외
+K  픽셀 스냅 카메라 ON/OFF (떨림 비교)   C  직교 ↔ 원근 투영
+X  가림 보조: 실루엣 → 수관 투명화 → 끔   - / =  카메라 규모(줌)
+F12 스크린샷 (user://captures)    ESC 일시정지    H 이 도움말"""
+
+
+func _ready() -> void:
+	set_anchors_preset(Control.PRESET_FULL_RECT)
+	mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var t := Theme.new()
+	t.default_font = font
+	t.default_font_size = 15
+	t.set_color("font_outline_color", "Label", Color(0, 0, 0, 0.85))
+	t.set_constant("outline_size", "Label", 5)
+	theme = t
+
+	_status = _label(Vector2(14, 10), 15)
+	_context = _label(Vector2(14, 0), 17)
+	_context.position = Vector2(340, 648)
+	_context.size = Vector2(600, 24)
+	_context.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_context.add_theme_color_override("font_color", Color(1.0, 0.92, 0.6))
+	_hint = _label(Vector2.ZERO, 14)
+	_hint.position = Vector2(14, 690)
+	_hint.text = "WASD 이동 · 클릭 공격 · F 캠핑카 라이트 · 1/2/3 렌더 · M 파이프라인 · N 낮밤 · L 등불 · I 실내 · H 도움말"
+	_toast = _label(Vector2.ZERO, 18)
+	_toast.position = Vector2(320, 150)
+	_toast.size = Vector2(640, 26)
+	_toast.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_pause = _label(Vector2.ZERO, 32)
+	_pause.position = Vector2(440, 330)
+	_pause.size = Vector2(400, 40)
+	_pause.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_pause.text = "일시정지 (ESC)"
+
+	_help = PanelContainer.new()
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = Color(0.05, 0.06, 0.08, 0.82)
+	sb.set_corner_radius_all(6)
+	sb.set_content_margin_all(14)
+	_help.add_theme_stylebox_override("panel", sb)
+	_help.position = Vector2(720, 12)
+	_help.size = Vector2(546, 0)
+	var help_label := Label.new()
+	help_label.text = HELP_TEXT
+	help_label.add_theme_font_size_override("font_size", 14)
+	_help.add_child(help_label)
+	add_child(_help)
+	_help.visible = true
+
+
+func _label(pos: Vector2, size: int) -> Label:
+	var l := Label.new()
+	l.position = pos
+	l.add_theme_font_size_override("font_size", size)
+	add_child(l)
+	return l
+
+
+func toggle_help() -> void:
+	_help.visible = not _help.visible
+
+
+func show_help_panel(on: bool) -> void:
+	_help.visible = on
+
+
+func toast(msg: String) -> void:
+	_toast.text = msg
+	_toast_time = 2.5
+
+
+func _process(delta: float) -> void:
+	_toast_time -= delta
+	_toast.visible = _toast_time > 0.0
+	_pause.visible = get_tree().paused
+	var r: PixelRenderController = boot.render
+	var w: Node = boot.world
+	if r == null or w == null:
+		return
+	var rs := r.render_size()
+	var cam: TopdownCamera = w.camera
+	var lines := PackedStringArray()
+	lines.append("Denial · P0 시각 검증 — %s" % w.world_title())
+	lines.append("시각 %s (%s)%s" % [Game.clock_text(), "밤" if Game.is_night() else "낮", "" if Game.clock_running else " ⏸"])
+	lines.append("렌더 %s  %d×%d ×%d  |  %s" % [r.preset_name(), rs.x, rs.y, int(r.texel_screen_size()), r.pipeline_name()])
+	lines.append("후처리(P) %s · 스냅(K) %s · 투영(C) %s · 화면높이 %.0fm" % [
+		"ON" if r.post_enabled else "OFF", "ON" if cam.snap_enabled else "OFF",
+		"직교" if cam.orthogonal else "원근", cam.view_height()])
+	lines.append("등불(L) %s · 캠핑카 라이트(F) %s · 가림 보조(X) %s" % [
+		"ON" if Game.lantern_on else "OFF", "ON" if Game.camper_lights_on else "OFF", w.occlusion_mode_name()])
+	lines.append("FPS %d" % Engine.get_frames_per_second())
+	_status.text = "\n".join(lines)
+	_context.text = w.context_hint()

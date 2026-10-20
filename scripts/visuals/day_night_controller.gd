@@ -1,0 +1,62 @@
+class_name DayNightController
+extends Node
+## Drives sun/moon light, ambient light and background from Game.daylight().
+## Exterior: full sun/moon cycle. Interior: only ambient + window glow change.
+## All values are tuning placeholders for the P0 comparison.
+
+@export var interior := false
+
+var sun: DirectionalLight3D
+var environment: Environment
+## Materials that glow as "daylight through windows" (interior).
+var window_materials: Array[StandardMaterial3D] = []
+
+const SUN_DAY := Color(1.0, 0.95, 0.86)
+const SUN_TWILIGHT := Color(1.0, 0.62, 0.38)
+const MOON := Color(0.6, 0.7, 1.0)
+const AMBIENT_DAY := Color(0.66, 0.72, 0.8)
+const AMBIENT_NIGHT := Color(0.24, 0.3, 0.5)
+const BG_DAY := Color(0.42, 0.56, 0.38)
+const BG_NIGHT := Color(0.04, 0.05, 0.09)
+
+
+static func make_environment() -> Environment:
+	var env := Environment.new()
+	env.background_mode = Environment.BG_COLOR
+	env.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
+	env.reflected_light_source = Environment.REFLECTION_SOURCE_DISABLED
+	env.tonemap_mode = Environment.TONE_MAPPER_FILMIC
+	env.tonemap_exposure = 1.0
+	env.glow_enabled = true
+	env.glow_intensity = 0.35
+	env.glow_bloom = 0.0
+	env.glow_hdr_threshold = 1.1
+	return env
+
+
+func _process(_delta: float) -> void:
+	apply(Game.daylight(), Game.twilight())
+
+
+func apply(d: float, tw: float) -> void:
+	if environment:
+		if interior:
+			environment.ambient_light_color = Color(0.55, 0.5, 0.45).lerp(Color(0.7, 0.68, 0.64), d)
+			environment.ambient_light_energy = lerpf(0.28, 0.5, d)
+			environment.background_color = Color(0.02, 0.02, 0.03)
+		else:
+			environment.ambient_light_color = AMBIENT_NIGHT.lerp(AMBIENT_DAY, d)
+			environment.ambient_light_energy = lerpf(0.42, 0.45, d)
+			environment.background_color = BG_NIGHT.lerp(BG_DAY, d)
+	if sun:
+		var col := MOON.lerp(SUN_DAY, d)
+		col = col.lerp(SUN_TWILIGHT, tw * 0.7)
+		sun.light_color = col
+		sun.light_energy = lerpf(0.3, 1.0, d)
+		# Sun from the south-east by day, moon from the south-west by night.
+		var day_rot := Vector3(deg_to_rad(-52.0), deg_to_rad(-35.0), 0.0)
+		var night_rot := Vector3(deg_to_rad(-62.0), deg_to_rad(28.0), 0.0)
+		sun.rotation = night_rot.lerp(day_rot, d)
+	for m in window_materials:
+		m.emission_energy_multiplier = lerpf(0.05, 1.4, d)
+		m.emission = Color(0.25, 0.3, 0.5).lerp(Color(0.85, 0.92, 1.0), d)

@@ -1,0 +1,167 @@
+class_name PixelRenderController
+extends Control
+## Renders a 3D world into a low-res SubViewport and shows it upscaled with nearest filtering.
+## HUD/UI must live outside this control (e.g. a CanvasLayer) so text stays sharp.
+##
+## Two pipelines can be compared (GRAPHICS_PROTOTYPE.md section 2):
+##  - SUBVIEWPORT: SubViewport has the low resolution itself, TextureRect does integer upscale.
+##  - SCALING_3D:  SubViewport stays at output resolution, Viewport.scaling_3d_mode = NEAREST
+##                 renders only the 3D at a fraction of it.
+## Both keep a 1-texel margin so the pixel-snapping camera can be compensated by sub-texel
+## offsets of the displayed image (smooth scrolling without world shimmer).
+
+enum Pipeline { SUBVIEWPORT, SCALING_3D }
+
+const OUTPUT_SIZE := Vector2i(1280, 720)
+const PRESETS: Array[Dictionary] = [
+	{"name": "PXL-COARSE", "size": Vector2i(320, 180)},
+	{"name": "PXL-SOFT", "size": Vector2i(640, 360)},
+	{"name": "3D-NATIVE", "size": Vector2i(1280, 720)},
+]
+const MARGIN_TEXELS := 1
+
+signal settings_changed
+
+@export var preset_index := 0
+@export var pipeline: Pipeline = Pipeline.SUBVIEWPORT
+@export var post_enabled := false
+
+var viewport: SubViewport
+var display: TextureRect
+## World scenes are added under this node.
+var world_root: Node3D
+
+var _post_material: ShaderMaterial
+var _texel_screen := 4.0
+
+
+func _ready() -> void:
+	# Parent is a plain Node, so anchors would resolve to zero size: size explicitly.
+	position = Vector2.ZERO
+	size = Vector2(OUTPUT_SIZE)
+	clip_contents = true
+	mouse_filter = Control.MOUSE_FILTER_IGNORE
+
+	viewport = SubViewport.new()
+	viewport.name = "WorldViewport"
+	viewport.render_target_update_mode = SubViewport.UPDATE_ALWAYS
+	viewport.msaa_3d = Viewport.MSAA_DISABLED
+	viewport.screen_space_aa = Viewport.SCREEN_SPACE_AA_DISABLED
+	viewport.positional_shadow_atlas_size = 4096
+	viewport.audio_listener_enable_3d = true
+	add_child(viewport)
+
+	world_root = Node3D.new()
+	world_root.name = "WorldRoot"
+	viewport.add_child(world_root)
+
+	display = TextureRect.new()
+	display.name = "Display"
+	display.texture = viewport.get_texture()
+	display.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	display.stretch_mode = TextureRect.STRETCH_SCALE
+	display.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	display.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(display)
+
+	_post_material = ShaderMaterial.new()
+	_post_material.shader = preload("res://shaders/optional_palette_dither.gdshader")
+
+	apply_settings()
+
+
+func preset_name() -> String:
+	return PRESETS[preset_index]["name"]
+
+
+func render_size() -> Vector2i:
+	return PRESETS[preset_index]["size"]
+
+
+func pipeline_name() -> String:
+	if preset_index == PRESETS.size() - 1:
+		return "원본 3D (픽셀화 OFF)"
+	return "M1 SubViewport 확대" if pipeline == Pipeline.SUBVIEWPORT else "M2 3D 스케일링(nearest)"
+
+
+## Size of one render texel in screen (output) pixels.
+func texel_screen_size() -> float:
+	return _texel_screen
+
+
+func set_preset(index: int) -> void:
+	preset_index = clampi(index, 0, PRESETS.size() - 1)
+	apply_settings()
+
+
+func toggle_pipeline() -> void:
+	pipeline = Pipeline.SCALING_3D if pipeline == Pipeline.SUBVIEWPORT else Pipeline.SUBVIEWPORT
+	apply_settings()
+
+
+func set_post_enabled(on: bool) -> void:
+	post_enabled = on
+	apply_settings()
+
+
+func apply_settings() -> void:
+	if viewport == null:
+		return
+	var rs := render_size()
+	var factor := maxi(1, OUTPUT_SIZE.y / rs.y)
+	_texel_screen = float(factor)
+	var margin_px := MARGIN_TEXELS * factor
+	if pipeline == Pipeline.SCALING_3D and factor > 1:
+		viewport.size = OUTPUT_SIZE + Vector2i(margin_px, margin_px) * 2
+		viewport.scaling_3d_mode = Viewport.SCALING_3D_MODE_NEAREST
+		viewport.scaling_3d_scale = 1.0 / factor
+		display.size = Vector2(viewport.size)
+	else:
+		viewport.size = rs + Vector2i(MARGIN_TEXELS, MARGIN_TEXELS) * 2
+		viewport.scaling_3d_mode = Viewport.SCALING_3D_MODE_BILINEAR
+		viewport.scaling_3d_scale = 1.0
+		display.size = Vector2(viewport.size * factor)
+	display.position = Vector2(-margin_px, -margin_px)
+
+	if post_enabled:
+		display.material = _post_material
+		# In SCALING_3D the texture is full-res, so the dither must work on factor-sized blocks.
+		var block := factor if pipeline == Pipeline.SCALING_3D else 1
+		_post_material.set_shader_parameter("block_size", float(block))
+	else:
+		display.material = null
+	settings_changed.emit()
+
+
+## Vertical texel count the camera must cover (render height incl. margin) and the
+## world->texel ratio the camera should use for snapping.
+func render_texel_height() -> int:
+	return render_size().y
+
+
+## Sub-texel compensation from a snapping camera (in render texels, +x right, +y up).
+func set_subtexel_offset(offset_texels: Vector2) -> void:
+	var margin_px := MARGIN_TEXELS * _texel_screen
+	display.position = Vector2(-margin_px, -margin_px) \
+			+ Vector2(-offset_texels.x, offset_texels.y) * _texel_screen
+
+
+## Converts a position on this control (screen space) to SubViewport coordinates.
+func screen_to_viewport(screen_pos: Vector2) -> Vector2:
+	var local := screen_pos - display.global_position
+	return local * Vector2(viewport.size) / display.size
+
+
+func get_world_camera() -> Camera3D:
+	return viewport.get_camera_3d()
+
+
+## Mouse ray hit on the horizontal plane y = plane_y. Returns null if no camera / no hit.
+func mouse_on_plane(plane_y: float) -> Variant:
+	var cam := get_world_camera()
+	if cam == null:
+		return null
+	var vp_pos := screen_to_viewport(display.get_global_mouse_position())
+	var origin := cam.project_ray_origin(vp_pos)
+	var dir := cam.project_ray_normal(vp_pos)
+	return Plane(Vector3.UP, plane_y).intersects_ray(origin, dir)
