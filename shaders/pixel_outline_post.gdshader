@@ -25,6 +25,7 @@ uniform vec3 outline_tint : source_color = vec3(0.08, 0.04, 0.12);
 uniform float outline_tint_amount : hint_range(0.0, 1.0) = 0.0;
 // Foliage-only mode: outline just the leaf clumps (roughness tag 0.91), nothing else.
 uniform bool foliage_only = false;
+uniform bool highlight_enabled = true;
 uniform vec3 foliage_outline_tint : source_color = vec3(0.04, 0.12, 0.12);
 
 void vertex() {
@@ -69,7 +70,7 @@ void fragment() {
 		normal_edge += max(0.0, along) * same_surface * step(normal_threshold, length(diff));
 	}
 	vec3 base = texture(screen_tex, uv).rgb;
-	if (foliage_only) {
+	if (is_foliage || foliage_only) {
 		if (depth_edge > depth_threshold) {
 			ALBEDO = mix(base * 0.42, foliage_outline_tint, 0.35);
 		} else {
@@ -83,7 +84,7 @@ void fragment() {
 			dark = mix(dark, dark * vec3(0.85, 0.8, 1.0), 0.5);
 			ALBEDO = mix(dark, outline_tint, outline_tint_amount);
 		}
-	} else if (normal_edge > 0.2 && c_nr.w < 0.8) {
+	} else if (highlight_enabled && normal_edge > 0.2 && c_nr.w < 0.8) {
 		ALBEDO = base + (vec3(1.0, 0.97, 0.88) - base) * highlight_strength;
 	} else {
 		discard;

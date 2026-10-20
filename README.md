@@ -48,7 +48,7 @@ git clone -b claude/gallant-edison-84bkyp https://github.com/HomilBBANG/rg_Hilli
 | 마우스 왼쪽 클릭 | 기본 공격 모션 1회 (마우스 방향, 누르고 있어도 반복 안 함) |
 | `F` | 캠핑카 외부 라이트 ON/OFF (캠핑카 7.5m 이내에서만) |
 | `V` | **카메라 스타일 A(기존 기능형) → B(개선된 탑다운) → C(기울어진 디오라마) → D(데드셀풍 픽셀)**. 시작은 D |
-| `O` | 픽셀 외곽선 ON/OFF (**기본 OFF**, Forward+ 전용; D의 림라이트도 이 패스에 포함) |
+| `O` | 픽셀 외곽선 ON/OFF (**기본 ON**: 실루엣 1픽셀 짙은 선, Forward+ 전용) |
 | `Z` | 스프라이트 파이프라인 ON/OFF — 캐릭터·슬라임·캠핑카를 3D 모델에서 구운 픽셀 스프라이트로 그릴지, 실시간 3D로 그릴지 |
 | `1` / `2` / `3` / `4` | **PXL-COARSE 320×180 (×6)** / **PXL-MID 480×270 (×4, 기본)** / **PXL-SOFT 640×360 (×3)** / **3D-NATIVE 1920×1080(픽셀화 OFF)** |
 | `M` | 픽셀화 파이프라인 전환: M1 SubViewport 확대 ↔ M2 3D 해상도 스케일링(nearest) |

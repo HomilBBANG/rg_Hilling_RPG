@@ -105,10 +105,12 @@ func set_look(look: String) -> void:
 		return
 	var m := _outline_quad.material_override as ShaderMaterial
 	var dc := look == "deadcells"
-	m.set_shader_parameter("rim_enabled", dc)
-	m.set_shader_parameter("outline_darkness", 0.62 if dc else 0.42)
-	m.set_shader_parameter("outline_tint_amount", 0.45 if dc else 0.0)
-	m.set_shader_parameter("highlight_strength", 0.38 if dc else 0.28)
+	# D: thin dark 1-px silhouette outlines only (no rim light, no crease highlights).
+	m.set_shader_parameter("rim_enabled", false)
+	m.set_shader_parameter("highlight_enabled", not dc)
+	m.set_shader_parameter("outline_darkness", 0.72 if dc else 0.42)
+	m.set_shader_parameter("outline_tint_amount", 0.55 if dc else 0.0)
+	m.set_shader_parameter("outline_tint", Color(0.1, 0.08, 0.13))
 
 
 func apply_style(style: Dictionary) -> void:

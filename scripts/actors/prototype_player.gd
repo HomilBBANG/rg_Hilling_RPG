@@ -57,6 +57,7 @@ func _ready() -> void:
 	# The lantern hangs on the body: don't let the body itself cast its shadow
 	# (otherwise a huge wedge of darkness follows the player).
 	lantern_light.shadow_caster_mask = 0xFFFFF & ~SELF_LAYER
+	lantern_light.light_cull_mask = 0xFFFFF & ~SELF_LAYER
 	lantern_light.visible = false
 	model.lantern_anchor.add_child(lantern_light)
 	_setup_silhouette(Color(1.0, 0.95, 0.8, 0.4))
@@ -101,6 +102,9 @@ func use_sprite_sheet(sheet: SpriteSheet) -> void:
 		sprite.name = "Sprite"
 		sprite.anchor = self
 		sprite.set_silhouette_color(Color(1.0, 0.95, 0.8, 0.4))
+		# Own layer only: the hip lantern sits practically inside the body and turned the
+		# sprite into speckle at night; it still lights the surroundings.
+		sprite.layers = SELF_LAYER
 		add_child(sprite)
 	sprite.set_sheet(sheet)
 	sprite.set_silhouette(silhouette_enabled)

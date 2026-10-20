@@ -23,7 +23,7 @@ WASD 이동 · Shift 달리기 · 마우스 클릭 = 기본 공격 1회(마우�
 F  캠핑카 외부 라이트 (캠핑카 근처에서만)
 V  카메라 스타일 A(기존) → B(개선 탑다운) → C(디오라마) → D(데드셀풍)
 Z  스프라이트 파이프라인: 3D 모델→렌더→픽셀 스프라이트 ON/OFF
-O  픽셀 외곽선 ON/OFF (기본 OFF)
+O  픽셀 외곽선 ON/OFF (기본 ON)
 1/2/3/4  PXL-COARSE 320×180 / PXL-MID 480×270 / PXL-SOFT 640×360 / 3D-NATIVE
 M  픽셀화 파이프라인 전환 (M1 SubViewport 확대 ↔ M2 3D 스케일링 nearest)
 P  모드3: 팔레트 제한 + 디더링 후처리 ON/OFF

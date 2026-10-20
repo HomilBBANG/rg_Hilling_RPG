@@ -15,7 +15,7 @@ var _orthogonal := true
 var _zoom_index := 4  # 13 m view height (style D default)
 ## Camera comparison style (TopdownCamera.STYLES): 0 = A, 1 = B, 2 = C, 3 = D (default).
 var style_index := 3
-var _outline_user := false  # outlines off by default (O turns them back on)
+var _outline_user := true  # thin dark silhouette outlines (O toggles)
 ## Pre-rendered sprite pipeline for player / slime / camper (key Z).
 var sprites_enabled := true
 var baker: SpriteBaker
