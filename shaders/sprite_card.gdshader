@@ -12,6 +12,9 @@ uniform vec4 frame_rect = vec4(0.0, 0.0, 1.0, 1.0);  // uv offset (xy) and size 
 uniform float emission_energy = 1.0;
 uniform float roughness_value = 0.7;
 uniform float light_offset = 0.04;
+// Lighting point is also pulled toward the camera (which faces the sun side) so the sprite's
+// own shadow-only 3D model doesn't shade small protruding parts (moustache top looked blue).
+uniform float self_shadow_escape = 0.35;
 // Classic pixel-sprite outline: the sprite's own border texels are drawn in a dark colour.
 uniform bool sprite_outline = true;
 uniform vec3 outline_color : source_color = vec3(0.13, 0.08, 0.12);
@@ -41,7 +44,7 @@ void fragment() {
 	// so the shadow-only 3D model doesn't darken its own sprite.
 	// Small push along the normal: the reconstructed surface can sit a hair inside the
 	// shadow-only mesh, which otherwise shows up as shadow-acne rings.
-	LIGHT_VERTEX = surface + NORMAL * light_offset;
+	LIGHT_VERTEX = surface + NORMAL * light_offset + vec3(0.0, 0.0, self_shadow_escape);
 	EMISSION = border ? vec3(0.0) : texture(emission_tex, uv).rgb * emission_energy;
 	ROUGHNESS = roughness_value;
 }

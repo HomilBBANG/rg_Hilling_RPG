@@ -108,9 +108,9 @@ func _build() -> void:
 		ProtoMesh.sphere(hips, 0.04, Vector3(side * 0.335, 0.98, 0.0), ear_inner, Vector3(0.6, 1.0, 0.8), 6, 4)
 		# eyes sit on the curve of the face so they also show in 3/4 and profile views
 		# No eyes: thick bushy brows painted flat over the eye area carry the expression.
-		# Each brow = a full-width bottom row plus a shorter top row on the inner side, so the
+		# Each brow = two full-width rows plus a shorter top row on the inner side, so the
 		# outer end sits lower (soft, kind look) without tilting (tilts alias into a frown).
-		for piece in [[0.105, 0.06, 0.12, 0.04], [0.085, 0.095, 0.08, 0.04]]:
+		for piece in [[0.105, 0.05, 0.13, 0.04], [0.105, 0.085, 0.13, 0.04], [0.085, 0.12, 0.09, 0.04]]:
 			var brow := ProtoMesh.box(hips, Vector3(piece[2], piece[3], 0.004), Vector3.ZERO, stache)
 			brow.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 			var radii := Vector3(0.31, 0.31 * 0.97, 0.31 * 0.95)
