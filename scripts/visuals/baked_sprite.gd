@@ -84,11 +84,7 @@ func _process(_delta: float) -> void:
 	var basis := Basis.from_euler(Vector3(deg_to_rad(-sheet.pitch), 0.0, 0.0))
 	var local := basis.inverse() * anchor.global_position
 	var t := sheet.texel
-	# Snap in the camera plane; keep depth continuous. The camera also sits on this grid, so
-	# card pixel edges match screen texel edges when (screen px - cell px) is even; otherwise
-	# shift by half a texel.
-	var ox := 0.5 * t if (sheet.screen_px.x - sheet.cell_px.x) % 2 != 0 else 0.0
-	var oy := 0.5 * t if (sheet.screen_px.y - sheet.cell_px.y) % 2 != 0 else 0.0
-	local.x = roundf((local.x - ox) / t) * t + ox
-	local.y = roundf((local.y - oy) / t) * t + oy
+	# Snap in the camera plane (cell parity matches the screen, see SpriteBaker); keep depth.
+	local.x = roundf(local.x / t) * t
+	local.y = roundf(local.y / t) * t
 	global_transform = Transform3D(basis, basis * local)

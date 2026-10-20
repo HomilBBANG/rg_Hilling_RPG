@@ -384,18 +384,21 @@ func sprite_targets() -> Array:
 	]
 
 
-## Flat cel mode hides the flower patches (small bright specks read as noise/sparkle).
+## Flat cel mode hides flowers, swaying grass tufts and pebbles: once pixelated they are
+## single bright/dark texels that change every frame (wind) and read as ground sparkle.
 func set_detail(v: float) -> void:
-	for f in get_tree().get_nodes_in_group("flowers"):
-		if is_ancestor_of(f):
-			(f as Node3D).visible = v > 0.5
+	for group in ["flowers", "ground_detail"]:
+		for f in get_tree().get_nodes_in_group(group):
+			if is_ancestor_of(f):
+				(f as Node3D).visible = v > 0.5
 
 
 ## Extra atmosphere for the Dead Cells-like look (floating glowing motes).
-func set_fx(on: bool) -> void:
+func set_fx(_on: bool) -> void:
+	# Floating motes were removed from the look (read as sparkle); campfire embers stay.
 	if _motes:
-		_motes.visible = on
-		_motes.emitting = on
+		_motes.visible = false
+		_motes.emitting = false
 
 
 func _process(delta: float) -> void:

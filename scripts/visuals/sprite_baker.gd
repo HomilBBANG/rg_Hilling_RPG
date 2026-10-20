@@ -68,6 +68,12 @@ func bake(spec: Dictionary) -> SpriteSheet:
 	sheet.screen_px = spec.get("screen_px", sheet.screen_px)
 	var cell: Vector2 = spec["cell"]
 	sheet.cell_px = Vector2i(ceili(cell.x / sheet.texel), ceili(cell.y / sheet.texel))
+	# Same parity as the render viewport: the card's pixel grid then matches the screen grid
+	# with plain rounding (no half-texel offset that could flip between frames).
+	if (sheet.screen_px.x - sheet.cell_px.x) % 2 != 0:
+		sheet.cell_px.x += 1
+	if (sheet.screen_px.y - sheet.cell_px.y) % 2 != 0:
+		sheet.cell_px.y += 1
 	sheet.cell_m = Vector2(sheet.cell_px) * sheet.texel
 	_vp.size = Vector2i(sheet.cell_px.x * sheet.cols, sheet.cell_px.y * sheet.rows)
 

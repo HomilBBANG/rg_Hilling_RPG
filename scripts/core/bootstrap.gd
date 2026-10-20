@@ -201,6 +201,10 @@ func _parse_args() -> void:
 		_run_shot_tour()
 	elif tour == "styles":
 		_run_style_tour()
+	elif tour == "rawframes":
+		_run_rawframes()
+	elif tour == "walk_d":
+		_run_walk_d()
 	elif tour == "hd":
 		_run_hd_tour()
 	elif tour == "sprites":
@@ -538,4 +542,39 @@ func _run_hd_tour() -> void:
 			await _frames(25)
 			await _shot("hd_%s_outline_%s.png" % [sdef[0], "on" if outline else "off"])
 	_outline_user = false
+	get_tree().quit()
+
+
+## Movement check for the default look (D + baked sprites): walk a loop around the camp.
+func _run_walk_d() -> void:
+	_touring = true
+	hud.show_help_panel(false)
+	hud.set_capture_mode(true, "")
+	Game.clock_running = false
+	Game.minute_of_day = 10.5 * 60.0
+	await wait_for_sprites()
+	var p: PrototypePlayer = world.player
+	_place_player(Vector3(-3.0, 0, 3.5), 0.0)
+	for goal in [Vector2(3.0, 3.0), Vector2(4.0, -1.5), Vector2(-1.0, -0.5), Vector2(-3.0, 3.5)]:
+		await _walk_to(p, goal)
+	p.scripted_move = Vector2.ZERO
+	await _frames(20)
+	get_tree().quit()
+
+
+## Saves the raw low-res render (SubViewport) every frame: idle, then walking right, then diagonal.
+func _run_rawframes() -> void:
+	_touring = true
+	Game.clock_running = false
+	Game.minute_of_day = 10.5 * 60.0
+	await wait_for_sprites()
+	var p: PrototypePlayer = world.player
+	_place_player(Vector3(0.0, 0, 2.5), 0.0)
+	await _frames(10)
+	var phases := [[Vector2.ZERO, 40, "idle"], [Vector2(1, 0), 40, "right"], [Vector2(0.8, -0.6), 40, "diag"]]
+	for ph: Array in phases:
+		p.scripted_move = ph[0]
+		for i in ph[1]:
+			await RenderingServer.frame_post_draw
+			render.viewport.get_texture().get_image().save_png(_capture_dir.path_join("%s_%03d.png" % [ph[2], i]))
 	get_tree().quit()

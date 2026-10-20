@@ -35,6 +35,8 @@ const STYLES: Array[Dictionary] = [
 var target: Node3D
 var render: PixelRenderController
 var snap_enabled := true
+## Rigid texel-locked follow (no smoothing). Off = smoothed follow with sub-texel scrolling.
+var pixel_lock := true
 var orthogonal := true
 
 var outline_enabled := true
@@ -175,7 +177,16 @@ func _process(delta: float) -> void:
 	var b := Basis.from_euler(Vector3(deg_to_rad(-pitch_degrees), 0.0, 0.0))
 	var desired := _focus + b.z * _camera_distance()
 	var offset := Vector2.ZERO
-	if orthogonal and snap_enabled:
+	if orthogonal and snap_enabled and pixel_lock:
+		# Rigid follow on the texel grid: camera = snapped(target) + whole-texel offset, the same
+		# rounding the sprite card uses, so the player never jitters by a texel against the
+		# camera (a smoothed camera stepping 2/3 texels per frame out of phase did).
+		var texel := view_height() / float(_texel_height())
+		var lt := b.inverse() * target.global_position
+		var lo := b.inverse() * (Vector3(0.0, 0.8, 0.0) + focus_offset + b.z * _camera_distance())
+		desired = b * Vector3(roundf(lt.x / texel) * texel + roundf(lo.x / texel) * texel,
+				roundf(lt.y / texel) * texel + roundf(lo.y / texel) * texel, lt.z + lo.z)
+	elif orthogonal and snap_enabled:
 		var texel := view_height() / float(_texel_height())
 		var local := b.inverse() * desired
 		var sx := roundf(local.x / texel) * texel

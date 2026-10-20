@@ -92,7 +92,7 @@ func _label(pos: Vector2, size: int) -> Label:
 
 ## Clean capture mode: hide debug text, show only a caption line.
 func set_capture_mode(on: bool, caption := "") -> void:
-	for c in [_status, _hint, _context, _toast]:
+	for c in [_status, _hint, _context, _toast, _pause]:
 		c.visible = not on
 	_capture_mode = on
 	_caption.text = caption

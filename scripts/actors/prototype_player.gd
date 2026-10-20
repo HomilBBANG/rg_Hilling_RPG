@@ -225,7 +225,7 @@ func _update_sprite_frame(moving: bool) -> void:
 		var n: int = PlayerRig.ANIMS[1][1]
 		col = PlayerRig.column_for("walk", int(fposmod(_walk_phase, TAU) / TAU * n) % n)
 	else:
-		col = PlayerRig.column_for("idle", int(Time.get_ticks_msec() / 600) % 2)
+		col = PlayerRig.column_for("idle", 0)
 	sprite.set_frame(col, PlayerRig.direction_index(_yaw))
 	sprite.set_emission("default", 1.0 if Game.lantern_on else 0.0)
 
