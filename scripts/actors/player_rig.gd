@@ -58,6 +58,8 @@ static func direction_yaw(index: int) -> float:
 ## Flat colours only; shading comes from the cel lighting.
 func _build() -> void:
 	var skin := ProtoMesh.mat(Color(0.95, 0.68, 0.5))
+	var skin_shade := ProtoMesh.mat(Color(0.86, 0.56, 0.42))
+	var ear_inner := ProtoMesh.mat(Color(0.72, 0.42, 0.34))
 	var stache := ProtoMesh.mat(Color(0.36, 0.22, 0.14))
 	var dark := ProtoMesh.mat(Color(0.1, 0.08, 0.08))
 	var tank := ProtoMesh.mat(Color(0.97, 0.96, 0.93))
@@ -84,26 +86,29 @@ func _build() -> void:
 		ProtoMesh.sphere(leg, 0.13, Vector3(0, -0.34, -0.04), boot, Vector3(1.0, 0.75, 1.3), 10, 6)
 		ProtoMesh.box(leg, Vector3(0.2, 0.03, 0.3), Vector3(0, -0.405, -0.04), boot_dark)
 
-	# Torso: round belly in a white tank top, brown belt with a silver buckle
-	ProtoMesh.sphere(hips, 0.36, Vector3(0, 0.34, -0.06), tank, Vector3(1.0, 1.0, 0.95), 12, 8)
-	ProtoMesh.sphere(hips, 0.26, Vector3(0, 0.6, 0.02), tank, Vector3(1.0, 0.7, 0.9), 12, 6)
-	ProtoMesh.box(hips, Vector3(0.18, 0.08, 0.05), Vector3(0, 0.7, -0.15), skin)
-	ProtoMesh.cylinder(hips, 0.33, 0.08, Vector3(0, 0.06, 0.0), belt, Vector3.ZERO, 12)
-	ProtoMesh.box(hips, Vector3(0.1, 0.07, 0.04), Vector3(0, 0.06, -0.33), buckle)
-	# Open red flannel shirt: back + side panels and collar, chest left open
-	ProtoMesh.sphere(hips, 0.36, Vector3(0, 0.4, 0.06), flannel, Vector3(1.05, 1.05, 0.9), 12, 8)
+	# Torso: closed round flannel body; the white tank top shows only as a front panel
+	# in the open shirt (it used to poke out at the sides/back).
+	ProtoMesh.sphere(hips, 0.36, Vector3(0, 0.38, 0.0), flannel, Vector3(1.05, 1.08, 0.95), 12, 8)
+	ProtoMesh.sphere(hips, 0.2, Vector3(0, 0.36, -0.27), tank, Vector3(1.05, 1.5, 0.5), 12, 8)
+	ProtoMesh.box(hips, Vector3(0.16, 0.08, 0.05), Vector3(0, 0.7, -0.2), skin)
+	ProtoMesh.cylinder(hips, 0.34, 0.08, Vector3(0, 0.06, 0.0), belt, Vector3.ZERO, 12)
+	ProtoMesh.box(hips, Vector3(0.1, 0.07, 0.04), Vector3(0, 0.06, -0.34), buckle)
 	for side in [-1.0, 1.0]:
-		ProtoMesh.sphere(hips, 0.2, Vector3(side * 0.24, 0.42, 0.0), flannel, Vector3(0.75, 1.5, 1.05), 10, 6)
-		ProtoMesh.box(hips, Vector3(0.1, 0.5, 0.06), Vector3(side * 0.22, 0.42, -0.28), flannel, Vector3(0, side * 18.0, 0))
+		# shirt front edges framing the tank, collar
+		ProtoMesh.box(hips, Vector3(0.06, 0.46, 0.05), Vector3(side * 0.23, 0.38, -0.3), flannel_dark, Vector3(0, side * 35.0, 0))
 		ProtoMesh.box(hips, Vector3(0.12, 0.06, 0.16), Vector3(side * 0.15, 0.73, -0.12), flannel_dark, Vector3(0, side * 25.0, side * -20.0))
 
-	# Head: big round bald head, simple face: two dot eyes and a bushy moustache, small ears
+	# Head: big round bald head, simple face: dot eyes, small nose, bushy moustache, shaded ears
 	ProtoMesh.cylinder(hips, 0.12, 0.08, Vector3(0, 0.74, 0), skin, Vector3.ZERO, 8)
 	ProtoMesh.sphere(hips, 0.31, Vector3(0, 1.0, 0), skin, Vector3(1.0, 0.97, 0.95), 12, 8)
+	# nose + moustache stick out in front so the profile reads in side views
+	ProtoMesh.sphere(hips, 0.08, Vector3(0, 0.97, -0.33), skin_shade, Vector3(1.0, 0.9, 1.25), 8, 5)
 	for side in [-1.0, 1.0]:
-		ProtoMesh.sphere(hips, 0.065, Vector3(side * 0.31, 0.98, 0.02), skin, Vector3(0.55, 1.0, 0.9), 6, 4)
-		ProtoMesh.box(hips, Vector3(0.06, 0.09, 0.05), Vector3(side * 0.1, 1.02, -0.3), dark)
-		ProtoMesh.box(hips, Vector3(0.2, 0.1, 0.08), Vector3(side * 0.1, 0.9, -0.28), stache, Vector3(0, 0, side * 18.0))
+		ProtoMesh.sphere(hips, 0.08, Vector3(side * 0.3, 0.98, 0.02), skin_shade, Vector3(0.55, 1.0, 0.85), 6, 4)
+		ProtoMesh.sphere(hips, 0.04, Vector3(side * 0.335, 0.98, 0.0), ear_inner, Vector3(0.6, 1.0, 0.8), 6, 4)
+		# eyes sit on the curve of the face so they also show in 3/4 and profile views
+		ProtoMesh.box(hips, Vector3(0.06, 0.09, 0.06), Vector3(side * 0.12, 1.07, -0.27), dark, Vector3(0, side * -25.0, 0))
+		ProtoMesh.box(hips, Vector3(0.2, 0.11, 0.22), Vector3(side * 0.1, 0.88, -0.31), stache, Vector3(0, 0, side * 18.0))
 
 	# Arms: flannel sleeves rolled to the elbow, bare forearms
 	_arm_l = _limb(hips, Vector3(-0.4, 0.58, 0.0))
