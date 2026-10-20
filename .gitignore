@@ -5,5 +5,3 @@
 export_presets.cfg
 # Captures: keep committed PNG/GIF/MP4, ignore raw movie-maker output
 captures/*.avi
-# Textures Godot extracts from the GLB on import (regenerated automatically)
-assets/models/camper_van_tripo_*

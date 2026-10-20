@@ -7,7 +7,6 @@
 ![디오라마 탑다운 C](captures/visual_direction/style_C_PXL-MID.png)
 
 > **비주얼 방향 수정(디오라마형 3D 픽셀풍)과 카메라 A/B/C 비교 결과:** [`notes/VISUAL_DIRECTION.md`](notes/VISUAL_DIRECTION.md)
-> **캠핑카 모델 비교(절차형 vs Tripo GLB):** [`notes/CAMPER_MODEL_COMPARISON.md`](notes/CAMPER_MODEL_COMPARISON.md)
 
 ## 요구 사항
 
@@ -16,7 +15,7 @@
 | 엔진 | **Godot 4.7.x 표준판**(.NET 판 불필요). 4.7.2-stable로 작성·검증 |
 | 렌더러 | Forward+ (기본). Vulkan을 지원하는 GPU 필요 |
 | 저사양 대안 | Compatibility(OpenGL) 렌더러로도 실행 확인됨 (아래 "실행" 참고) |
-| 외부 에셋 | 폰트(나눔고딕, SIL OFL 1.1, `assets/fonts/LICENSE_NanumGothic.txt`), 비교용 캠핑카 GLB(사용자 제공, Tripo AI 생성, **라이선스 미확인** — `assets/models/SOURCE.md`). 그 외 모델·재질·셰이더는 코드로 생성 |
+| 외부 에셋 | 없음. 모든 모델·재질·셰이더를 코드로 생성. 폰트만 포함(나눔고딕, SIL OFL 1.1, `assets/fonts/LICENSE_NanumGothic.txt`) |
 
 ## 설치 (`C:/Game/denial`)
 
@@ -48,7 +47,6 @@ git clone -b claude/gallant-edison-84bkyp https://github.com/HomilBBANG/rg_Hilli
 | `F` | 캠핑카 외부 라이트 ON/OFF (캠핑카 7.5m 이내에서만) |
 | `V` | **카메라 스타일 A(기존 기능형) → B(개선된 탑다운) → C(기울어진 디오라마)**. 시작은 C |
 | `O` | 픽셀 외곽선 ON/OFF (B/C, Forward+ 전용) |
-| `G` | 캠핑카 모델: 절차형 → Tripo GLB(원본 PBR) → Tripo GLB(툰 변환) |
 | `1` / `2` / `3` / `4` | **PXL-COARSE 320×180** / **PXL-MID 427×240(기본)** / **PXL-SOFT 640×360** / **3D-NATIVE 1280×720(픽셀화 OFF)** |
 | `M` | 픽셀화 파이프라인 전환: M1 SubViewport 확대 ↔ M2 3D 해상도 스케일링(nearest) |
 | `P` | 모드 3: 색 단계 제한 + 4×4 디더 ON/OFF (색보정 셰이더 안의 옵션) |

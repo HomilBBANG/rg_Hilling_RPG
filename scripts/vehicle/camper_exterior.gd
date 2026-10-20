@@ -11,107 +11,19 @@ const HEADLIGHT_LOCAL := Vector3(3.8, 0.98, 0.78)
 const TAILLIGHT_LOCAL := Vector3(-3.63, 1.05, 0.92)
 const WHEEL_X := [2.5, -2.0]
 
-## Visual variants for the camper comparison (key G).
-enum Variant { PROCEDURAL, GLB_PBR, GLB_TOON }
-const VARIANT_NAMES := ["절차형(직접 제작)", "Tripo GLB · 원본 PBR", "Tripo GLB · 툰 변환"]
-const GLB_PATH := "res://assets/models/camper_van_tripo.glb"
-## The GLB is normalised to length 1.0; scale it so its roof sits at about this height.
-const GLB_TARGET_HEIGHT := 3.3
-## Rotation that makes the GLB's front face local +X (checked visually).
-const GLB_YAW_DEG := 0.0
-
 var lights: PrototypeCamperLights
 var paint: ShaderMaterial
-var variant: Variant = Variant.PROCEDURAL
-
-var _proc: Node3D
-var _proc_lamps: Node3D
-var _glb: Node3D
-var _glb_pbr_mats: Array[Material] = []
-var _glb_toon_mats: Array[Material] = []
-var _glb_meshes: Array[MeshInstance3D] = []
-var _collider: StaticBody3D
 
 
 func _ready() -> void:
-	_proc = Node3D.new()
-	_proc.name = "Procedural"
-	add_child(_proc)
-	_proc_lamps = Node3D.new()
-	_proc_lamps.name = "ProceduralLamps"
-	add_child(_proc_lamps)
 	_build_body()
 	_build_details()
 	_build_awning()
-	_collider = ProtoMesh.static_box_collider(self, Vector3(LENGTH, 6.0, WIDTH), Vector3(0, 2.0, 0))
+	ProtoMesh.static_box_collider(self, Vector3(LENGTH, 6.0, WIDTH), Vector3(0, 2.0, 0))
 	lights = PrototypeCamperLights.new()
 	lights.name = "Lights"
 	add_child(lights)
-	lights.build(self, _proc_lamps)
-	set_variant(Game.camper_variant)
-
-
-func set_variant(v: int) -> void:
-	variant = v as Variant
-	var use_glb: bool = variant != Variant.PROCEDURAL
-	if use_glb and _glb == null:
-		_load_glb()
-	if use_glb and _glb == null:
-		variant = Variant.PROCEDURAL  # GLB missing / failed to import
-		use_glb = false
-	_proc.visible = not use_glb
-	_proc_lamps.visible = not use_glb
-	if _glb:
-		_glb.visible = use_glb
-		var mats := _glb_toon_mats if variant == Variant.GLB_TOON else _glb_pbr_mats
-		for i in _glb_meshes.size():
-			_glb_meshes[i].material_override = mats[i]
-
-
-func variant_name() -> String:
-	return VARIANT_NAMES[variant]
-
-
-func _load_glb() -> void:
-	if not ResourceLoader.exists(GLB_PATH):
-		push_warning("Camper GLB not found: " + GLB_PATH)
-		return
-	var scene := load(GLB_PATH) as PackedScene
-	if scene == null:
-		return
-	_glb = Node3D.new()
-	_glb.name = "TripoGLB"
-	add_child(_glb)
-	var inst := scene.instantiate() as Node3D
-	_glb.add_child(inst)
-	var s := GLB_TARGET_HEIGHT / 0.5684
-	inst.scale = Vector3.ONE * s
-	inst.rotation_degrees.y = GLB_YAW_DEG
-	for mi in inst.find_children("*", "MeshInstance3D", true, false):
-		var m := mi as MeshInstance3D
-		var src := m.get_active_material(0)
-		_glb_meshes.append(m)
-		_glb_pbr_mats.append(src)
-		_glb_toon_mats.append(_toonify(src))
-	_glb.visible = false
-
-
-## Toon version of the imported PBR material: keep the colour texture, drop normal/roughness
-## maps (they turn into noise at 427x240), toon diffuse like the rest of the scene.
-func _toonify(src: Material) -> Material:
-	if not (src is StandardMaterial3D):
-		return src
-	var m := (src as StandardMaterial3D).duplicate() as StandardMaterial3D
-	m.normal_enabled = false
-	m.roughness_texture = null
-	m.metallic_texture = null
-	m.metallic = 0.0
-	# 0.85: keeps the pixel outline but skips crease highlights, which turn the dense
-	# AI-generated surface (500k tris) into white speckles.
-	m.roughness = 0.85
-	m.diffuse_mode = BaseMaterial3D.DIFFUSE_TOON
-	m.specular_mode = BaseMaterial3D.SPECULAR_TOON
-	return m
+	lights.build(self)
 
 
 func door_world_position() -> Vector3:
@@ -138,7 +50,7 @@ func _build_body() -> void:
 	body.name = "Body"
 	body.mesh = OrganicMesh.extrude_profile(_profile(), WIDTH, 0.12)
 	body.material_override = paint
-	_proc.add_child(body)
+	add_child(body)
 
 
 ## Rounded panel (window, door...) lying on a side of the body.
@@ -147,7 +59,7 @@ func _panel(size: Vector2, center: Vector3, radius: float, depth: float, materia
 	mi.mesh = OrganicMesh.extrude_profile(OrganicMesh.rounded_rect(-size * 0.5, size * 0.5, radius, 3), depth, minf(depth * 0.4, 0.02))
 	mi.position = center + Vector3(0, 0, facing_z * depth * 0.5)
 	mi.material_override = material
-	_proc.add_child(mi)
+	add_child(mi)
 	return mi
 
 
@@ -160,7 +72,7 @@ func _window(size: Vector2, center_xy: Vector2, radius := 0.12) -> void:
 		_panel(size + Vector2(0.1, 0.1), Vector3(center_xy.x, center_xy.y, z), radius + 0.04, 0.03, frame, s)
 		_panel(size, Vector3(center_xy.x, center_xy.y, z + s * 0.02), radius, 0.03, glass, s)
 		# diagonal reflection streak
-		var streak := ProtoMesh.box(_proc, Vector3(0.07, size.y * 0.8, 0.01), Vector3(center_xy.x - size.x * 0.22, center_xy.y, z + s * 0.055), shine, Vector3(0, 0, -25))
+		var streak := ProtoMesh.box(self, Vector3(0.07, size.y * 0.8, 0.01), Vector3(center_xy.x - size.x * 0.22, center_xy.y, z + s * 0.055), shine, Vector3(0, 0, -25))
 		streak.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 
 
@@ -180,66 +92,66 @@ func _build_details() -> void:
 	_window(Vector2(0.62, 0.5), Vector2(2.62, 1.76), 0.1)
 	_window(Vector2(0.5, 0.24), Vector2(2.35, 2.66), 0.08)
 	# Windshield along the slanted face
-	var ws := ProtoMesh.box(_proc, Vector3(0.04, 0.78, WIDTH - 0.36), Vector3(3.03, 1.78, 0), glass, Vector3(0, 0, 31))
+	var ws := ProtoMesh.box(self, Vector3(0.04, 0.78, WIDTH - 0.36), Vector3(3.03, 1.78, 0), glass, Vector3(0, 0, 31))
 	ws.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	ProtoMesh.box(_proc, Vector3(0.05, 0.6, 0.08), Vector3(3.06, 1.8, 0.4), ProtoMesh.mat(Color(0.62, 0.78, 0.88), 0.2), Vector3(0, 0, 31))
+	ProtoMesh.box(self, Vector3(0.05, 0.6, 0.08), Vector3(3.06, 1.8, 0.4), ProtoMesh.mat(Color(0.62, 0.78, 0.88), 0.2), Vector3(0, 0, 31))
 
 	# Door (camera side) with window, handle, step and mat
 	var dz := WIDTH * 0.5
 	_panel(Vector2(0.78, 1.86), Vector3(DOOR_LOCAL.x, 1.56, dz), 0.1, 0.04, door_mat)
 	_panel(Vector2(0.42, 0.42), Vector3(DOOR_LOCAL.x, 2.1, dz + 0.04), 0.1, 0.02, glass)
-	ProtoMesh.box(_proc, Vector3(0.14, 0.05, 0.05), Vector3(DOOR_LOCAL.x + 0.26, 1.5, dz + 0.07), chrome)
-	ProtoMesh.box(_proc, Vector3(0.82, 0.07, 0.42), Vector3(DOOR_LOCAL.x, 0.36, dz + 0.22), trim)
-	ProtoMesh.box(_proc, Vector3(1.0, 0.02, 0.6), Vector3(DOOR_LOCAL.x, 0.01, dz + 0.75), ProtoMesh.mat(Color(0.8, 0.42, 0.32)))
-	ProtoMesh.box(_proc, Vector3(0.9, 0.025, 0.5), Vector3(DOOR_LOCAL.x, 0.015, dz + 0.75), ProtoMesh.mat(Color(0.93, 0.78, 0.5)))
+	ProtoMesh.box(self, Vector3(0.14, 0.05, 0.05), Vector3(DOOR_LOCAL.x + 0.26, 1.5, dz + 0.07), chrome)
+	ProtoMesh.box(self, Vector3(0.82, 0.07, 0.42), Vector3(DOOR_LOCAL.x, 0.36, dz + 0.22), trim)
+	ProtoMesh.box(self, Vector3(1.0, 0.02, 0.6), Vector3(DOOR_LOCAL.x, 0.01, dz + 0.75), ProtoMesh.mat(Color(0.8, 0.42, 0.32)))
+	ProtoMesh.box(self, Vector3(0.9, 0.025, 0.5), Vector3(DOOR_LOCAL.x, 0.015, dz + 0.75), ProtoMesh.mat(Color(0.93, 0.78, 0.5)))
 
 	# Wheels: tyre, rim, hub
 	for wx: float in WHEEL_X:
 		for s in [1.0, -1.0]:
 			var z: float = s * (WIDTH * 0.5 - 0.05)
-			ProtoMesh.cylinder(_proc, 0.42, 0.3, Vector3(wx, 0.42, z), tire, Vector3(90, 0, 0), 12)
-			ProtoMesh.cylinder(_proc, 0.25, 0.32, Vector3(wx, 0.42, z), chrome, Vector3(90, 0, 0), 10)
-			ProtoMesh.cylinder(_proc, 0.1, 0.34, Vector3(wx, 0.42, z), trim, Vector3(90, 0, 0), 8)
+			ProtoMesh.cylinder(self, 0.42, 0.3, Vector3(wx, 0.42, z), tire, Vector3(90, 0, 0), 12)
+			ProtoMesh.cylinder(self, 0.25, 0.32, Vector3(wx, 0.42, z), chrome, Vector3(90, 0, 0), 10)
+			ProtoMesh.cylinder(self, 0.1, 0.34, Vector3(wx, 0.42, z), trim, Vector3(90, 0, 0), 8)
 
 	# Front: grille, bumper, mirrors
-	ProtoMesh.box(_proc, Vector3(0.05, 0.32, 1.0), Vector3(3.8, 0.88, 0), trim)
+	ProtoMesh.box(self, Vector3(0.05, 0.32, 1.0), Vector3(3.8, 0.88, 0), trim)
 	for i in 3:
-		ProtoMesh.box(_proc, Vector3(0.06, 0.03, 0.9), Vector3(3.82, 0.79 + i * 0.09, 0), chrome)
-	ProtoMesh.capsule(_proc, 0.08, WIDTH + 0.05, Vector3(3.84, 0.56, 0), trim, Vector3(90, 0, 0))
-	ProtoMesh.capsule(_proc, 0.07, WIDTH, Vector3(-3.64, 0.56, 0), trim, Vector3(90, 0, 0))
+		ProtoMesh.box(self, Vector3(0.06, 0.03, 0.9), Vector3(3.82, 0.79 + i * 0.09, 0), chrome)
+	ProtoMesh.capsule(self, 0.08, WIDTH + 0.05, Vector3(3.84, 0.56, 0), trim, Vector3(90, 0, 0))
+	ProtoMesh.capsule(self, 0.07, WIDTH, Vector3(-3.64, 0.56, 0), trim, Vector3(90, 0, 0))
 	for s in [1.0, -1.0]:
-		ProtoMesh.box(_proc, Vector3(0.05, 0.05, 0.25), Vector3(3.0, 1.78, s * (WIDTH * 0.5 + 0.12)), trim)
-		ProtoMesh.box(_proc, Vector3(0.08, 0.3, 0.14), Vector3(3.0, 1.75, s * (WIDTH * 0.5 + 0.27)), trim)
+		ProtoMesh.box(self, Vector3(0.05, 0.05, 0.25), Vector3(3.0, 1.78, s * (WIDTH * 0.5 + 0.12)), trim)
+		ProtoMesh.box(self, Vector3(0.08, 0.3, 0.14), Vector3(3.0, 1.75, s * (WIDTH * 0.5 + 0.27)), trim)
 
 	# Rear: ladder and spare wheel cover
 	for i in 6:
-		ProtoMesh.box(_proc, Vector3(0.04, 0.04, 0.42), Vector3(-3.68, 1.05 + i * 0.36, -0.62), chrome)
+		ProtoMesh.box(self, Vector3(0.04, 0.04, 0.42), Vector3(-3.68, 1.05 + i * 0.36, -0.62), chrome)
 	for lz in [-0.83, -0.41]:
-		ProtoMesh.box(_proc, Vector3(0.04, 2.2, 0.04), Vector3(-3.68, 2.0, lz), chrome)
-	ProtoMesh.cylinder(_proc, 0.36, 0.2, Vector3(-3.7, 1.75, 0.45), teal, Vector3(0, 0, 90), 12)
-	ProtoMesh.cylinder(_proc, 0.2, 0.22, Vector3(-3.7, 1.75, 0.45), cream, Vector3(0, 0, 90), 10)
+		ProtoMesh.box(self, Vector3(0.04, 2.2, 0.04), Vector3(-3.68, 2.0, lz), chrome)
+	ProtoMesh.cylinder(self, 0.36, 0.2, Vector3(-3.7, 1.75, 0.45), teal, Vector3(0, 0, 90), 12)
+	ProtoMesh.cylinder(self, 0.2, 0.22, Vector3(-3.7, 1.75, 0.45), cream, Vector3(0, 0, 90), 10)
 
 	# Roof: AC unit, solar panels, rack + mustard cargo box, skylight
 	var ac := MeshInstance3D.new()
 	ac.mesh = OrganicMesh.extrude_profile(OrganicMesh.rounded_rect(Vector2(-0.45, 0.0), Vector2(0.45, 0.32), 0.1, 3), 0.8, 0.05)
 	ac.position = Vector3(-0.3, 3.14, 0)
 	ac.material_override = cream
-	_proc.add_child(ac)
-	ProtoMesh.box(_proc, Vector3(0.7, 0.03, 0.6), Vector3(-0.3, 3.47, 0), ProtoMesh.mat(Color(0.75, 0.75, 0.72)))
+	add_child(ac)
+	ProtoMesh.box(self, Vector3(0.7, 0.03, 0.6), Vector3(-0.3, 3.47, 0), ProtoMesh.mat(Color(0.75, 0.75, 0.72)))
 	var solar := ProtoMesh.mat(Color(0.16, 0.24, 0.45), 0.25)
 	var grid := ProtoMesh.mat(Color(0.5, 0.6, 0.8), 0.3)
 	for pz in [-0.5, 0.5]:
-		ProtoMesh.box(_proc, Vector3(1.3, 0.05, 0.85), Vector3(-2.35, 3.17, pz), solar)
-		ProtoMesh.box(_proc, Vector3(0.02, 0.055, 0.85), Vector3(-2.35, 3.175, pz), grid)
-		ProtoMesh.box(_proc, Vector3(1.3, 0.055, 0.02), Vector3(-2.35, 3.175, pz), grid)
+		ProtoMesh.box(self, Vector3(1.3, 0.05, 0.85), Vector3(-2.35, 3.17, pz), solar)
+		ProtoMesh.box(self, Vector3(0.02, 0.055, 0.85), Vector3(-2.35, 3.175, pz), grid)
+		ProtoMesh.box(self, Vector3(1.3, 0.055, 0.02), Vector3(-2.35, 3.175, pz), grid)
 	for rz in [-0.85, 0.85]:
-		ProtoMesh.box(_proc, Vector3(1.6, 0.05, 0.05), Vector3(1.2, 3.25, rz), trim)
+		ProtoMesh.box(self, Vector3(1.6, 0.05, 0.05), Vector3(1.2, 3.25, rz), trim)
 	var cargo := MeshInstance3D.new()
 	cargo.mesh = OrganicMesh.extrude_profile(OrganicMesh.rounded_rect(Vector2(-0.7, 0.0), Vector2(0.7, 0.38), 0.16, 3), 1.2, 0.08)
 	cargo.position = Vector3(1.25, 3.18, 0)
 	cargo.material_override = mustard
-	_proc.add_child(cargo)
-	ProtoMesh.box(_proc, Vector3(0.5, 0.06, 0.5), Vector3(0.75, 3.15, 0), ProtoMesh.mat(Color(0.55, 0.7, 0.85), 0.2))
+	add_child(cargo)
+	ProtoMesh.box(self, Vector3(0.5, 0.06, 0.5), Vector3(0.75, 3.15, 0), ProtoMesh.mat(Color(0.55, 0.7, 0.85), 0.2))
 
 
 func _build_awning() -> void:
@@ -258,13 +170,13 @@ func _build_awning() -> void:
 	var w := (x1 - x0) / stripes
 	for i in stripes:
 		var cx := x0 + w * (i + 0.5)
-		ProtoMesh.box(_proc, Vector3(w, 0.03, depth), Vector3(cx, (y_in + y_out) * 0.5, (z_in + z_out) * 0.5), col_a if i % 2 == 0 else col_b, Vector3(slope, 0, 0))
+		ProtoMesh.box(self, Vector3(w, 0.03, depth), Vector3(cx, (y_in + y_out) * 0.5, (z_in + z_out) * 0.5), col_a if i % 2 == 0 else col_b, Vector3(slope, 0, 0))
 		# scalloped valance
-		ProtoMesh.box(_proc, Vector3(w, 0.14, 0.03), Vector3(cx, y_out - 0.07, z_out), col_b if i % 2 == 0 else col_a)
+		ProtoMesh.box(self, Vector3(w, 0.14, 0.03), Vector3(cx, y_out - 0.07, z_out), col_b if i % 2 == 0 else col_a)
 	var trim := ProtoMesh.mat(Color(0.55, 0.57, 0.6), 0.5)
-	ProtoMesh.cylinder(_proc, 0.08, x1 - x0 + 0.1, Vector3((x0 + x1) * 0.5, y_in + 0.02, z_in), trim, Vector3(0, 0, 90), 8)
+	ProtoMesh.cylinder(self, 0.08, x1 - x0 + 0.1, Vector3((x0 + x1) * 0.5, y_in + 0.02, z_in), trim, Vector3(0, 0, 90), 8)
 	for px in [x0 + 0.05, x1 - 0.05]:
-		ProtoMesh.cylinder(_proc, 0.03, y_out, Vector3(px, y_out * 0.5, z_out - 0.05), trim, Vector3.ZERO, 6)
+		ProtoMesh.cylinder(self, 0.03, y_out, Vector3(px, y_out * 0.5, z_out - 0.05), trim, Vector3.ZERO, 6)
 	# String lights (subtle by day; glow at night via emission)
 	var bulb_cols := [Color(1.0, 0.85, 0.45), Color(0.98, 0.55, 0.45), Color(0.5, 0.85, 0.8), Color(1.0, 0.95, 0.85)]
 	var n := 11
@@ -273,5 +185,5 @@ func _build_awning() -> void:
 		var x := lerpf(x0 + 0.1, x1 - 0.1, t)
 		var sag := sin(t * PI * 3.0) * 0.06
 		var c: Color = bulb_cols[i % bulb_cols.size()]
-		var b := ProtoMesh.sphere(_proc, 0.05, Vector3(x, y_out - 0.2 - absf(sag), z_out + 0.02), ProtoMesh.mat(c, 0.4, c, 1.2), Vector3.ONE, 6, 3)
+		var b := ProtoMesh.sphere(self, 0.05, Vector3(x, y_out - 0.2 - absf(sag), z_out + 0.02), ProtoMesh.mat(c, 0.4, c, 1.2), Vector3.ONE, 6, 3)
 		b.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF

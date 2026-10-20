@@ -14,10 +14,7 @@ var _tail_off: Material
 var _state := false
 
 
-## Lights go on `camper`; the visible lamp meshes on `mesh_parent` (hidden for the GLB variant).
-func build(camper: Node3D, mesh_parent: Node3D = null) -> void:
-	if mesh_parent == null:
-		mesh_parent = camper
+func build(camper: Node3D) -> void:
 	_on_mat = ProtoMesh.mat(Color(1, 0.98, 0.9), 0.2, Color(1.0, 0.95, 0.8), 4.0)
 	_off_mat = ProtoMesh.mat(Color(0.75, 0.78, 0.8), 0.2)
 	_tail_on = ProtoMesh.mat(Color(1, 0.2, 0.15), 0.3, Color(1.0, 0.1, 0.05), 3.0)
@@ -26,8 +23,8 @@ func build(camper: Node3D, mesh_parent: Node3D = null) -> void:
 	var tl := CamperExterior.TAILLIGHT_LOCAL
 	for side in [-1.0, 1.0]:
 		var lamp_pos := Vector3(hl.x, hl.y, side * hl.z)
-		_lamp_meshes.append(ProtoMesh.cylinder(mesh_parent, 0.13, 0.06, lamp_pos, _off_mat, Vector3(0, 0, 90), 10))
-		_tail_meshes.append(ProtoMesh.box(mesh_parent, Vector3(0.05, 0.36, 0.16), Vector3(tl.x, tl.y, side * tl.z), _tail_off))
+		_lamp_meshes.append(ProtoMesh.cylinder(camper, 0.13, 0.06, lamp_pos, _off_mat, Vector3(0, 0, 90), 10))
+		_tail_meshes.append(ProtoMesh.box(camper, Vector3(0.05, 0.36, 0.16), Vector3(tl.x, tl.y, side * tl.z), _tail_off))
 		var spot := SpotLight3D.new()
 		spot.position = lamp_pos + Vector3(0.1, 0, 0)
 		# SpotLight shines along local -Z; turn to +X and tilt slightly down.
@@ -53,7 +50,7 @@ func build(camper: Node3D, mesh_parent: Node3D = null) -> void:
 	porch.visible = false
 	camper.add_child(porch)
 	_omnis.append(porch)
-	_lamp_meshes.append(ProtoMesh.box(mesh_parent, Vector3(0.25, 0.08, 0.12), CamperExterior.DOOR_LOCAL + Vector3(0, 2.6, 0.08), _off_mat))
+	_lamp_meshes.append(ProtoMesh.box(camper, Vector3(0.25, 0.08, 0.12), CamperExterior.DOOR_LOCAL + Vector3(0, 2.6, 0.08), _off_mat))
 	var rear := OmniLight3D.new()
 	rear.position = Vector3(-4.0, 1.0, 0.0)
 	rear.light_color = Color(1.0, 0.15, 0.1)
