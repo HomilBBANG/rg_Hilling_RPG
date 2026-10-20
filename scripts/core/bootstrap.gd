@@ -13,8 +13,8 @@ var hud: VisualHud
 var _snap := true
 var _orthogonal := true
 var _zoom_index := 2
-## Camera comparison style (TopdownCamera.STYLES): 0 = A, 1 = B, 2 = C.
-var style_index := 2
+## Camera comparison style (TopdownCamera.STYLES): 0 = A, 1 = B, 2 = C, 3 = D (default).
+var style_index := 3
 var _outline_user := true
 var _capture_dir := ""
 var _touring := false
@@ -68,8 +68,14 @@ func _configure_camera() -> void:
 		render.grade_strength = 1.0 if style["grade"] else 0.0
 		render.apply_settings()  # re-enters _configure_camera once via settings_changed
 	StylizedMaterials.set_stylized(style["stylized"])
+	var look: String = style.get("look", "soft")
+	if render.grade_profile != look:
+		render.set_grade_profile(look if render.GRADE_PROFILES.has(look) else "soft")
 	if world.get("day_night"):
 		world.day_night.set_style(style["ssao"], style["fog"], style["grade"], cam.ortho_distance)
+		world.day_night.palette = look
+	if world.has_method("set_fx"):
+		world.set_fx(look == "deadcells")
 
 
 func set_camera_style(index: int) -> void:
@@ -311,7 +317,7 @@ func _walk_to(p: PrototypePlayer, goal: Vector2) -> void:
 		await get_tree().physics_frame
 
 
-## Camera style comparison (visual direction test): same spot, daylight, A / B / C.
+## Camera style comparison (visual direction test): same spot, daylight, A / B / C / D.
 func _run_style_tour() -> void:
 	_touring = true
 	hud.show_help_panel(false)
@@ -326,7 +332,27 @@ func _run_style_tour() -> void:
 		var id: String = TopdownCamera.STYLES[i]["id"]
 		hud.set_capture_mode(true, "%s · PXL-MID 427×240" % style_name())
 		await _shot("style_%s_PXL-MID.png" % id)
-	# C at other densities for reference
+	# Dead Cells look (D) extra shots: night with lights, forest, other densities
+	set_camera_style(3)
+	Game.minute_of_day = Game.NIGHT_PRESET_MINUTE
+	Game.camper_lights_on = true
+	Game.lantern_on = true
+	_place_player(Vector3(-4.3, 0, 1.1), PI * 0.8)
+	hud.set_capture_mode(true, "%s · 밤 · 캠핑카 라이트 + 등불" % style_name())
+	await _frames(30)
+	await _shot("style_D_night_PXL-MID.png")
+	Game.minute_of_day = 10.5 * 60.0
+	Game.camper_lights_on = false
+	Game.lantern_on = false
+	_place_player(Vector3(22.2, 0, -5.7), PI * 0.6)
+	hud.set_capture_mode(true, "%s · 숲길(나무 뒤)" % style_name())
+	await _shot("style_D_forest_occlusion.png")
+	_place_player(Vector3(-4.3, 0, 1.1), PI * 0.8)
+	render.set_preset(0)
+	hud.set_capture_mode(true, "%s · PXL-COARSE 320×180" % style_name())
+	await _shot("style_D_PXL-COARSE.png")
+	render.set_preset(1)
+	set_camera_style(2)
 	render.set_preset(0)
 	hud.set_capture_mode(true, "%s · PXL-COARSE 320×180" % style_name())
 	await _shot("style_C_PXL-COARSE.png")

@@ -185,5 +185,5 @@ func _build_awning() -> void:
 		var x := lerpf(x0 + 0.1, x1 - 0.1, t)
 		var sag := sin(t * PI * 3.0) * 0.06
 		var c: Color = bulb_cols[i % bulb_cols.size()]
-		var b := ProtoMesh.sphere(self, 0.05, Vector3(x, y_out - 0.2 - absf(sag), z_out + 0.02), ProtoMesh.mat(c, 0.4, c, 1.2), Vector3.ONE, 6, 3)
+		var b := ProtoMesh.sphere(self, 0.05, Vector3(x, y_out - 0.2 - absf(sag), z_out + 0.02), ProtoMesh.mat(c, 0.4, c, 2.2), Vector3.ONE, 6, 3)
 		b.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF

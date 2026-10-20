@@ -19,7 +19,7 @@ var _caption: Label
 const HELP_TEXT := """[P0 디버그 조작 — 프로토타입 전용, 최종 키 아님]
 WASD 이동 · Shift 달리기 · 마우스 클릭 = 기본 공격 1회(마우스 방향)
 F  캠핑카 외부 라이트 (캠핑카 근처에서만)
-V  카메라 스타일 A(기존) → B(개선 탑다운) → C(기울어진 디오라마)
+V  카메라 스타일 A(기존) → B(개선 탑다운) → C(디오라마) → D(데드셀풍)
 O  픽셀 외곽선 ON/OFF (B/C)
 1/2/3/4  PXL-COARSE 320×180 / PXL-MID 427×240 / PXL-SOFT 640×360 / 3D-NATIVE
 M  픽셀화 파이프라인 전환 (M1 SubViewport 확대 ↔ M2 3D 스케일링 nearest)

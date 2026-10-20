@@ -9,8 +9,8 @@ var _t := 0.0
 
 
 func _ready() -> void:
-	var outer_mat := ProtoMesh.mat(Color(1.0, 0.45, 0.15), 0.8, Color(1.0, 0.4, 0.1), 2.5)
-	var inner_mat := ProtoMesh.mat(Color(1.0, 0.85, 0.35), 0.8, Color(1.0, 0.8, 0.3), 3.0)
+	var outer_mat := ProtoMesh.mat(Color(1.0, 0.45, 0.15), 0.8, Color(1.0, 0.4, 0.1), 3.5)
+	var inner_mat := ProtoMesh.mat(Color(1.0, 0.85, 0.35), 0.8, Color(1.0, 0.8, 0.3), 4.5)
 	_outer = ProtoMesh.cone(self, 0.28, 0.7, Vector3(0, 0.35, 0), outer_mat, 6)
 	_inner = ProtoMesh.cone(self, 0.16, 0.45, Vector3(0.03, 0.25, 0.02), inner_mat, 5)
 	for m in [_outer, _inner]:

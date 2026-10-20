@@ -7,6 +7,13 @@ uniform float saturation : hint_range(0.0, 2.0) = 1.05;
 uniform vec3 shadow_tint : source_color = vec3(0.86, 0.88, 1.04);
 uniform vec3 highlight_tint : source_color = vec3(1.02, 0.98, 0.92);
 uniform float vignette : hint_range(0.0, 1.0) = 0.22;
+uniform float contrast : hint_range(0.5, 2.0) = 1.0;
+// Cel steps: quantise brightness into N bands (0 = off). Hue is kept, only value steps.
+uniform float luma_bands : hint_range(0.0, 12.0, 1.0) = 0.0;
+uniform float band_strength : hint_range(0.0, 1.0) = 0.0;
+// Push dark values toward a coloured shadow (Dead Cells-like violet shadows).
+uniform vec3 shadow_color : source_color = vec3(0.16, 0.09, 0.28);
+uniform float shadow_push : hint_range(0.0, 1.0) = 0.0;
 uniform bool dither_enabled = false;
 uniform float levels : hint_range(2.0, 32.0, 1.0) = 10.0;
 uniform float dither_strength : hint_range(0.0, 1.0) = 0.35;
@@ -26,7 +33,16 @@ void fragment() {
 
 	float l = dot(c, vec3(0.299, 0.587, 0.114));
 	vec3 graded = mix(vec3(l), c, saturation);
-	graded *= mix(shadow_tint, highlight_tint, smoothstep(0.15, 0.75, l));
+	graded = (graded - 0.5) * contrast + 0.5;
+	graded = max(graded, vec3(0.0));
+	if (luma_bands > 0.5) {
+		float gl = max(dot(graded, vec3(0.299, 0.587, 0.114)), 0.001);
+		float q = (floor(gl * luma_bands) + 0.5) / luma_bands;
+		graded = mix(graded, graded * (q / gl), band_strength);
+	}
+	float gl2 = dot(graded, vec3(0.299, 0.587, 0.114));
+	graded = mix(graded, shadow_color + graded * 0.55, shadow_push * (1.0 - smoothstep(0.05, 0.42, gl2)));
+	graded *= mix(shadow_tint, highlight_tint, smoothstep(0.15, 0.75, gl2));
 	vec2 v = UV - 0.5;
 	graded *= 1.0 - vignette * smoothstep(0.25, 0.75, dot(v, v) * 2.2);
 	c = mix(c, graded, grade_strength);

@@ -4,7 +4,7 @@
 완성 게임이 아니라 **고정 탑다운 카메라 + 3D 월드의 픽셀화 렌더**가 이 게임의 아트 스타일로 쓸 만한지를
 직접 걸어 다니며 비교하기 위한 테스트 씬입니다. 기획 기준 문서는 [`docs/`](docs/)에 있습니다.
 
-![디오라마 탑다운 C](captures/visual_direction/style_C_PXL-MID.png)
+![데드셀풍 D · 밤](captures/visual_direction/style_D_night_PXL-MID.png)
 
 > **비주얼 방향 수정(디오라마형 3D 픽셀풍)과 카메라 A/B/C 비교 결과:** [`notes/VISUAL_DIRECTION.md`](notes/VISUAL_DIRECTION.md)
 
@@ -45,7 +45,7 @@ git clone -b claude/gallant-edison-84bkyp https://github.com/HomilBBANG/rg_Hilli
 | `WASD` / 방향키 | 이동 (`Shift` 달리기 — P0에서는 SP 소모 없음) |
 | 마우스 왼쪽 클릭 | 기본 공격 모션 1회 (마우스 방향, 누르고 있어도 반복 안 함) |
 | `F` | 캠핑카 외부 라이트 ON/OFF (캠핑카 7.5m 이내에서만) |
-| `V` | **카메라 스타일 A(기존 기능형) → B(개선된 탑다운) → C(기울어진 디오라마)**. 시작은 C |
+| `V` | **카메라 스타일 A(기존 기능형) → B(개선된 탑다운) → C(기울어진 디오라마) → D(데드셀풍 픽셀)**. 시작은 D |
 | `O` | 픽셀 외곽선 ON/OFF (B/C, Forward+ 전용) |
 | `1` / `2` / `3` / `4` | **PXL-COARSE 320×180** / **PXL-MID 427×240(기본)** / **PXL-SOFT 640×360** / **3D-NATIVE 1280×720(픽셀화 OFF)** |
 | `M` | 픽셀화 파이프라인 전환: M1 SubViewport 확대 ↔ M2 3D 해상도 스케일링(nearest) |

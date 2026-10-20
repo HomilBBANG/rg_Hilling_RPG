@@ -16,6 +16,13 @@ uniform float outline_darkness : hint_range(0.0, 1.0) = 0.42;
 uniform float highlight_strength : hint_range(0.0, 1.0) = 0.28;
 uniform float normal_threshold = 0.5;
 uniform vec3 normal_edge_bias = vec3(1.0, 1.0, 1.0);
+// Rim light on silhouette texels whose normal faces `rim_dir` (view space); others get the dark outline.
+uniform bool rim_enabled = false;
+uniform vec3 rim_dir = vec3(0.75, 0.55, 0.0);
+uniform vec3 rim_color : source_color = vec3(1.0, 0.82, 0.62);
+uniform float rim_strength : hint_range(0.0, 1.0) = 0.65;
+uniform vec3 outline_tint : source_color = vec3(0.08, 0.04, 0.12);
+uniform float outline_tint_amount : hint_range(0.0, 1.0) = 0.0;
 
 void vertex() {
 	POSITION = vec4(VERTEX.xy, 1.0, 1.0);
@@ -56,9 +63,13 @@ void fragment() {
 	}
 	vec3 base = texture(screen_tex, uv).rgb;
 	if (depth_edge > depth_threshold) {
-		vec3 dark = base * (1.0 - outline_darkness);
-		dark = mix(dark, dark * vec3(0.85, 0.8, 1.0), 0.5);
-		ALBEDO = dark;
+		if (rim_enabled && dot(c_nr.xyz, normalize(rim_dir)) > 0.25) {
+			ALBEDO = mix(base, max(base, rim_color), rim_strength);
+		} else {
+			vec3 dark = base * (1.0 - outline_darkness);
+			dark = mix(dark, dark * vec3(0.85, 0.8, 1.0), 0.5);
+			ALBEDO = mix(dark, outline_tint, outline_tint_amount);
+		}
 	} else if (normal_edge > 0.2 && c_nr.w < 0.8) {
 		ALBEDO = base + (vec3(1.0, 0.97, 0.88) - base) * highlight_strength;
 	} else {

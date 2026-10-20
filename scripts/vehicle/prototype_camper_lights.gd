@@ -41,7 +41,8 @@ func build(camper: Node3D) -> void:
 		_spots.append(spot)
 	# Porch light above the door + a faint red rear marker
 	var porch := OmniLight3D.new()
-	porch.position = CamperExterior.DOOR_LOCAL + Vector3(0.0, 2.6, 0.45)
+	# Below the extended awning (a light inside the canvas leaves a dark disc on top of it).
+	porch.position = CamperExterior.DOOR_LOCAL + Vector3(0.0, 2.15, 0.9)
 	porch.light_color = Color(1.0, 0.86, 0.62)
 	porch.light_energy = 1.6
 	porch.omni_range = 6.5

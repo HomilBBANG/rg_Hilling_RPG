@@ -19,6 +19,7 @@ var slime: SlimeVisual
 var sun: DirectionalLight3D
 var day_night: DayNightController
 var occlusion_mode: Occlusion = Occlusion.SILHOUETTE
+var _motes: GPUParticles3D
 
 ## [{node: Node3D, mats: Array[Material], radius: float, height: float, alpha: float}]
 var _occluders: Array[Dictionary] = []
@@ -156,6 +157,7 @@ func _build_camp() -> void:
 	var fire := _on_ground(CampProps.campfire(_rng), CAMPFIRE_POS.x, CAMPFIRE_POS.z)
 	_block(fire.position.x, fire.position.z, 2.0)
 	ProtoMesh.static_cylinder_collider(self, 0.7, 4.0, fire.position)
+	AmbientParticles.embers(self, fire.position + Vector3(0, 0.4, 0))
 	var seat1 := _on_ground(NatureProps.log_prop(1.5, 0.2), CAMPFIRE_POS.x + 1.6, CAMPFIRE_POS.z + 0.5)
 	seat1.rotation_degrees.y = 70.0
 	var seat2 := _on_ground(NatureProps.log_prop(1.4, 0.19), CAMPFIRE_POS.x + 0.2, CAMPFIRE_POS.z + 1.6)
@@ -366,6 +368,16 @@ func _spawn_actors() -> void:
 	camera.name = "Camera"
 	camera.target = player
 	add_child(camera)
+	_motes = AmbientParticles.motes(player)
+	_motes.emitting = false
+	_motes.visible = false
+
+
+## Extra atmosphere for the Dead Cells-like look (floating glowing motes).
+func set_fx(on: bool) -> void:
+	if _motes:
+		_motes.visible = on
+		_motes.emitting = on
 
 
 func _process(delta: float) -> void:

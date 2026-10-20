@@ -16,6 +16,9 @@ const STYLES: Array[Dictionary] = [
 		"outline": true, "grade": true, "ssao": true, "fog": false, "stylized": true},
 	{"id": "C", "name": "C 기울어진 디오라마 탑다운", "pitch": 40.0, "zoom": 2, "offset": Vector3(0, 0, -1.0),
 		"outline": true, "grade": true, "ssao": true, "fog": true, "stylized": true},
+	# D: C's camera + a Dead Cells-like pixel look (cel steps, violet shadows, rim light, bloom, particles).
+	{"id": "D", "name": "D 데드셀풍 픽셀", "pitch": 40.0, "zoom": 2, "offset": Vector3(0, 0, -1.0),
+		"outline": true, "grade": true, "ssao": true, "fog": true, "stylized": true, "look": "deadcells"},
 ]
 
 ## Visible world height (metres) of the 1280x720 frame, without the snap margin.
@@ -80,7 +83,19 @@ func outline_supported() -> bool:
 	return _outline_quad != null
 
 
+func set_look(look: String) -> void:
+	if _outline_quad == null:
+		return
+	var m := _outline_quad.material_override as ShaderMaterial
+	var dc := look == "deadcells"
+	m.set_shader_parameter("rim_enabled", dc)
+	m.set_shader_parameter("outline_darkness", 0.62 if dc else 0.42)
+	m.set_shader_parameter("outline_tint_amount", 0.45 if dc else 0.0)
+	m.set_shader_parameter("highlight_strength", 0.38 if dc else 0.28)
+
+
 func apply_style(style: Dictionary) -> void:
+	set_look(style.get("look", "soft"))
 	pitch_degrees = style["pitch"]
 	zoom_index = style["zoom"]
 	focus_offset = style["offset"]

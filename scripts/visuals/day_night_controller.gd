@@ -26,6 +26,16 @@ var style_ssao := true
 var style_fog := false
 var style_grade := true
 var camera_distance := 40.0
+## "soft" (B/C) or "deadcells" (D): warm low key light + violet ambient, stronger bloom.
+var palette := "soft"
+
+const DC_SUN_DAY := Color(1.0, 0.82, 0.64)
+const DC_AMBIENT_DAY := Color(0.38, 0.44, 0.86)
+const DC_AMBIENT_NIGHT := Color(0.18, 0.2, 0.58)
+const DC_MOON := Color(0.5, 0.58, 1.0)
+const DC_BG_DAY := Color(0.3, 0.22, 0.42)
+const DC_HAZE_DAY := Color(0.66, 0.46, 0.78)
+const DC_HAZE_NIGHT := Color(0.08, 0.07, 0.25)
 const BG_NIGHT := Color(0.04, 0.05, 0.09)
 
 
@@ -68,6 +78,16 @@ func apply(d: float, tw: float) -> void:
 			environment.ambient_light_color = Color(0.55, 0.5, 0.45).lerp(Color(0.7, 0.68, 0.64), d)
 			environment.ambient_light_energy = lerpf(0.28, 0.5, d)
 			environment.background_color = Color(0.02, 0.02, 0.03)
+		elif palette == "deadcells":
+			environment.ambient_light_color = DC_AMBIENT_NIGHT.lerp(DC_AMBIENT_DAY, d)
+			environment.ambient_light_energy = lerpf(0.5, 0.62, d)
+			environment.background_color = BG_NIGHT.lerp(DC_BG_DAY, d)
+			environment.fog_enabled = style_fog
+			environment.fog_light_color = DC_HAZE_NIGHT.lerp(DC_HAZE_DAY, d)
+			environment.fog_light_energy = 1.0
+			environment.fog_density = 0.75
+			environment.fog_depth_begin = camera_distance - 3.0
+			environment.fog_depth_end = camera_distance + 22.0
 		else:
 			environment.ambient_light_color = AMBIENT_NIGHT.lerp(AMBIENT_DAY, d)
 			environment.ambient_light_energy = lerpf(0.42, 0.5 if style_grade else 0.45, d)
@@ -79,15 +99,20 @@ func apply(d: float, tw: float) -> void:
 			environment.fog_depth_begin = camera_distance - 2.0
 			environment.fog_depth_end = camera_distance + 26.0
 		environment.ssao_enabled = style_ssao
+		var dc := palette == "deadcells" and not interior
+		environment.glow_intensity = 0.9 if dc else 0.25
+		environment.glow_hdr_threshold = 0.9 if dc else 1.5
+		environment.glow_bloom = 0.04 if dc else 0.0
 		environment.adjustment_saturation = 1.04 if style_grade else 1.0
 		environment.adjustment_contrast = 1.06 if style_grade else 1.0
 	if sun:
-		var col := MOON.lerp(SUN_DAY, d)
+		var dc := palette == "deadcells"
+		var col := (DC_MOON if dc else MOON).lerp(DC_SUN_DAY if dc else SUN_DAY, d)
 		col = col.lerp(SUN_TWILIGHT, tw * 0.7)
 		sun.light_color = col
-		sun.light_energy = lerpf(0.3, 1.0, d)
-		# Sun from the south-east by day, moon from the south-west by night.
-		var day_rot := Vector3(deg_to_rad(-52.0), deg_to_rad(-35.0), 0.0)
+		sun.light_energy = lerpf(0.38 if dc else 0.3, 1.2 if dc else 1.0, d)
+		# Sun from the south-east by day (lower and longer shadows for D), moon from the south-west.
+		var day_rot := Vector3(deg_to_rad(-34.0 if dc else -52.0), deg_to_rad(-48.0 if dc else -35.0), 0.0)
 		var night_rot := Vector3(deg_to_rad(-62.0), deg_to_rad(28.0), 0.0)
 		sun.rotation = night_rot.lerp(day_rot, d)
 	for m in window_materials:
