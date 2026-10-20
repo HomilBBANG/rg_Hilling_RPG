@@ -141,8 +141,8 @@ func apply_settings() -> void:
 const GRADE_PROFILES := {
 	"soft": {"saturation": 1.05, "contrast": 1.0, "luma_bands": 0.0, "band_strength": 0.0, "shadow_push": 0.0,
 		"shadow_tint": Color(0.86, 0.88, 1.04), "highlight_tint": Color(1.02, 0.98, 0.92), "vignette": 0.22},
-	"deadcells": {"saturation": 1.22, "contrast": 1.12, "luma_bands": 7.0, "band_strength": 0.45, "shadow_push": 0.5,
-		"shadow_tint": Color(0.8, 0.78, 1.14), "highlight_tint": Color(1.06, 1.0, 0.9), "vignette": 0.36},
+	"deadcells": {"saturation": 1.15, "contrast": 1.08, "luma_bands": 0.0, "band_strength": 0.0, "shadow_push": 0.45,
+		"shadow_tint": Color(0.8, 0.8, 1.12), "highlight_tint": Color(1.06, 1.0, 0.9), "vignette": 0.3},
 }
 var grade_profile := "soft"
 

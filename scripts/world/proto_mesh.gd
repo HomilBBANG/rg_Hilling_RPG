@@ -33,12 +33,13 @@ static func unique_mat(color: Color, roughness := 0.9) -> StandardMaterial3D:
 	return m
 
 
-## Toon diffuse (hard light/shadow terminator) reads as painted shading once pixelated.
-## Roughness stays <= 0.7 so the pixel outline pass treats these as hard props (outline + highlight).
+## Flat cel look: toon diffuse with a very small roughness gives a hard two-tone
+## light/shadow edge (Godot's toon smoothness = roughness). No specular blobs.
+## Roughness < 0.8 also marks these as hard props for the optional outline pass.
 static func _stylize(m: StandardMaterial3D) -> void:
 	m.diffuse_mode = BaseMaterial3D.DIFFUSE_TOON
-	m.specular_mode = BaseMaterial3D.SPECULAR_TOON if m.roughness < 0.5 else BaseMaterial3D.SPECULAR_DISABLED
-	m.roughness = minf(m.roughness, 0.7)
+	m.specular_mode = BaseMaterial3D.SPECULAR_DISABLED
+	m.roughness = 0.06
 
 
 static func _add(parent: Node3D, mesh: Mesh, pos: Vector3, material: Material, rot_deg := Vector3.ZERO, shadows := true) -> MeshInstance3D:

@@ -8,6 +8,7 @@ static var _noise_detail: NoiseTexture2D
 static var _registered: Array[ShaderMaterial] = []
 static var _rock_cache := {}
 static var stylized := true
+static var detail := 1.0
 
 
 static func _noise(seed: int, freq: float, size: int) -> NoiseTexture2D:
@@ -41,6 +42,7 @@ static func _make(shader: Shader) -> ShaderMaterial:
 	m.shader = shader
 	m.set_shader_parameter("noise_detail", noise_detail())
 	m.set_shader_parameter("stylized", 1.0 if stylized else 0.0)
+	m.set_shader_parameter("detail", detail)
 	_registered.append(m)
 	return m
 
@@ -79,6 +81,19 @@ static func set_stylized(on: bool) -> void:
 	for m in _registered:
 		if is_instance_valid(m):
 			m.set_shader_parameter("stylized", 1.0 if on else 0.0)
+
+
+## 0 = flat cel colours (single colour per surface), 1 = painted detail.
+static func set_detail(v: float) -> void:
+	detail = v
+	for m in _registered:
+		if is_instance_valid(m):
+			m.set_shader_parameter("detail", v)
+
+
+static func register(m: ShaderMaterial) -> void:
+	m.set_shader_parameter("detail", detail)
+	_registered.append(m)
 
 
 ## Drop references to materials of a freed world.

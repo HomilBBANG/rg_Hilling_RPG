@@ -106,11 +106,13 @@ static func build(parent: Node3D, area: Rect2, count: int, height_func: Callable
 	flower_mat.set_shader_parameter("is_flower", true)
 	flower_mat.set_shader_parameter("root_color", Color(0.3, 0.52, 0.24))
 	flower_mat.set_shader_parameter("wind_strength", 0.03)
+	StylizedMaterials.register(grass_mat)
 	var g := _multimesh(_tuft_mesh(), tuft_t, tuft_c, grass_mat, false)
 	g.name = "GrassTufts"
 	parent.add_child(g)
 	var f := _multimesh(_flower_mesh(), flower_t, flower_c, flower_mat, false)
 	f.name = "Flowers"
+	f.add_to_group("flowers")
 	parent.add_child(f)
 
 

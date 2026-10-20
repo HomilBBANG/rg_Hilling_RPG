@@ -32,8 +32,8 @@ static func _fade_ramp(a: Color, b: Color) -> GradientTexture1D:
 static func embers(parent: Node3D, pos: Vector3) -> GPUParticles3D:
 	var p := GPUParticles3D.new()
 	p.name = "Embers"
-	p.amount = 26
-	p.lifetime = 1.8
+	p.amount = 12
+	p.lifetime = 1.6
 	p.position = pos
 	p.visibility_aabb = AABB(Vector3(-2, -1, -2), Vector3(4, 5, 4))
 	var pm := ParticleProcessMaterial.new()
@@ -61,7 +61,7 @@ static func embers(parent: Node3D, pos: Vector3) -> GPUParticles3D:
 static func motes(parent: Node3D) -> GPUParticles3D:
 	var p := GPUParticles3D.new()
 	p.name = "Motes"
-	p.amount = 90
+	p.amount = 18
 	p.lifetime = 7.0
 	p.preprocess = 7.0
 	p.local_coords = false
@@ -81,8 +81,8 @@ static func motes(parent: Node3D) -> GPUParticles3D:
 	pm.color_ramp = _fade_ramp(Color(1.0, 0.95, 0.65), Color(0.7, 0.95, 0.85))
 	p.process_material = pm
 	var q := QuadMesh.new()
-	q.size = Vector2(0.05, 0.05)
-	q.material = _quad_material(Color(1.0, 0.92, 0.6), 3.0)
+	q.size = Vector2(0.04, 0.04)
+	q.material = _quad_material(Color(1.0, 0.92, 0.6), 1.4)
 	p.draw_pass_1 = q
 	p.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	parent.add_child(p)

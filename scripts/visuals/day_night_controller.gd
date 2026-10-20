@@ -100,9 +100,9 @@ func apply(d: float, tw: float) -> void:
 			environment.fog_depth_end = camera_distance + 26.0
 		environment.ssao_enabled = style_ssao
 		var dc := palette == "deadcells" and not interior
-		environment.glow_intensity = 0.9 if dc else 0.25
-		environment.glow_hdr_threshold = 0.9 if dc else 1.5
-		environment.glow_bloom = 0.04 if dc else 0.0
+		environment.glow_intensity = 0.45 if dc else 0.25
+		environment.glow_hdr_threshold = 1.05 if dc else 1.5
+		environment.glow_bloom = 0.0
 		environment.adjustment_saturation = 1.04 if style_grade else 1.0
 		environment.adjustment_contrast = 1.06 if style_grade else 1.0
 	if sun:

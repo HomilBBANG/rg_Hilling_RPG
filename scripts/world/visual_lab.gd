@@ -56,11 +56,13 @@ func _build_environment() -> void:
 	sun.name = "SunMoon"
 	sun.shadow_enabled = true
 	sun.directional_shadow_mode = DirectionalLight3D.SHADOW_PARALLEL_2_SPLITS
-	sun.directional_shadow_max_distance = 75.0
-	sun.shadow_bias = 0.04
-	sun.shadow_normal_bias = 1.0
-	sun.shadow_blur = 1.4
-	sun.light_angular_distance = 1.2
+	sun.directional_shadow_max_distance = 50.0
+	# Larger biases: with hard (unfiltered) shadows the bumpy foliage blobs showed acne stipple.
+	sun.shadow_bias = 0.2
+	sun.shadow_normal_bias = 3.5
+	# Hard-edged shadows: soft penumbrae turn into dithered speckle once pixelated.
+	sun.shadow_blur = 0.0
+	sun.light_angular_distance = 0.0
 	add_child(sun)
 	day_night = DayNightController.new()
 	day_night.name = "DayNight"
@@ -336,13 +338,13 @@ func _grass_density(x: float, z: float) -> float:
 func _build_ground_cover() -> void:
 	var hf := Callable(self, "ground_height")
 	var area := Rect2(TerrainField.MIN + Vector2(3, 3), TerrainField.MAX - TerrainField.MIN - Vector2(6, 6))
-	GroundCover.build(self, area, 7000, hf, Callable(self, "_grass_density"), _rng)
+	GroundCover.build(self, area, 3000, hf, Callable(self, "_grass_density"), _rng)
 	# A little denser around the camp so the hero shot feels lush (still patchy, not a carpet)
-	GroundCover.build(self, Rect2(-18, -12, 26, 22), 1400, hf, Callable(self, "_grass_density"), _rng)
+	GroundCover.build(self, Rect2(-18, -12, 26, 22), 700, hf, Callable(self, "_grass_density"), _rng)
 	var edge := func(x: float, z: float) -> float:
 		var pd := terrain.path_distance(x, z)
 		return 0.9 if pd > 0.9 and pd < 2.0 else 0.02
-	GroundCover.pebbles(self, area, 700, hf, edge, _rng)
+	GroundCover.pebbles(self, area, 250, hf, edge, _rng)
 
 
 func _spawn_actors() -> void:
@@ -380,6 +382,13 @@ func sprite_targets() -> Array:
 		[slime, SlimeVisual.sprite_bake_spec(), "slime"],
 		[camper, CamperExterior.sprite_bake_spec(CAMPER_YAW_DEG), "camper"],
 	]
+
+
+## Flat cel mode hides the flower patches (small bright specks read as noise/sparkle).
+func set_detail(v: float) -> void:
+	for f in get_tree().get_nodes_in_group("flowers"):
+		if is_ancestor_of(f):
+			(f as Node3D).visible = v > 0.5
 
 
 ## Extra atmosphere for the Dead Cells-like look (floating glowing motes).

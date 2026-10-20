@@ -109,6 +109,7 @@ func _build_body() -> void:
 	paint.shader = preload("res://shaders/camper_paint.gdshader")
 	paint.set_shader_parameter("wheel_a", Vector2(WHEEL_X[0], 0.42))
 	paint.set_shader_parameter("wheel_b", Vector2(WHEEL_X[1], 0.42))
+	StylizedMaterials.register(paint)
 	var body := MeshInstance3D.new()
 	body.name = "Body"
 	body.mesh = OrganicMesh.extrude_profile(_profile(), WIDTH, 0.12)
@@ -248,5 +249,5 @@ func _build_awning() -> void:
 		var x := lerpf(x0 + 0.1, x1 - 0.1, t)
 		var sag := sin(t * PI * 3.0) * 0.06
 		var c: Color = bulb_cols[i % bulb_cols.size()]
-		var b := ProtoMesh.sphere(self, 0.05, Vector3(x, y_out - 0.2 - absf(sag), z_out + 0.02), ProtoMesh.mat(c, 0.4, c, 2.2), Vector3.ONE, 6, 3)
+		var b := ProtoMesh.sphere(self, 0.05, Vector3(x, y_out - 0.2 - absf(sag), z_out + 0.02), ProtoMesh.mat(c, 0.4, c, 1.1), Vector3.ONE, 6, 3)
 		b.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF

@@ -77,6 +77,9 @@ func _configure_camera() -> void:
 		render.grade_strength = 1.0 if style["grade"] else 0.0
 		render.apply_settings()  # re-enters _configure_camera once via settings_changed
 	StylizedMaterials.set_stylized(style["stylized"])
+	StylizedMaterials.set_detail(style.get("detail", 1.0))
+	if world.has_method("set_detail"):
+		world.set_detail(style.get("detail", 1.0))
 	var look: String = style.get("look", "soft")
 	if render.grade_profile != look:
 		render.set_grade_profile(look if render.GRADE_PROFILES.has(look) else "soft")

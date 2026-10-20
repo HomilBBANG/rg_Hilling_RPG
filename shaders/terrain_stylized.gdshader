@@ -2,9 +2,10 @@ shader_type spatial;
 // Hand-painted style ground: multi-hue grass patches, brush specks, tiny flowers,
 // a dirt path with irregular noisy edges, pebbles and a darker rim, sandy pond shore.
 // Vertex COLOR carries masks: r = path, g = shore, b = forest shade, a = camp wear.
-render_mode diffuse_toon, specular_disabled;
+render_mode specular_disabled;
 
 #include "res://shaders/stylized_common.gdshaderinc"
+#include "res://shaders/cel_light.gdshaderinc"
 
 uniform sampler2D noise_large : filter_linear, repeat_enable;
 uniform sampler2D noise_detail : filter_linear, repeat_enable;
@@ -20,6 +21,8 @@ uniform vec3 dirt_light : source_color = vec3(0.80, 0.64, 0.43);
 uniform vec3 sand : source_color = vec3(0.86, 0.77, 0.56);
 uniform vec3 pebble : source_color = vec3(0.78, 0.74, 0.68);
 uniform float stylized = 1.0;  // 0 = flat legacy colours (camera style A)
+// 0 = flat cel colours: one colour per ground type, no specks/flowers/strokes (style D).
+uniform float detail = 1.0;
 
 varying vec3 wpos;
 varying vec4 masks;
@@ -88,6 +91,14 @@ void fragment() {
 
 	vec3 col = mix(g, d, path);
 	col = mix(col, s, shore * (1.0 - path));
+	if (detail < 0.5) {
+		// Flat cel: grass in two broad tones, flat dirt and sand, crisp irregular borders.
+		vec3 fg = mix(grass_mid, grass_dark, step(0.62, n_large) * 0.55);
+		fg = mix(fg, grass_dark * 0.92, step(0.5, masks.b));
+		vec3 flat_col = mix(fg, dirt_mid, path);
+		flat_col = mix(flat_col, sand, shore * (1.0 - path));
+		col = flat_col;
+	}
 	ALBEDO = col;
 	ROUGHNESS = 1.0;  // 1.0 marks "no outline" for the pixel outline pass
 }
