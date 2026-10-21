@@ -613,7 +613,7 @@ func enter_vehicle() -> void:
 	if cat:
 		cat.visible = false  # rides along inside
 		cat.process_mode = Node.PROCESS_MODE_DISABLED
-	Game.boot.hud.toast("운전 중 — WASD 가고 싶은 방향 · 키를 놓으면 정지 · 멈춘 뒤 E 내리기")
+	Game.boot.hud.toast("운전 중 — W 전진 · S 후진 · A/D 머리 좌/우 · 키를 놓으면 정지 · 멈춘 뒤 E 내리기")
 
 
 func exit_vehicle() -> void:
@@ -741,7 +741,7 @@ func try_toggle_camper_lights() -> String:
 
 func context_hint() -> String:
 	if vehicle.driving:
-		return "운전 중 — WASD 가고 싶은 방향 · 키를 놓으면 정지 · E 내리기(정지 시) · F 라이트"
+		return "운전 중 — W 전진 · S 후진 · A/D 머리 좌/우 · E 내리기(정지 시) · F 라이트"
 	if player_near_camper():
 		return "캠핑카 근처 — F: 외부 라이트"
 	return ""

@@ -177,14 +177,11 @@ func _build_details() -> void:
 	ws.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	ProtoMesh.box(self, Vector3(0.05, 0.6, 0.08), Vector3(3.06, 1.8, 0.4), ProtoMesh.mat(Color(0.62, 0.78, 0.88), 0.2), Vector3(0, 0, 31))
 
-	# Door (camera side) with window, handle, step and mat
+	# Door (camera side) with window and handle (no step / ground mat: they travelled with the camper)
 	var dz := WIDTH * 0.5
 	_panel(Vector2(0.78, 1.86), Vector3(DOOR_LOCAL.x, 1.56, dz), 0.1, 0.04, door_mat)
 	_panel(Vector2(0.42, 0.42), Vector3(DOOR_LOCAL.x, 2.1, dz + 0.04), 0.1, 0.02, glass)
 	ProtoMesh.box(self, Vector3(0.14, 0.05, 0.05), Vector3(DOOR_LOCAL.x + 0.26, 1.5, dz + 0.07), chrome)
-	ProtoMesh.box(self, Vector3(0.82, 0.07, 0.42), Vector3(DOOR_LOCAL.x, 0.36, dz + 0.22), trim)
-	ProtoMesh.box(self, Vector3(1.0, 0.02, 0.6), Vector3(DOOR_LOCAL.x, 0.01, dz + 0.75), ProtoMesh.mat(Color(0.8, 0.42, 0.32)))
-	ProtoMesh.box(self, Vector3(0.9, 0.025, 0.5), Vector3(DOOR_LOCAL.x, 0.015, dz + 0.75), ProtoMesh.mat(Color(0.93, 0.78, 0.5)))
 
 	# Wheels: tyre, rim, hub
 	for wx: float in WHEEL_X:

@@ -1,17 +1,25 @@
 class_name CamperVehicle
 extends CharacterBody3D
 ## Drivable camper (GDD 9.1 [확정]; driving feel per CAMPERVAN_DRIVING_HANDOFF / GDD 9.7).
-## Arcade top-down control (default), WASD only: WASD = direction to drive toward ON SCREEN, the
-## camper turns toward it and drives forward; let go to stop. When the body can't turn because it
-## is wedged against something, it backs off (or creeps forward) by itself while turning, so no
-## reverse key is needed. Velocity always points along the body: no sideways slip.
-## The legacy car-style controller (W/S throttle, A/D steer) is kept for side-by-side comparison.
+## HEADING control (default, user's choice): relative to the camper's nose. W drives forward,
+## S brakes and then reverses, A/D turn the nose left/right (also while stopped). Nothing moves
+## on its own: let go and it stops quickly. Velocity always points along the body: no sideways slip.
+## Kept for comparison: ARCADE (WASD = screen direction, auto back-off when wedged) and LEGACY
+## (first P1 version: slow car-style W/S throttle + A/D steering wheel).
 ## The physics body turns smoothly; the visible model (baked 16-direction sprite + its shadow-only
 ## 3D source) snaps to the nearest baked direction. All tuning values are temporary.
 
-enum DriveMode { ARCADE, LEGACY }
+enum DriveMode { HEADING, ARCADE, LEGACY }
 
-@export var control := DriveMode.ARCADE
+@export var control := DriveMode.HEADING
+@export_group("Heading tuning (temporary values)")
+@export var heading_max_speed := 6.0      ## m/s, W
+@export var heading_reverse_speed := 3.0  ## m/s, S after stopping
+@export var heading_accel := 12.0         ## m/s^2
+@export var heading_brake := 30.0         ## m/s^2, S while rolling forward / W while reversing
+@export var heading_coast := 16.0         ## m/s^2, no W/S
+@export var heading_turn_deg := 110.0     ## deg/s, A/D
+@export_group("")
 @export_group("Arcade tuning (temporary values)")
 @export var max_speed := 6.0          ## m/s
 @export var acceleration := 14.0      ## m/s^2
@@ -39,8 +47,8 @@ var height_func: Callable
 var walk_bounds := Rect2(-1000, -1000, 2000, 2000)
 var driving := false
 var speed := 0.0
-## Tours: arcade -> {"dir": Vector2 screen dir};
-## legacy -> {"steer": float, "throttle": float}. Empty = read the keyboard.
+## Tours: heading / legacy -> {"throttle": -1..1 (W/S), "steer": -1..1 (A = +1, D = -1)};
+## arcade -> {"dir": Vector2 screen dir}. Empty = read the keyboard.
 var scripted := {}
 
 var _steer := 0.0
@@ -78,10 +86,13 @@ func forward() -> Vector3:
 func _physics_process(delta: float) -> void:
 	if not driving:
 		return
-	if control == DriveMode.ARCADE:
-		_drive_arcade(delta)
-	else:
-		_drive_legacy(delta)
+	match control:
+		DriveMode.HEADING:
+			_drive_heading(delta)
+		DriveMode.ARCADE:
+			_drive_arcade(delta)
+		_:
+			_drive_legacy(delta)
 	velocity = forward() * speed
 	move_and_slide()
 	if get_slide_collision_count() > 0:
@@ -96,6 +107,29 @@ func _physics_process(delta: float) -> void:
 	if height_func.is_valid():
 		global_position.y = height_func.call(global_position.x, global_position.z)
 	_sync_visual()
+
+
+## W/S/A/D relative to the nose: x = steer (A +1, D -1), y = throttle (W +1, S -1).
+func _wheel_input() -> Vector2:
+	if not scripted.is_empty():
+		return Vector2(scripted.get("steer", 0.0), scripted.get("throttle", 0.0))
+	return Vector2(Input.get_axis("move_right", "move_left"), Input.get_axis("move_down", "move_up"))
+
+
+func _drive_heading(delta: float) -> void:
+	var input := _wheel_input()
+	var throttle := input.y
+	if throttle > 0.0:
+		var rate := heading_brake if speed < 0.0 else heading_accel
+		speed = move_toward(speed, heading_max_speed * throttle, rate * delta)
+	elif throttle < 0.0:
+		var rate := heading_brake if speed > 0.0 else heading_accel
+		speed = move_toward(speed, -heading_reverse_speed * -throttle, rate * delta)
+	else:
+		speed = move_toward(speed, 0.0, heading_coast * delta)
+	# A/D turn the nose left / right at a steady rate, the same way when reversing.
+	if absf(input.x) > 0.05:
+		_try_rotate(input.x * deg_to_rad(heading_turn_deg) * delta)
 
 
 func _arcade_input() -> Dictionary:
@@ -192,9 +226,7 @@ func _try_rotate(amount: float) -> bool:
 
 
 func _drive_legacy(delta: float) -> void:
-	var input := Vector2(scripted.get("steer", 0.0), scripted.get("throttle", 0.0))
-	if scripted.is_empty():
-		input = Vector2(Input.get_axis("move_right", "move_left"), Input.get_axis("move_down", "move_up"))
+	var input := _wheel_input()
 	var throttle := input.y
 	if throttle > 0.0:
 		speed += (LEGACY_BRAKE if speed < 0.0 else LEGACY_ACCEL) * throttle * delta
