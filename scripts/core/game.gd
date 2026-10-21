@@ -90,6 +90,8 @@ const ACTIONS := {
 	"pause": [KEY_ESCAPE],
 	"interact": [KEY_E],
 	"interact_alt": [KEY_R],
+	"brake": [KEY_SPACE],
+	"reverse": [KEY_R],  # only while driving (R is the cat snack on foot)
 	"inventory": [KEY_TAB],
 	"combat_log": [KEY_G],
 	"debug_status": [KEY_F3],

@@ -248,6 +248,8 @@ func _parse_args() -> void:
 		_run_walk_tour()
 	elif tour == "p1":
 		_run_p1_tour()
+	elif tour == "drive":
+		_run_drive_compare()
 	elif tour == "wind":
 		_run_wind_check()
 	elif tour == "catfollow":
@@ -897,25 +899,25 @@ func _run_p1_tour() -> void:
 	await _frames(5)
 	var v: CamperVehicle = world.vehicle
 	# Out of the camp: straight ahead past the blossom tree, then right (south-east) along the path.
-	v.scripted_input = Vector2(0.0, 0.8)
+	v.scripted = {"dir": Vector2(1, 0)}
 	await _seconds(1.0)
 	print("[p1] drive 1: pos %s yaw %.0f speed %.1f" % [v.global_position, rad_to_deg(v.rotation.y), v.speed])
 	var col := v.get_last_slide_collision()
 	if col:
 		var c := col.get_collider() as Node
 		print("[p1] blocked by ", c.name, " parent ", c.get_parent().name, " at ", (c as Node3D).global_position)
-	v.scripted_input = Vector2(-1.0, 0.6)
+	v.scripted = {"dir": Vector2(0.7, 0.7)}
 	await _seconds(1.3)
-	v.scripted_input = Vector2(0.15, 0.5)
+	v.scripted = {"dir": Vector2(1, 0.25)}
 	await _seconds(1.2)
 	print("[p1] drive 2: pos %s yaw %.0f speed %.1f" % [v.global_position, rad_to_deg(v.rotation.y), v.speed])
 	await _p1_shot("14_driving", "driving yaw %.0f dir %d" % [rad_to_deg(v.rotation.y), v.sprite_direction()], true)
-	v.scripted_input = Vector2(0.0, 1.0)
+	v.scripted = {"dir": Vector2(1, 0)}
 	await _seconds(1.5)
-	v.scripted_input = Vector2(0.0, -1.0)
+	v.scripted = {"brake": true}
 	while v.speed > 0.2:
 		await get_tree().physics_frame
-	v.scripted_input = Vector2.ZERO
+	v.scripted = {}
 	await _seconds(0.3)
 	world.exit_vehicle()
 	await _frames(10)
@@ -996,6 +998,16 @@ func _run_p1_input_tour() -> void:
 	await _key(KEY_E)
 	await _frames(5)
 	print("[input] E at cab -> driving %s" % world.vehicle.driving)
+	var veh: CamperVehicle = world.vehicle
+	veh.collision_mask = 0  # open-ground key test, the camp is cluttered
+	await _hold(KEY_S, 40)
+	print("[input] hold S -> heading %.0f deg (screen down = -90), speed %.1f" % [rad_to_deg(veh.rotation.y), veh.speed])
+	await _hold_with(KEY_S, KEY_SPACE, 15)
+	print("[input] S + Space -> speed %.2f (brake wins)" % veh.speed)
+	await _hold(KEY_R, 40)
+	print("[input] hold R -> speed %.1f (reverse)" % veh.speed)
+	await _frames(30)
+	veh.collision_mask = 1
 	await _key(KEY_E)
 	await _frames(20)
 	print("[input] E while parked in the seat -> driving %s, player visible %s" % [world.vehicle.driving, world.player.visible])
@@ -1097,3 +1109,134 @@ func _run_wind_check() -> void:
 	await _frames(2)
 	print("[wind] saved")
 	get_tree().quit()
+
+
+# ---------------------------------------------------------------- driving comparison
+
+## Runs one manoeuvre: phases = [[seconds, scripted input, stop_when Callable or null], ...].
+## Returns per-physics-frame samples [t, x, z, yaw, speed].
+func _drive_phases(v: CamperVehicle, phases: Array) -> Array:
+	var samples := []
+	var t := 0.0
+	for ph: Array in phases:
+		v.scripted = ph[1]
+		var el := 0.0
+		while el < ph[0]:
+			await get_tree().physics_frame
+			var dt := get_physics_process_delta_time()
+			el += dt
+			t += dt
+			samples.append([t, v.global_position.x, v.global_position.z, v.rotation.y, v.speed])
+			if ph.size() > 2 and ph[2] is Callable and (ph[2] as Callable).call():
+				break
+	v.scripted = {}
+	return samples
+
+
+func _drive_reset(v: CamperVehicle, pos: Vector3, yaw: float, mask: int) -> void:
+	v.scripted = {"brake": true}
+	v.speed = 0.0
+	v.collision_mask = mask
+	v.global_position = pos
+	v.rotation.y = yaw
+	await get_tree().physics_frame
+	await get_tree().physics_frame
+
+
+## Same manoeuvres with the legacy car controller and the arcade controller; writes trajectories
+## (drive_<control>_<test>.txt) for plotting and prints the key numbers.
+func _run_drive_compare() -> void:
+	_touring = true
+	hud.set_capture_mode(true, "")
+	Game.clock_running = false
+	Game.minute_of_day = 10.5 * 60.0
+	await wait_for_sprites()
+	var v: CamperVehicle = world.vehicle
+	world.player.set_driving(true)
+	v.driving = true
+	world.camera.target = v
+	var open_pos := Vector3(20.0, 0.0, 30.0)
+	var north := PI * 0.5
+	var west := PI
+	for control in [CamperVehicle.DriveMode.LEGACY, CamperVehicle.DriveMode.ARCADE]:
+		v.control = control
+		var cname: String = "legacy" if control == CamperVehicle.DriveMode.LEGACY else "arcade"
+		var arcade: bool = control == CamperVehicle.DriveMode.ARCADE
+		var go: Dictionary = {"dir": Vector2(1, 0)} if arcade else {"throttle": 1.0, "steer": 0.0}
+		var cruise := func() -> bool: return v.speed >= 5.9
+		var tests := {}
+		# 1. start from rest -> 5 m/s
+		await _drive_reset(v, open_pos, 0.0, 0)
+		tests["start"] = await _drive_phases(v, [[6.0, go, func() -> bool: return v.speed >= 5.0]])
+		# 2. 90 deg turn (east -> north) from 6 m/s
+		await _drive_reset(v, open_pos, 0.0, 0)
+		await _drive_phases(v, [[6.0, go, cruise]])
+		var hold6: Dictionary = {"dir": Vector2(1, 0)} if arcade else {"throttle": 0.0, "steer": 0.0}
+		var turn90: Dictionary = {"dir": Vector2(0, -1)} if arcade else {"throttle": 0.6, "steer": 1.0}
+		tests["turn90"] = await _drive_phases(v, [[8.0, turn90, func() -> bool: return absf(angle_difference(v.rotation.y, north)) < deg_to_rad(5.0)]])
+		# 3. U-turn (east -> west) from 6 m/s
+		await _drive_reset(v, open_pos, 0.0, 0)
+		await _drive_phases(v, [[6.0, go, cruise]])
+		var uturn: Dictionary = {"dir": Vector2(-1, 0)} if arcade else {"throttle": 0.6, "steer": 1.0}
+		tests["uturn"] = await _drive_phases(v, [[10.0, uturn, func() -> bool: return absf(angle_difference(v.rotation.y, west)) < deg_to_rad(5.0)]])
+		# 4. brake from 6 m/s, 5. let go from 6 m/s
+		await _drive_reset(v, open_pos, 0.0, 0)
+		await _drive_phases(v, [[6.0, go, cruise]])
+		var brake: Dictionary = {"brake": true} if arcade else {"throttle": -1.0, "steer": 0.0}
+		tests["brake"] = await _drive_phases(v, [[6.0, brake, func() -> bool: return v.speed <= 0.05]])
+		await _drive_reset(v, open_pos, 0.0, 0)
+		await _drive_phases(v, [[6.0, go, cruise]])
+		tests["release"] = await _drive_phases(v, [[8.0, {"dir": Vector2.ZERO} if arcade else {"throttle": 0.0, "steer": 0.0}, func() -> bool: return absf(v.speed) <= 0.05]])
+		# 6. hit a single trunk-sized pillar in open ground, then reverse and turn away
+		var pillar := ProtoMesh.static_cylinder_collider(world, 0.35, 6.0, open_pos + Vector3(9.0, 0.0, 0.6))
+		await _drive_reset(v, open_pos, 0.0, 1)
+		await _drive_phases(v, [[2.5, go]])
+		var hit := v.global_position
+		var back: Dictionary = {"reverse": true} if arcade else {"throttle": -1.0, "steer": 0.0}
+		var away: Dictionary = {"dir": Vector2(0, -1)} if arcade else {"throttle": 1.0, "steer": 1.0}
+		tests["escape"] = await _drive_phases(v, [[1.0, back], [2.5, away]])
+		var escaped := v.global_position.distance_to(hit)
+		pillar.queue_free()
+		print("[drive] %s escape: moved %.1f m from the collision point" % [cname, escaped])
+		for k: String in tests:
+			var f := FileAccess.open(_capture_dir.path_join("drive_%s_%s.txt" % [cname, k]), FileAccess.WRITE)
+			for smp: Array in tests[k]:
+				f.store_line("%.4f %.4f %.4f %.4f %.4f" % smp)
+	# screenshot of the arcade camper mid-U-turn near the camp
+	v.control = CamperVehicle.DriveMode.ARCADE
+	await _drive_reset(v, Vector3(8.0, 0.0, 4.0), 0.0, 1)
+	await _drive_phases(v, [[1.2, {"dir": Vector2(1, 0)}], [0.35, {"dir": Vector2(-1, 0)}]])
+	v.scripted = {"brake": true}
+	await _frames(4)
+	print("[tour] saved ", save_screenshot("drive_uturn.png"))
+	get_tree().quit()
+
+
+func _hold(code: Key, frames: int) -> void:
+	var ev := InputEventKey.new()
+	ev.physical_keycode = code
+	ev.pressed = true
+	Input.parse_input_event(ev)
+	for i in frames:
+		await get_tree().physics_frame
+	var up := ev.duplicate()
+	up.pressed = false
+	Input.parse_input_event(up)
+	await get_tree().physics_frame
+
+
+func _hold_with(held: Key, extra: Key, frames: int) -> void:
+	var a := InputEventKey.new()
+	a.physical_keycode = held
+	a.pressed = true
+	Input.parse_input_event(a)
+	var b := InputEventKey.new()
+	b.physical_keycode = extra
+	b.pressed = true
+	Input.parse_input_event(b)
+	for i in frames:
+		await get_tree().physics_frame
+	for e: InputEventKey in [a.duplicate(), b.duplicate()]:
+		e.pressed = false
+		Input.parse_input_event(e)
+	await get_tree().physics_frame
