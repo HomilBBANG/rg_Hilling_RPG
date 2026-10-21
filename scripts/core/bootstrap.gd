@@ -2841,7 +2841,7 @@ func _slots_used() -> Array:
 	return range(1, SaveManager.SLOTS + 1).filter(func(i: int) -> bool: return SaveManager.exists(i))
 
 
-## Running (Shift): the middle-aged trot sprite - hands held together, short quick steps.
+## Running (Shift): the run sprite - arms pumping, sword held upright.
 func _run_run_tour() -> void:
 	_touring = true
 	hud.show_help_panel(false)

@@ -78,7 +78,7 @@ git clone -b claude/gallant-edison-84bkyp https://github.com/HomilBBANG/rg_Hilli
 
 | 키 | 기능 |
 |---|---|
-| `WASD` / 방향키 | 이동 (걷기 SP 0, `Shift` 달리기 SP 8/초 — 두 손을 가슴 앞에 모은 아저씨 달리기) |
+| `WASD` / 방향키 | 이동 (걷기 SP 0, `Shift` 달리기 SP 8/초 — 팔을 흔들며 칼은 위로 세워 듦) |
 | 마우스 왼쪽 클릭 | 기본 공격 1회 (마우스 방향, 누르고 있어도 반복 안 함, SP 4) |
 | `E` / `R` | 조사·상호작용(시체·상자·짐 꾸러미·문·운전석·창고·침대·고양이·상점 계산대·게시판) / 고양이 간식 · NPC 대화 |
 | `J` | 퀘스트 기록 (진행 중·완료·실패) |
@@ -194,7 +194,7 @@ Godot.exe --path C:/Game/denial -- --tour=rift --capture-dir=C:/Game/denial/capt
 Godot.exe --path C:/Game/denial -- --tour=life --capture-dir=C:/Game/denial/captures/p3
 :: P3-5 요리·제작: U 창, 시설 필요/어디서나, 모닥불·작업대·캠핑카 주방, 피격 중단, 기본 레시피 배우기·숙련도 조건, 특수 레시피(퀘스트·NPC·제작서)
 Godot.exe --path C:/Game/denial -- --tour=craft --capture-dir=C:/Game/denial/captures/p3
-:: 달리기 동작: Shift 달리기 스프라이트(손 모은 종종걸음)를 세 방향으로 촬영
+:: 달리기 동작: Shift 달리기 스프라이트(팔 흔들기, 칼 세워 듦)를 세 방향으로 촬영
 Godot.exe --path C:/Game/denial -- --tour=run --capture-dir=C:/Game/denial/captures/player
 :: 저장 슬롯: 타이틀·새 게임 슬롯 점유·수동/자동/창 닫기 저장·캐릭터 간 분리·이어하기 복원·실내 저장·삭제 확인 (user://tour_saves 사용, 실제 슬롯은 건드리지 않음)
 Godot.exe --path C:/Game/denial -- --tour=save --capture-dir=C:/Game/denial/captures/p3

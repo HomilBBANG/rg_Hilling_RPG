@@ -11,7 +11,7 @@ const MODEL := preload("res://assets/characters/player/player.glb")
 const ATTACK_TIME := 0.32
 ## Sprite sheet columns: [animation, frame count]. Rows are 8 facing directions.
 ## drink / eat / cast: common use motions per consumable kind (GDD 6.4) and for spells.
-## run: the middle-aged trot (Shift) - hands held together in front, short quick steps.
+## run: Shift running - arms pumping, sword held upright.
 const ANIMS := [["idle", 2], ["walk", 8], ["attack", 5], ["drink", 2], ["eat", 2], ["cast", 2], ["run", 6]]
 const DIRECTIONS := 8
 ## Wrist tilt of the sword at rest (blade forward-down).
@@ -265,30 +265,32 @@ func pose(walk_phase: float, moving: float, attack_t: float, breathe := 0.0) -> 
 		_rot("hips", Vector3(0, deg_to_rad(lerpf(20.0, -15.0, e)), 0))
 
 
-## Running like a middle-aged man: both fists held together in front of the chest (elbows bent,
-## upper arms tucked in), short quick trotting steps with the knees bending, a slight forward lean,
-## a bounce on every step and a waddle of the hips; the held fists bob with the steps.
+## Running: arms pumping opposite to the legs with the elbows bent, longer strides with the knee
+## of the trailing leg folding, a forward lean with the chest turning against the hips, a bounce
+## on every step. The sword is held upright (blade up) while running.
 ## phase in radians (one full stride = TAU, two steps).
 func pose_run(phase: float) -> void:
 	var step := sin(phase)
 	var bob := absf(sin(phase))
-	_rot("thigh_L", Vector3(step * 0.45 + 0.08, 0, 0))
-	_rot("thigh_R", Vector3(-step * 0.45 + 0.08, 0, 0))
+	_rot("thigh_L", Vector3(step * 0.7 + 0.1, 0, 0))
+	_rot("thigh_R", Vector3(-step * 0.7 + 0.1, 0, 0))
 	# the leg swinging back folds at the knee, the leading one stays a little bent
-	_rot("shin_L", Vector3(-0.15 - maxf(0.0, -step) * 0.9, 0, 0))
-	_rot("shin_R", Vector3(-0.15 - maxf(0.0, step) * 0.9, 0, 0))
-	_rot("hips", Vector3(0, step * 0.08, step * 0.07))
-	_rot("spine", Vector3(-0.1, 0, 0))   # lean forward a little
-	_rot("chest", Vector3(-0.05, -step * 0.06, 0))
-	_rot("head", Vector3(0.1, step * 0.05, 0))  # head stays up
-	_hips_lift(bob * 0.06 - 0.02)
-	# fists together in front of the chest, bobbing with each step
-	var pump := cos(phase * 2.0) * 0.08
-	_rot("upper_arm_R", Vector3(0.75 + pump, 0, -0.5))
-	_rot("upper_arm_L", Vector3(0.75 + pump, 0, 0.5))
-	_rot("forearm_R", Vector3(1.45 - pump, 0.95, 0))
-	_rot("forearm_L", Vector3(1.45 - pump, -0.95, 0))
-	_sword.rotation = Vector3(-1.25, 0, 0)  # blade forward-down instead of across the face
+	_rot("shin_L", Vector3(-0.2 - maxf(0.0, -step) * 1.2, 0, 0))
+	_rot("shin_R", Vector3(-0.2 - maxf(0.0, step) * 1.2, 0, 0))
+	_rot("hips", Vector3(0, step * 0.1, 0))
+	_rot("spine", Vector3(-0.18, 0, 0))   # lean into the run
+	_rot("chest", Vector3(-0.05, -step * 0.18, 0))
+	_rot("head", Vector3(0.15, step * 0.08, 0))  # eyes ahead
+	_hips_lift(bob * 0.07 - 0.03)
+	# arms swing opposite to the legs, elbows bent, a little closer to the body
+	var arm_l := -step * 0.65
+	var arm_r := step * 0.65
+	_rot("upper_arm_L", Vector3(arm_l, 0, 0.18))
+	_rot("upper_arm_R", Vector3(arm_r, 0, -0.18))
+	_rot("forearm_L", Vector3(1.3, 0, 0))
+	_rot("forearm_R", Vector3(1.3, 0, 0))
+	# blade straight up (slightly forward) whatever the arm swing: undo the arm's tilt
+	_sword.rotation = Vector3(PI - (arm_r + 1.3) + 0.35, 0, 0)
 	_bottle.visible = false
 	_bun.visible = false
 
