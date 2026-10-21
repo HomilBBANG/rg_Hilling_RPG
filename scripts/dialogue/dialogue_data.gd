@@ -219,19 +219,7 @@ static func cutscenes() -> Dictionary:
 static func cutscene_steps_text(cutscene_id: String) -> String:
 	var parts := PackedStringArray()
 	for s: Dictionary in cutscenes().get(cutscene_id, {}).get("steps", []):
-		match s.get("type", ""):
-			"caption":
-				parts.append("자막 \"%s\"" % s.get("text", ""))
-			"wait":
-				parts.append("대기 %.1f초" % float(s.get("seconds", 0.5)))
-			"actor_move":
-				parts.append("%s 이동" % s.get("actor", "?"))
-			"actor_face":
-				parts.append("%s 바라보기" % s.get("actor", "?"))
-			"set_flag":
-				parts.append("플래그 %s" % s.get("key", ""))
-			_:
-				parts.append("알 수 없는 단계 %s" % s.get("type", ""))
+		parts.append(CutsceneData.step_text(s))
 	return " → ".join(parts)
 
 

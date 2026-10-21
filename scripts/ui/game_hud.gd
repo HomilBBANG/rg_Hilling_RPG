@@ -31,6 +31,7 @@ var _panel_refresh: Callable
 var _panel_kind := ""
 var _sleep_hours := 8
 var dialogue: DialogueBox
+var overlay: CutsceneOverlay
 var _talk_hidden: Array[CanvasItem] = []
 var fishing: FishingPanel
 var cutscene: CutsceneRunner
@@ -94,9 +95,14 @@ func _ready() -> void:
 	_tracker.add_theme_color_override("font_color", Color(1.0, 0.93, 0.75))
 	cutscene = CutsceneRunner.new()
 	add_child(cutscene)
+	overlay = CutsceneOverlay.new()
+	add_child(overlay)
 	dialogue = DialogueBox.new()
 	dialogue.cutscenes = cutscene
 	add_child(dialogue)
+	add_child(overlay.fade_rect)  # a cutscene fade covers the dialogue window too
+	cutscene.overlay = overlay
+	cutscene.dialogue = dialogue
 	fishing = FishingPanel.new()
 	add_child(fishing)
 	_caption = _label("", 28, Vector2(0, 760))
@@ -848,13 +854,18 @@ func toggle_character() -> void:
 
 # ---------------------------------------------------------------- dialogue / quests (P2-5)
 
-## While a dialogue is open the whole HUD steps aside so only the conversation is on screen.
+## Dialogue or cutscene on screen: everything else in the HUD steps aside.
+func story_mode() -> bool:
+	return dialogue.active() or cutscene.playing
+
+
+## While a dialogue or cutscene is on, the whole HUD steps aside so only the story is on screen.
 ## Runs after everything else in _process: widgets that re-show themselves every frame are hidden
 ## again before drawing, and everything hidden here comes back when the dialogue ends.
 func _apply_talk_mode() -> void:
-	if dialogue.active():
+	if story_mode():
 		for c in get_children():
-			if c is CanvasItem and c.visible and not c in [dialogue, fishing, _fade, _fade_label, _caption]:
+			if c is CanvasItem and c.visible and not c in [dialogue, fishing, overlay, overlay.fade_rect, _fade, _fade_label, _caption]:
 				c.visible = false
 				if not c in _talk_hidden:
 					_talk_hidden.append(c)

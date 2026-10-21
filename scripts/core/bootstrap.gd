@@ -99,6 +99,16 @@ func _check_dialogue_playtest() -> void:
 		return
 	await wait_for_sprites()
 	await _frames(10)
+	if d.has("cutscene_id"):  # the editor's 컷씬 tab
+		var cid := str(d["cutscene_id"])
+		hud.toast("대화 에디터에서 실행: " + cid)
+		if cid == "story.new_game":
+			await play_new_game_story()
+		elif CutsceneRunner.info(cid).is_empty():
+			hud.toast("컷씬 파일을 찾을 수 없다: " + cid)
+		else:
+			await game_hud.cutscene.play(cid)
+		return
 	var id := str(d.get("dialogue_id", ""))
 	hud.toast("대화 에디터에서 실행: " + id)
 	if not game_hud.start_dialogue(id):
@@ -142,9 +152,27 @@ func _arrive() -> void:
 	get_tree().paused = false
 	if note == "new":
 		save_game("new")
+	if note == "new" and not CutsceneData.new_game_cutscenes().is_empty():
+		# the story takes over from the loading screen: its first cutscene fades in from black
+		game_hud.overlay.fade_rect.modulate.a = 1.0
+		await game_hud.fade_to(0.0, 0.01)
+		_arriving = false
+		await play_new_game_story()
+		save_game("story")
+		hud.toast("슬롯 %d — 새 캐릭터로 시작했다" % Game.slot)
+		return
 	await game_hud.fade_to(0.0, 0.6)
 	hud.toast("슬롯 %d — %s" % [Game.slot, "새 캐릭터로 시작했다" if note == "new" else "이어하기 · %d일차 %s" % [Game.day, Game.clock_text()]])
 	_arriving = false
+
+
+## data/story.json "new_game": the cutscenes a new game opens with, played back to back (each
+## but the last ends on black so the next fades in). Skipping one (ESC) moves on to the next.
+func play_new_game_story() -> void:
+	var ids: Array = CutsceneData.new_game_cutscenes()
+	for i in ids.size():
+		await game_hud.cutscene.play(str(ids[i]), i < ids.size() - 1)
+	Game.narrative.set_flag("story.new_game_seen")
 
 
 func title_open() -> bool:
@@ -315,6 +343,11 @@ func _unhandled_input(event: InputEvent) -> void:
 	if not event.is_action("pause") and (game_hud.dialogue_active() or game_hud.cutscene.playing):
 		if game_hud.dialogue_active():
 			game_hud.dialogue.handle_key(event)
+		else:
+			game_hud.cutscene.handle_key(event)
+		return
+	if event.is_action("pause") and game_hud.cutscene.playing and game_hud.cutscene.skippable:
+		game_hud.cutscene.skip_all()  # ESC skips a skippable cutscene instead of pausing
 		return
 	if event.is_action("pause"):
 		set_paused(not get_tree().paused)
@@ -480,6 +513,8 @@ func _parse_args() -> void:
 		_run_run_tour()
 	elif tour == "dialogue":
 		_run_dialogue_tour()
+	elif tour == "cutscene":
+		_run_cutscene_tour()
 	elif tour == "drive":
 		_run_drive_compare()
 	elif tour == "wind":
@@ -1885,6 +1920,62 @@ func _run_shop_tour() -> void:
 	Game.minute_of_day = 8.0 * 60.0 + 1.0
 	await _seconds(4.0)
 	print("[shop] 08:00 -> rosa %s, visible %s" % [Npc.Where.keys()[rosa.where], rosa.visible])
+	get_tree().quit()
+
+
+# ---------------------------------------------------------------- cutscenes (new game story)
+
+## Plays the new-game story (data/story.json) pressing E like a player, captures the intro's
+## narration / illustration / line and the opening's letterbox scene, then checks ESC skipping.
+func _run_cutscene_tour() -> void:
+	Game.clock_running = false
+	Game.minute_of_day = 10.5 * 60.0
+	await wait_for_sprites()
+	var cs: CutsceneRunner = game_hud.cutscene
+	var p: PrototypePlayer = world.player
+	var start_pos := p.global_position
+	game_hud.overlay.fade_rect.modulate.a = 1.0
+	play_new_game_story()
+	await _frames(2)
+	var shots := {"cutscene.intro": [2, 8, 10], "cutscene.opening": [2, 3, 6]}
+	var shot_done := {}
+	var t := 0.0
+	var press_t := 0.0
+	while (cs.playing or t < 0.5) and t < 120.0:
+		await _frames(1)
+		t += get_process_delta_time()
+		press_t += get_process_delta_time()
+		var key := "%s:%d" % [cs.current, cs.step_index]
+		if cs.playing and cs.step_index in shots.get(cs.current, []) and not shot_done.has(key):
+			await _seconds(1.4)  # typing / fades settle
+			shot_done[key] = true
+			print("[cutscene] %s step %d — narration '%s', line %s, letterbox %s, image %s, hud hidden %s, controls %s" % [cs.current, cs.step_index,
+				game_hud.overlay.narration_text().split("\n")[0], game_hud.dialogue.showing_cutscene_line(), game_hud.overlay.letterbox_on(),
+				game_hud.overlay.has_image(), not game_hud._info.is_visible_in_tree(), p.controls_enabled])
+			await _p1_shot("cutscene_%s_%02d" % [cs.current.get_slice(".", 1), cs.step_index], "cutscene", true)
+		if press_t > 1.2:
+			press_t = 0.0
+			cs.hurry()
+	print("[cutscene] story done in %.1f s: flag new_game_seen %s, arrived %s, player moved %.1f m, controls %s, screen black %s, hud back %s" % [t,
+		Game.narrative.get_flag("story.new_game_seen"), Game.narrative.get_flag("story.arrived"), p.global_position.distance_to(start_pos),
+		p.controls_enabled, game_hud.overlay.is_black(), game_hud._info.is_visible_in_tree()])
+	# ESC skip: the whole intro at once, its end state still applied
+	Game.narrative.set_flag("story.arrived", false)
+	cs.play("cutscene.opening")
+	await _seconds(1.0)
+	var ev := InputEventAction.new()
+	ev.action = "pause"
+	ev.pressed = true
+	_touring = false
+	_unhandled_input(ev)
+	_touring = true
+	var t2 := 0.0
+	while cs.playing and t2 < 5.0:
+		await _frames(1)
+		t2 += get_process_delta_time()
+	await _frames(5)
+	print("[cutscene] ESC skip -> finished %s in %.2f s, paused %s, arrived flag %s, letterbox %s, controls %s" % [not cs.playing, t2,
+		get_tree().paused, Game.narrative.get_flag("story.arrived"), game_hud.overlay.letterbox_on(), p.controls_enabled])
 	get_tree().quit()
 
 

@@ -1,0 +1,7 @@
+{
+  "_comment": "Cutscenes a new game plays, in order, right after the slot is claimed (edit in the dialogue editor's 컷씬 tab: '새 게임 때 재생').",
+  "new_game": [
+    "cutscene.intro",
+    "cutscene.opening"
+  ]
+}

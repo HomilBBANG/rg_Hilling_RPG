@@ -28,6 +28,7 @@ var _shade: TextureRect
 var _left: DialoguePortrait
 var _right: DialoguePortrait
 var _in_cutscene := false
+var _cut_line := false  # showing a cutscene's "line" step
 
 
 func _ready() -> void:
@@ -134,6 +135,39 @@ func _spotlight(sp: String, expr := "") -> void:
 	_right.set_active(sp not in ["", "player", "narrator"])
 
 
+## Cutscene "line" step (CutsceneRunner): one line with the portraits until the cutscene moves
+## on. Works for a cutscene on its own and for one called from inside a dialogue.
+func present_cutscene_line(sp: String, text: String, expr: String, partner: String) -> void:
+	_cut_line = true
+	visible = true
+	for c in _choices.get_children():
+		c.queue_free()
+	_left.set_speaker("player")
+	if partner != "" and _right.speaker == "":
+		_right.set_speaker(partner)
+	_spotlight(sp, expr)
+	_text.text = text
+	_hint.text = "E / Space — 다음"
+	_box.reset_size()
+	_box.position = Vector2(BOX_LEFT, BOTTOM - _box.size.y)
+
+
+func end_cutscene_line() -> void:
+	if not _cut_line:
+		return
+	_cut_line = false
+	if runner == null:  # a cutscene playing on its own
+		visible = false
+		_left.clear()
+		_right.clear()
+	elif _in_cutscene:
+		visible = false
+
+
+func showing_cutscene_line() -> bool:
+	return _cut_line
+
+
 func _set_player_talking(on: bool) -> void:
 	var w: Node = Game.boot.world if Game.boot else null
 	var p: PrototypePlayer = w.get("player") if w else null
@@ -210,7 +244,12 @@ func handle_key(ev: InputEvent) -> bool:
 
 
 func _box_input(ev: InputEvent) -> void:
-	if ev is InputEventMouseButton and ev.pressed and ev.button_index == MOUSE_BUTTON_LEFT and event.get("type", "") == "line":
+	if not (ev is InputEventMouseButton and ev.pressed and ev.button_index == MOUSE_BUTTON_LEFT):
+		return
+	if _cut_line:
+		cutscenes.hurry()
+		_box.accept_event()
+	elif event.get("type", "") == "line":
 		advance()
 		_box.accept_event()
 

@@ -1,0 +1,19 @@
+{
+  "version": 1,
+  "cutscene_id": "cutscene.opening",
+  "title": "(임시 문안) 오프닝 — 낯선 들판에서 깨어남",
+  "notes": "새 게임 인게임 컷씬 임시안. 화면은 인트로의 암전에서 이어서 시작. 지금 새 게임은 캠핑카·고양이가 있는 시험용 진행 단계 C로 시작하므로, 문장은 그 둘을 언급하지 않음.",
+  "skippable": true,
+  "steps": [
+    {"type": "letterbox", "on": true},
+    {"type": "fade", "to": "clear", "seconds": 2.0},
+    {"type": "caption", "text": "…바람 냄새가 다르다.", "seconds": 2.2},
+    {"type": "line", "speaker_id": "player", "expression": "surprised", "text": "여, 여긴 어디야?"},
+    {"type": "actor_move", "actor": "player", "to": "player", "offset": [1.6, 0.4], "speed": 2.0},
+    {"type": "wait", "seconds": 0.4},
+    {"type": "line", "speaker_id": "player", "expression": "", "text": "꿈은… 아닌 것 같은데."},
+    {"type": "line", "speaker_id": "player", "expression": "", "text": "일단 주변부터 둘러보자."},
+    {"type": "letterbox", "on": false},
+    {"type": "set_flag", "key": "story.arrived", "value": true}
+  ]
+}
