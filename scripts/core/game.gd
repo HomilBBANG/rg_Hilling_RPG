@@ -106,6 +106,10 @@ func _ready() -> void:
 	storage.add("cat_snack", 6)
 	storage.add("canned_food", 4)
 	storage.add("firewood", 3)
+	# P2-2 test gear (GDD 15.4 sources come later: shops, quests, crafting)
+	storage.add("leather_armor", 1)
+	storage.add("wooden_shield", 1)
+	storage.add("leather_cap", 1)
 
 
 func _register_actions() -> void:

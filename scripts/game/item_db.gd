@@ -1,6 +1,13 @@
 class_name ItemDB
 extends RefCounted
-## Prototype item table (P1). Names/weights are development placeholders, not final data.
+## Prototype item table. Names/weights/numbers are development placeholders, not final data.
+##
+## Equipment (GDD 15.1/15.2 [확정]): fixed base stats per kind, no blanket rarity grades; some
+## pieces roll a random extra option when acquired. Such a piece becomes a unique instance id
+## "base#n" (never stacks), so the slot-less weight inventory and transfers work unchanged.
+## Equipment keys: slot (main/off/head/body/hands/feet/neck/ring/belt), hands (1/2 for weapons),
+## phys / elem dice, armor (damage reduction), bonus {stat: value}, lantern (belt hook).
+## Bonus keys: STR..HLT, hit, crit, hp, sp, carry, armor.
 
 const ITEMS := {
 	"slime_jelly": {"name": "슬라임 젤리", "weight": 0.4, "desc": "말랑한 몬스터 재료."},
@@ -10,13 +17,68 @@ const ITEMS := {
 	"firewood": {"name": "장작", "weight": 2.0, "desc": "잘 마른 장작."},
 	"iron_ore": {"name": "철광석", "weight": 4.0, "desc": "무거운 광석 덩어리."},
 	"canned_food": {"name": "통조림", "weight": 0.5, "desc": "현실에서 가져온 통조림."},
-	"iron_sword": {"name": "철검", "weight": 3.0, "kind": "weapon", "phys": "1d4",
-		"desc": "물리 1d4 (GDD 6.2 예시 무기). 주인공이 손에 들고 있다."},
+	# --- weapons (GDD 6.2 examples)
+	"iron_sword": {"name": "철검", "weight": 3.0, "kind": "equip", "slot": "main", "hands": 1,
+		"phys": "1d4", "desc": "한손 무기. 물리 1d4."},
+	"flame_longsword": {"name": "불꽃 장검", "weight": 5.0, "kind": "equip", "slot": "main", "hands": 2,
+		"phys": "1d6", "elem": [{"type": "화염", "dice": "1d4"}], "desc": "양손 무기. 물리 1d6 + 화염 1d4 (STR 배율은 물리에만)."},
+	"wooden_shield": {"name": "나무 방패", "weight": 3.0, "kind": "equip", "slot": "off", "armor": 1,
+		"desc": "보조 손. 방어 +1."},
+	# --- armour
+	"leather_cap": {"name": "가죽 모자", "weight": 0.8, "kind": "equip", "slot": "head", "armor": 1,
+		"random": true, "desc": "머리. 방어 +1."},
+	"leather_armor": {"name": "가죽 갑옷", "weight": 6.0, "kind": "equip", "slot": "body", "armor": 2,
+		"random": true, "desc": "몸통. 방어 +2."},
+	"leather_gloves": {"name": "가죽 장갑", "weight": 0.6, "kind": "equip", "slot": "hands", "armor": 1,
+		"random": true, "desc": "장갑. 방어 +1."},
+	"sturdy_boots": {"name": "튼튼한 장화", "weight": 1.5, "kind": "equip", "slot": "feet", "armor": 1,
+		"random": true, "desc": "신발. 방어 +1."},
+	# --- accessories
+	"luck_necklace": {"name": "행운의 목걸이", "weight": 0.1, "kind": "equip", "slot": "neck",
+		"bonus": {"crit": 3}, "desc": "목걸이. 치명타 확률 +3%."},
+	"strength_ring": {"name": "힘의 반지", "weight": 0.05, "kind": "equip", "slot": "ring",
+		"bonus": {"STR": 1}, "desc": "반지. STR +1."},
+	"lantern_belt": {"name": "등불 허리띠", "weight": 1.0, "kind": "equip", "slot": "belt", "lantern": true,
+		"desc": "허리띠. 등불을 걸 수 있다 (GDD 10.3: 등불은 허리띠에 끼움)."},
 }
+
+const SLOT_NAMES := {"main": "주무기 손", "off": "보조 손", "head": "머리", "body": "몸통", "hands": "장갑",
+	"feet": "신발", "neck": "목걸이", "ring1": "반지 1", "ring2": "반지 2", "belt": "허리띠"}
+const SLOT_ORDER := ["main", "off", "head", "body", "hands", "feet", "neck", "ring1", "ring2", "belt"]
+
+## Random extra options [미정 pool]: one of these, rolled on acquisition.
+const OPTION_POOL := [
+	{"hit": 1}, {"crit": 2}, {"hp": 4}, {"sp": 4}, {"armor": 1}, {"carry": 3}, {"STR": 1}, {"VIT": 1},
+]
+const OPTION_TEXT := {"hit": "명중 +%d", "crit": "치명 +%d%%", "hp": "최대 HP +%d", "sp": "최대 SP +%d",
+	"armor": "방어 +%d", "carry": "소지 +%d kg", "STR": "STR +%d", "VIT": "VIT +%d", "END": "END +%d",
+	"DIV": "DIV +%d", "INT": "INT +%d", "MNT": "MNT +%d", "HLT": "HLT +%d"}
+
+## Instance id -> {"base": String, "opts": Dictionary}
+static var instances := {}
+static var _next_instance := 1
+
+
+static func base_id(id: String) -> String:
+	var i := id.find("#")
+	return id if i < 0 else id.substr(0, i)
 
 
 static func info(id: String) -> Dictionary:
-	return ITEMS.get(id, {"name": id, "weight": 0.0})
+	if not instances.has(id):
+		return ITEMS.get(id, {"name": id, "weight": 0.0})
+	var inst: Dictionary = instances[id]
+	var d: Dictionary = ITEMS[inst["base"]].duplicate(true)
+	var opts: Dictionary = inst["opts"]
+	var bonus: Dictionary = d.get("bonus", {})
+	var parts := PackedStringArray()
+	for k: String in opts:
+		bonus[k] = bonus.get(k, 0) + opts[k]
+		parts.append(OPTION_TEXT.get(k, k + " +%d") % opts[k])
+	d["bonus"] = bonus
+	d["opts"] = opts
+	d["name"] = "%s · %s" % [d["name"], ", ".join(parts)]
+	return d
 
 
 static func item_name(id: String) -> String:
@@ -25,3 +87,37 @@ static func item_name(id: String) -> String:
 
 static func weight(id: String) -> float:
 	return info(id).get("weight", 0.0)
+
+
+static func is_equipment(id: String) -> bool:
+	return info(id).get("kind", "") == "equip"
+
+
+## Piece found as loot: pieces marked "random" get one random extra option with this chance.
+static func acquire(base: String, rng: RandomNumberGenerator, option_chance := 0.5) -> String:
+	if not ITEMS[base].get("random", false) or rng.randf() >= option_chance:
+		return base
+	var id := "%s#%d" % [base, _next_instance]
+	_next_instance += 1
+	instances[id] = {"base": base, "opts": OPTION_POOL[rng.randi() % OPTION_POOL.size()].duplicate()}
+	return id
+
+
+## One-line summary of an equipment piece for the UI.
+static func equip_summary(id: String) -> String:
+	var d := info(id)
+	var parts := PackedStringArray()
+	if d.has("phys"):
+		var dmg: String = "물리 " + d["phys"]
+		for e: Dictionary in d.get("elem", []):
+			dmg += " + %s %s" % [e["type"], e["dice"]]
+		parts.append(dmg)
+		parts.append("양손" if d.get("hands", 1) == 2 else "한손")
+	if d.get("armor", 0) > 0:
+		parts.append("방어 +%d" % d["armor"])
+	for k: String in d.get("bonus", {}):
+		if not d.get("opts", {}).has(k) or d["bonus"][k] != d["opts"][k]:
+			parts.append(OPTION_TEXT.get(k, k + " +%d") % d["bonus"][k])
+	if d.get("lantern", false):
+		parts.append("등불 걸이")
+	return " · ".join(parts)

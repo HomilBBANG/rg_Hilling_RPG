@@ -58,7 +58,7 @@ func _ready() -> void:
 	_hint.position = Vector2(14, 690) * UI_SCALE
 	_hint.text = "WASD 이동 · 클릭 공격 · E 조사/상호작용 · Tab 소지품 · C 능력치 · G 로그 · F 캠핑카 라이트 · L 등불 · N 낮밤 · F9 진행 단계 · H 도움말"
 	_toast = _label(Vector2.ZERO, roundi(18 * UI_SCALE))
-	_toast.position = Vector2(320, 150) * UI_SCALE
+	_toast.position = Vector2(320, 96) * UI_SCALE  # above the item panels
 	_toast.size = Vector2(640, 26) * UI_SCALE
 	_toast.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_pause = _label(Vector2.ZERO, roundi(32 * UI_SCALE))

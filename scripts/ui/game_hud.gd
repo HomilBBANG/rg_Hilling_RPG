@@ -387,12 +387,65 @@ func toggle_inventory() -> void:
 		return
 	var st := Game.player_state
 	_open("inventory", null, 0.0, func(v: VBoxContainer) -> void:
-		v.add_child(_row_label("소지품 — 슬롯 제한 없음 · 열어도 게임은 계속 진행", 700, 26, Color(1.0, 0.9, 0.6)))
-		v.add_child(_row_label(_weight_line(), 720, 19, Color(0.8, 0.84, 0.88)))
-		var w := st.weapon()
-		v.add_child(_row_label("장착 무기: %s — 물리 %s (장착 장비 중량은 제외)" % [w["name"], w.get("phys", "-")], 720, 19, Color(0.75, 0.85, 0.75)))
-		_items_list(v, st.inventory, Callable(), "가방이 비어 있다")
-		v.add_child(_button("닫기 (Tab)", close_panel)))
+		v.add_child(_row_label("소지품 · 장비 — 슬롯 제한 없음 · 열어도 게임은 계속 진행", 900, 26, Color(1.0, 0.9, 0.6)))
+		v.add_child(_row_label(_weight_line() + " · 장착 장비 중량 제외", 1100, 19, Color(0.8, 0.84, 0.88)))
+		var p := _player()
+		var swapping: bool = p != null and p.is_swapping()
+		v.add_child(_row_label("방어 %d · 명중 +%d · 치명 %d%% · 무기 %s%s" % [st.total_armor(), st.total_hit_bonus(),
+			st.total_crit_chance(), st.weapon()["name"], "   — 장비 교체 중…" if swapping else ""], 1100, 19, Color(0.75, 0.88, 0.75)))
+		var cols := HBoxContainer.new()
+		cols.add_theme_constant_override("separation", 24)
+		v.add_child(cols)
+		var left := VBoxContainer.new()
+		var right := VBoxContainer.new()
+		cols.add_child(left)
+		cols.add_child(right)
+		left.add_child(_row_label("장착 슬롯", 300, 22, Color(1.0, 0.9, 0.6)))
+		for slot: String in ItemDB.SLOT_ORDER:
+			var row := HBoxContainer.new()
+			var id: String = st.equipment[slot]
+			row.add_child(_row_label(ItemDB.SLOT_NAMES[slot], 100, 19, Color(0.72, 0.76, 0.8)))
+			var txt := "—" if id == "" else ItemDB.item_name(id)
+			if slot == "off" and st.two_handed():
+				txt = "(양손 무기 사용 중)"
+			row.add_child(_row_label(txt, 330, 19))
+			if id != "":
+				var b := _button("해제", func() -> void: _change_gear(func() -> void: st.unequip(slot), "%s 해제" % ItemDB.item_name(id)))
+				b.disabled = swapping
+				b.tooltip_text = ItemDB.equip_summary(id)
+				row.add_child(b)
+			left.add_child(row)
+		right.add_child(_row_label("가방", 300, 22, Color(1.0, 0.9, 0.6)))
+		_items_list(right, st.inventory, func(h: HBoxContainer, id: String, _count: int) -> void:
+			if ItemDB.is_equipment(id):
+				var slot := st.target_slot(id)
+				var eb := _button("장착 (%s)" % ItemDB.SLOT_NAMES[slot], func() -> void:
+					_change_gear(func() -> void: st.equip(id), "%s 장착" % ItemDB.item_name(id)))
+				eb.disabled = swapping
+				eb.tooltip_text = ItemDB.equip_summary(id)
+				h.add_child(eb), "가방이 비어 있다")
+		var hint := PackedStringArray()
+		for e in st.inventory.items:
+			if ItemDB.is_equipment(e["id"]):
+				hint.append("%s: %s" % [ItemDB.item_name(e["id"]), ItemDB.equip_summary(e["id"])])
+		if not hint.is_empty():
+			right.add_child(_row_label("\n".join(hint), 620, 16, Color(0.7, 0.74, 0.78)))
+		v.add_child(_button("닫기 (Tab)", close_panel)), 1180)
+
+
+func _player() -> PrototypePlayer:
+	var w: Node = boot.world if boot else null
+	return w.player if w and is_instance_valid(w) and w.get("player") else null
+
+
+## Equip / unequip through the player's swap motion (GDD 6.5); applied when it ends.
+func _change_gear(action: Callable, done_text: String) -> void:
+	var p := _player()
+	if p == null or not p.begin_gear_change(func() -> void:
+		action.call()
+		_refresh_panel(), done_text):
+		boot.hud.toast("지금은 장비를 바꿀 수 없다")
+	_refresh_panel()
 
 
 ## Camper storage (GDD 8.3 [확정]): separate weight-limited box, move items one by one or
@@ -504,7 +557,8 @@ func toggle_character() -> void:
 			var row := HBoxContainer.new()
 			var info: Array = PlayerState.STAT_INFO[key]
 			row.add_child(_row_label("%s %s" % [key, info[0]], 130, 21))
-			row.add_child(_row_label("%d" % st.stats[key], 50, 21, Color(1.0, 0.95, 0.8)))
+			var gb := st.gear_bonus(key)
+			row.add_child(_row_label("%d%s" % [st.stats[key], " (+%d)" % gb if gb > 0 else ""], 80, 21, Color(1.0, 0.95, 0.8)))
 			var plus := _button(" + ", func() -> void:
 				st.add_stat(key)
 				_refresh_panel())
@@ -512,9 +566,9 @@ func toggle_character() -> void:
 			row.add_child(plus)
 			row.add_child(_row_label("  " + info[1], 520, 18, Color(0.72, 0.76, 0.8)))
 			v.add_child(row)
-		v.add_child(_row_label("최대 HP %d · SP %d · MP %d · 소지 %.0f/%.0f kg · 물리 배율 ×%.1f · 명중 +%d · 치명 %d%%" % [
+		v.add_child(_row_label("최대 HP %d · SP %d · MP %d · 소지 %.0f/%.0f kg · 물리 배율 ×%.1f · 명중 +%d · 치명 %d%% · 방어 %d (괄호 = 장비 보너스)" % [
 			st.max_hp(), st.max_sp(), st.max_mp(), st.carry_capacity(), st.carry_limit(), st.str_multiplier(),
-			st.total_hit_bonus(), st.total_crit_chance()], 820, 18, Color(0.75, 0.88, 0.75)))
+			st.total_hit_bonus(), st.total_crit_chance(), st.total_armor()], 840, 18, Color(0.75, 0.88, 0.75)))
 		v.add_child(_row_label("기본 스킬 — 일반 EXP로 스승 없이 습득", 600, 22, Color(1.0, 0.9, 0.6)))
 		for id: String in PlayerState.SKILLS:
 			var sk: Dictionary = PlayerState.SKILLS[id]
@@ -565,6 +619,11 @@ func _process(delta: float) -> void:
 		if text == "" and w.has_method("context_hint"):
 			text = w.context_hint()
 	_prompt.text = text
+	# The detailed log would show through an open panel: collapse it to one line meanwhile.
+	var want_detail := Game.combat_log.level == 3 and _panel == null
+	if _log_detail.visible != want_detail:
+		_log_detail.visible = want_detail
+		_log_box.reset_size()
 	_log_box.position = Vector2(22, 1004 - _log_box.size.y)
 	_update_floats(delta)
 	if _panel and _panel_source:

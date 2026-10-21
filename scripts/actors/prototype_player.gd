@@ -17,6 +17,10 @@ const HIT_WINDOW := Vector2(0.05, 0.24)
 const WEAPON_REACH := 0.8
 const WEAPON_RADIUS := 0.62
 const HURT_INVULN := 0.5
+## Equipment swap action (GDD 6.5 [확정]: put the old piece away, take the new one out; it applies
+## when the motion ends). Length, slow walking allowed, no attacks, not cancelled by hits [미정].
+const SWAP_TIME := 0.6
+const SWAP_MOVE_FACTOR := 0.6
 
 ## Callable(x: float, z: float) -> float giving ground height. Set by the world.
 var height_func: Callable
@@ -53,6 +57,9 @@ var focus: Node3D
 var dead := false
 ## Ignore E/R briefly after getting out of the camper (the same key press must not re-enter).
 var _interact_block := 0.0
+var _swap_t := -1.0
+var _swap_action: Callable
+var _swap_done_text := ""
 ## False while driving / in cutscenes: no input, hidden from monsters.
 var controls_enabled := true
 
@@ -70,6 +77,7 @@ func _ready() -> void:
 	add_child(shape)
 	model = PlayerRig.new()
 	model.name = "Model"
+	model.set_gear(Game.player_state.visual_gear())
 	add_child(model)
 	lantern_light = OmniLight3D.new()
 	lantern_light.position = Vector3(-0.1, 0.1, -0.1)
@@ -90,11 +98,13 @@ func _ready() -> void:
 	Game.player_state.died.connect(_on_died)
 
 
-## Bake request for SpriteBaker: every animation column x 8 facing directions.
-static func sprite_bake_spec() -> Dictionary:
+## Bake request for SpriteBaker: every animation column x 8 facing directions, with the given
+## visible gear (weapon / shield / belt lantern). One sheet per gear combination (cached by name).
+static func sprite_bake_spec(g := {"main": "iron_sword", "off": "", "lantern": true}) -> Dictionary:
 	return {
 		"builder": func(c: int, r: int) -> Node3D:
 			var rig := PlayerRig.new()
+			rig.set_gear(g)
 			rig.rotation.y = PlayerRig.direction_yaw(r)
 			rig.pose_column(c)
 			return rig,
@@ -102,8 +112,8 @@ static func sprite_bake_spec() -> Dictionary:
 		"rows": PlayerRig.DIRECTIONS,
 		# Cell is centred on the feet, so its half-height must exceed the projected head height
 		# (~2.05 m * cos(pitch)); 2.7 m clipped the top of the head.
-		# Wider than the body: the sword sweeps about 1.3 m to either side during the swing.
-		"cell": Vector2(3.3, 4.2),
+		# Wider than the body: the weapon sweeps to either side during the swing.
+		"cell": Vector2(PlayerRig.cell_width(g), 4.2),
 		"albedo_setup": func(insts: Array[Node3D]) -> void:
 			for i in insts:
 				(i as PlayerRig).set_lantern(false),
@@ -196,6 +206,8 @@ func _physics_process(delta: float) -> void:
 			_winded = true
 	var run_now := running and not _winded and dir.length() > 0.05
 	var speed := (RUN_SPEED if run_now else WALK_SPEED) * st.speed_factor()
+	if is_swapping():
+		speed *= SWAP_MOVE_FACTOR
 	velocity = dir * speed + _knock
 	_knock = _knock.move_toward(Vector3.ZERO, delta * 20.0)
 	move_and_slide()
@@ -281,6 +293,9 @@ func _turn_towards(target_yaw: float, delta: float) -> void:
 func start_attack(aim_world: Variant = null) -> void:
 	if _attack_t >= 0.0 or dead:
 		return
+	if is_swapping():
+		_toast("장비 교체 중에는 공격할 수 없다")
+		return
 	if not Game.player_state.spend_sp(PlayerState.ATTACK_SP):
 		_toast("SP가 부족하다")
 		return
@@ -309,6 +324,10 @@ func _process(delta: float) -> void:
 	_invuln = maxf(0.0, _invuln - delta)
 	_flash = maxf(0.0, _flash - delta * 5.0)
 	_interact_block -= delta
+	if _swap_t >= 0.0:
+		_swap_t += delta
+		if _swap_t >= SWAP_TIME:
+			_finish_swap()
 	if controls_enabled and not dead:
 		if Input.is_action_just_pressed("attack") and not (Game.hud and Game.hud.blocks_mouse()):
 			start_attack()
@@ -354,8 +373,65 @@ func _update_sprite_frame(moving: bool) -> void:
 		col = PlayerRig.column_for("idle", 0)
 	sprite.set_frame(col, PlayerRig.direction_index(_yaw))
 	sprite.set_emission("default", 1.0 if Game.lantern_on else 0.0)
-	# Hurt: red flash; invulnerable time blinks slightly.
-	sprite.set_flash(Color(1.0, 0.25, 0.2, _flash * 0.7))
+	# Hurt: red flash. Swapping gear: soft pale pulse.
+	if _flash > 0.01 or not is_swapping():
+		sprite.set_flash(Color(1.0, 0.25, 0.2, _flash * 0.7))
+	else:
+		sprite.set_flash(Color(0.75, 0.88, 1.0, 0.18 + 0.12 * sin(_swap_t * 25.0)))
+
+
+func is_swapping() -> bool:
+	return _swap_t >= 0.0
+
+
+## Starts the swap motion; `action` (the actual equip / unequip) runs when it ends.
+func begin_gear_change(action: Callable, done_text: String) -> bool:
+	if is_swapping() or dead:
+		return false
+	_swap_t = 0.0
+	_swap_action = action
+	_swap_done_text = done_text
+	_attack_t = -1.0
+	if Game.hud:
+		Game.hud.float_text(global_position + Vector3(0, 2.0, 0), "장비 교체…", Color(0.75, 0.88, 1.0))
+	return true
+
+
+func _finish_swap() -> void:
+	_swap_t = -1.0
+	if _swap_action.is_valid():
+		_swap_action.call()
+	apply_gear()
+	if Game.boot and _swap_done_text != "":
+		Game.boot.hud.toast(_swap_done_text)
+
+
+## Model, shadow caster and sprite sheet follow the equipped weapon / shield / lantern belt.
+func apply_gear() -> void:
+	var g := Game.player_state.visual_gear()
+	if PlayerState.gear_key(g) == PlayerState.gear_key(model.gear):
+		return
+	model.set_gear(g)
+	# New meshes (weapon, shield) get the same treatment as the rest of the rig.
+	for i in range(_meshes.size() - 1, -1, -1):
+		if not is_instance_valid(_meshes[i]):
+			_meshes.remove_at(i)
+			_mesh_materials.remove_at(i)
+			_mesh_shadow_modes.remove_at(i)
+	for mi in model.find_children("*", "MeshInstance3D", true, false):
+		var m3 := mi as MeshInstance3D
+		if m3 in _meshes:
+			continue
+		m3.layers = 1 | SELF_LAYER
+		var m := m3.material_override.duplicate() as StandardMaterial3D
+		m3.material_override = m
+		_mesh_materials.append(m)
+		_meshes.append(m3)
+		_mesh_shadow_modes.append(m3.cast_shadow)
+	_set_rig_visible(sprite == null)
+	if not Game.player_state.has_lantern():
+		Game.lantern_on = false
+	Game.sprites_dirty = true
 
 
 func _update_focus() -> void:

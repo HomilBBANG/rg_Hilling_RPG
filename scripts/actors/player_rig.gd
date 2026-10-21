@@ -22,6 +22,9 @@ var _arm_r: Node3D
 var _elbow_l: Node3D
 var _elbow_r: Node3D
 var _sword: Node3D
+var _shield: Node3D
+## Shown equipment: {"main": base id, "off": base id, "lantern": bool}.
+var gear := {"main": "iron_sword", "off": "", "lantern": true}
 var _lantern_glass: MeshInstance3D
 var _glass_on: Material
 var _glass_off: Material
@@ -29,6 +32,7 @@ var _glass_off: Material
 
 func _init() -> void:
 	_build()
+	set_gear(gear)
 
 
 static func column_count() -> int:
@@ -140,18 +144,10 @@ func _build() -> void:
 		else:
 			_elbow_r = elbow
 
-	# Iron sword (철검, GDD 6.2 example weapon) in the right hand. The wrist pivot sits in the fist;
-	# the blade runs along the sword's -Y: tilted forward-down at rest, straightened along the
-	# arm during the swing so it sweeps flat in front of the body.
+	# Weapon wrist pivot in the right fist (blade along its -Y: forward-down at rest, in line with
+	# the arm during the swing) and the shield mount on the left forearm; filled by set_gear().
 	_sword = _limb(_elbow_r, Vector3(0, -0.21, -0.02))
-	var steel := ProtoMesh.mat(Color(0.8, 0.83, 0.87), 0.3)
-	var iron := ProtoMesh.mat(Color(0.36, 0.37, 0.42), 0.4)
-	var leather := ProtoMesh.mat(Color(0.42, 0.26, 0.15))
-	ProtoMesh.sphere(_sword, 0.035, Vector3(0, 0.09, 0), iron, Vector3.ONE, 6, 4)        # pommel
-	ProtoMesh.cylinder(_sword, 0.026, 0.13, Vector3(0, 0.02, 0), leather, Vector3.ZERO, 6)  # grip
-	ProtoMesh.box(_sword, Vector3(0.21, 0.035, 0.05), Vector3(0, -0.055, 0), iron)            # crossguard
-	ProtoMesh.box(_sword, Vector3(0.08, 0.46, 0.024), Vector3(0, -0.3, 0), steel)             # blade
-	ProtoMesh.box(_sword, Vector3(0.056, 0.056, 0.024), Vector3(0, -0.53, 0), steel, Vector3(0, 0, 45))  # tip
+	_shield = _limb(_elbow_l, Vector3(-0.09, -0.12, 0.0))
 
 	# Belt lantern on the left hip (GDD 10.3: 허리띠에 끼우는 등불)
 	lantern_anchor = Node3D.new()
@@ -163,6 +159,47 @@ func _build() -> void:
 	_glass_on = ProtoMesh.mat(Color(1.0, 0.85, 0.5), 0.4, Color(1.0, 0.7, 0.3), 3.0)
 	_lantern_glass = ProtoMesh.box(lantern_anchor, Vector3(0.09, 0.13, 0.09), Vector3(0, -0.01, 0), _glass_off)
 	_lantern_glass.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+
+
+## Rebuilds the held weapon / shield and shows the belt lantern only with a lantern belt.
+func set_gear(g: Dictionary) -> void:
+	gear = g.duplicate()
+	for n in [_sword, _shield]:
+		for c in n.get_children():
+			n.remove_child(c)
+			c.free()
+	var iron := ProtoMesh.mat(Color(0.36, 0.37, 0.42), 0.4)
+	var leather := ProtoMesh.mat(Color(0.42, 0.26, 0.15))
+	match gear.get("main", ""):
+		"iron_sword":  # 철검: plain steel, 0.46 m blade
+			var steel := ProtoMesh.mat(Color(0.8, 0.83, 0.87), 0.3)
+			ProtoMesh.sphere(_sword, 0.035, Vector3(0, 0.09, 0), iron, Vector3.ONE, 6, 4)        # pommel
+			ProtoMesh.cylinder(_sword, 0.026, 0.13, Vector3(0, 0.02, 0), leather, Vector3.ZERO, 6)  # grip
+			ProtoMesh.box(_sword, Vector3(0.21, 0.035, 0.05), Vector3(0, -0.055, 0), iron)            # crossguard
+			ProtoMesh.box(_sword, Vector3(0.08, 0.46, 0.024), Vector3(0, -0.3, 0), steel)             # blade
+			ProtoMesh.box(_sword, Vector3(0.056, 0.056, 0.024), Vector3(0, -0.53, 0), steel, Vector3(0, 0, 45))
+		"flame_longsword":  # 불꽃 장검: long two-hander, ember-red blade with a bright edge, gold guard
+			var blade := ProtoMesh.mat(Color(0.86, 0.38, 0.22), 0.3)
+			var edge := ProtoMesh.mat(Color(1.0, 0.78, 0.38), 0.3)
+			var gold := ProtoMesh.mat(Color(0.86, 0.66, 0.24), 0.3)
+			ProtoMesh.sphere(_sword, 0.04, Vector3(0, 0.15, 0), gold, Vector3.ONE, 6, 4)
+			ProtoMesh.cylinder(_sword, 0.028, 0.24, Vector3(0, 0.03, 0), leather, Vector3.ZERO, 6)
+			ProtoMesh.box(_sword, Vector3(0.28, 0.045, 0.06), Vector3(0, -0.1, 0), gold)
+			ProtoMesh.box(_sword, Vector3(0.1, 0.72, 0.026), Vector3(0, -0.48, 0), blade)
+			ProtoMesh.box(_sword, Vector3(0.03, 0.7, 0.03), Vector3(0, -0.48, 0), edge)
+			ProtoMesh.box(_sword, Vector3(0.07, 0.07, 0.026), Vector3(0, -0.84, 0), blade, Vector3(0, 0, 45))
+	match gear.get("off", ""):
+		"wooden_shield":  # round wooden shield on the outside of the left forearm
+			var wood := ProtoMesh.mat(Color(0.62, 0.42, 0.24))
+			ProtoMesh.cylinder(_shield, 0.2, 0.035, Vector3(0, 0, 0), iron, Vector3(0, 0, 90), 12)
+			ProtoMesh.cylinder(_shield, 0.17, 0.05, Vector3(-0.01, 0, 0), wood, Vector3(0, 0, 90), 12)
+			ProtoMesh.sphere(_shield, 0.055, Vector3(-0.04, 0, 0), iron, Vector3(0.7, 1, 1), 8, 4)
+	lantern_anchor.visible = gear.get("lantern", true)
+
+
+## Sprite cell width needed for the held weapon's sweep.
+static func cell_width(g: Dictionary) -> float:
+	return 4.0 if g.get("main", "") == "flame_longsword" else 3.3
 
 
 ## Simplified red/dark-red buffalo plaid (big checks so it survives pixelation).

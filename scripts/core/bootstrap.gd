@@ -182,6 +182,9 @@ func _unhandled_input(event: InputEvent) -> void:
 		Game.clock_running = not Game.clock_running
 		hud.toast("시계 " + ("진행" if Game.clock_running else "정지"))
 	elif event.is_action("toggle_lantern"):
+		if not Game.player_state.has_lantern():
+			hud.toast("등불을 걸 허리띠가 없다 (등불 허리띠를 장착하세요)")
+			return
 		Game.lantern_on = not Game.lantern_on
 		hud.toast("개인 등불 " + ("ON" if Game.lantern_on else "OFF"))
 	elif event.is_action("camper_lights"):
@@ -252,6 +255,8 @@ func _parse_args() -> void:
 		_run_p1_tour()
 	elif tour == "p2":
 		_run_p2_tour()
+	elif tour == "gear":
+		_run_gear_tour()
 	elif tour == "drive":
 		_run_drive_compare()
 	elif tour == "wind":
@@ -1317,4 +1322,112 @@ func _run_p2_tour() -> void:
 	await _p1_shot("p2_04_after_levelup", "after level-up + STR + skill")
 	await _key(KEY_C)
 	print("[p2] C again -> panel open %s" % game_hud.panel_open())
+	get_tree().quit()
+
+
+# ---------------------------------------------------------------- P2-2 equipment tour
+
+func _equip_now(fn: Callable, label: String) -> void:
+	var p: PrototypePlayer = world.player
+	var st := Game.player_state
+	var armor0 := st.total_armor()
+	var gear0 := PlayerState.gear_key(st.visual_gear())
+	var ok := p.begin_gear_change(fn, label)
+	await _seconds(0.3)
+	var mid := "armor %d gear %s" % [st.total_armor(), PlayerState.gear_key(st.visual_gear())]
+	while p.is_swapping():
+		await _frames(1)
+	print("[gear] %s: started %s | before armor %d gear %s | at 0.3 s %s | after armor %d gear %s" % [
+		label, ok, armor0, gear0, mid, st.total_armor(), PlayerState.gear_key(st.visual_gear())])
+
+
+func _run_gear_tour() -> void:
+	_touring = true
+	Dice.rng.seed = 21
+	Game.clock_running = false
+	Game.minute_of_day = 10.5 * 60.0
+	Game.combat_log.level = 3
+	var st := Game.player_state
+	# 1. camper storage: armour, shield, cap
+	Game.request_world(Game.WORLD_INTERIOR)
+	await wait_for_sprites()
+	for id in ["leather_armor", "wooden_shield", "leather_cap"]:
+		game_hud._move(Game.storage, st.inventory, id, 1, game_hud._player_can_take)
+	await _equip_now(func() -> void: st.equip("leather_armor"), "가죽 갑옷 장착")
+	await _equip_now(func() -> void: st.equip("wooden_shield"), "나무 방패 장착")
+	await _equip_now(func() -> void: st.equip("leather_cap"), "가죽 모자 장착")
+	await wait_for_sprites()
+	_place_player(Vector3(0.6, 0, 0.4), PI * 0.75)
+	game_hud.toggle_inventory()
+	await _p1_shot("gear_01_inventory_equipped", "inventory with armour + shield")
+	game_hud.close_panel()
+	await _p1_shot("gear_02_shield_sprite_interior", "shield on the sprite")
+	# 2. field: crate -> flame longsword (two-handed), ring, necklace
+	Game.request_world(Game.WORLD_EXTERIOR)
+	await wait_for_sprites()
+	var crate: LootContainer = null
+	for n in world.get_children():
+		if n is LootContainer and n.data["id"] == "camp_crate":
+			crate = n
+	for id in ["flame_longsword", "strength_ring", "luck_necklace"]:
+		game_hud._move(crate.inventory(), st.inventory, id, 1, game_hud._player_can_take)
+	var str0 := st.stat("STR")
+	await _equip_now(func() -> void: st.equip("strength_ring"), "힘의 반지 장착")
+	await _equip_now(func() -> void: st.equip("luck_necklace"), "행운의 목걸이 장착")
+	print("[gear] STR %d -> %d, crit %d%%, carry %.0f" % [str0, st.stat("STR"), st.total_crit_chance(), st.carry_capacity()])
+	await _equip_now(func() -> void: st.equip("flame_longsword"), "불꽃 장검 장착")
+	print("[gear] two-handed: main %s off '%s', bag has shield %d iron sword %d" % [st.equipment["main"], st.equipment["off"], st.inventory.count("wooden_shield"), st.inventory.count("iron_sword")])
+	await wait_for_sprites()
+	# 3. fight with the longsword; armour shows in the slime's hits on the player
+	var p: PrototypePlayer = world.player
+	_place_player(Vector3(12.0, 0, 5.0), -PI * 0.5)
+	await _frames(10)
+	var target := _nearest_monster(p.global_position)
+	var shot := false
+	for i in 30:
+		if not is_instance_valid(target):
+			break
+		var d := target.global_position - p.global_position
+		d.y = 0
+		while d.length() > 1.3 and is_instance_valid(target):
+			p.scripted_move = Vector2(d.x, d.z).normalized()
+			await get_tree().physics_frame
+			d = target.global_position - p.global_position
+			d.y = 0
+		p.scripted_move = Vector2.ZERO
+		if not is_instance_valid(target):
+			break
+		p.start_attack(target.global_position)
+		await _seconds(0.12)
+		if not shot:
+			shot = true
+			await _p1_shot("gear_03_longsword_swing", "flame longsword swing", true)
+		await _seconds(0.33)
+		st.sp = st.max_sp()
+		st.hp = st.max_hp()
+	for e in Game.combat_log.entries:
+		if e["detail"].contains("화염") or e["detail"].contains("방어"):
+			print("[gear] log: ", e["detail"])
+	# 4. off-hand item while two-handed -> the two-hander goes back to the bag
+	await _equip_now(func() -> void: st.equip("wooden_shield"), "나무 방패 장착 (양손 무기 해제)")
+	print("[gear] after shield: main '%s' off %s, bag longsword %d" % [st.equipment["main"], st.equipment["off"], st.inventory.count("flame_longsword")])
+	await _equip_now(func() -> void: st.equip("iron_sword"), "철검 장착")
+	# 5. belt off -> lantern can't be used
+	Game.lantern_on = true
+	await _equip_now(func() -> void: st.unequip("belt"), "등불 허리띠 해제")
+	print("[gear] belt off: has_lantern %s lantern_on %s" % [st.has_lantern(), Game.lantern_on])
+	await _equip_now(func() -> void: st.equip("lantern_belt"), "등불 허리띠 장착")
+	# 6. random option piece
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 3
+	var gid := ItemDB.acquire("leather_gloves", rng, 1.0)
+	st.inventory.add(gid, 1)
+	var hit0 := st.total_hit_bonus()
+	await _equip_now(func() -> void: st.equip(gid), "장갑 장착")
+	print("[gear] random option piece %s = '%s' (%s), armor now %d, hit %d -> %d" % [gid, ItemDB.item_name(gid), ItemDB.equip_summary(gid), st.total_armor(), hit0, st.total_hit_bonus()])
+	await wait_for_sprites()
+	_place_player(Vector3(-1.0, 0, 4.6), PI * 0.75)
+	game_hud.toggle_inventory()
+	await _p1_shot("gear_04_inventory_field", "inventory after swaps")
+	game_hud.close_panel()
 	get_tree().quit()

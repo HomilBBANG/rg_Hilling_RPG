@@ -22,8 +22,11 @@ var hp := 0.0
 var mp := 0.0
 var sp := 0.0
 var inventory := Inventory.new()
-var weapon_id := "iron_sword"
-## Prototype combat numbers [미정]: d20 + hit_bonus >= target AC (skills add to it).
+## Equipped items by slot (GDD 15.1 [확정]); "" = empty. Equipped items are not in the bag and
+## don't count toward carried weight [가정].
+var equipment := {"main": "iron_sword", "off": "", "head": "", "body": "", "hands": "", "feet": "",
+	"neck": "", "ring1": "", "ring2": "", "belt": "lantern_belt"}
+## Prototype combat numbers [미정]: d20 + hit_bonus >= target AC (skills / gear add to it).
 var hit_bonus := 3
 var armor_class := 10
 var armor := 0
@@ -90,10 +93,7 @@ func add_stat(key: String) -> bool:
 	var before := [max_hp(), max_sp(), max_mp()]
 	stats[key] += 1
 	stat_points -= 1
-	hp += max_hp() - before[0]
-	sp += max_sp() - before[1]
-	mp += max_mp() - before[2]
-	changed.emit()
+	_apply_max_change(before)
 	return true
 
 
@@ -119,11 +119,101 @@ func learn_skill(id: String) -> bool:
 
 
 func total_hit_bonus() -> int:
-	return hit_bonus + skill_rank("accuracy")
+	return hit_bonus + skill_rank("accuracy") + gear_bonus("hit")
 
 
 func total_crit_chance() -> int:
-	return crit_chance + 3 * skill_rank("vital_aim")
+	return crit_chance + 3 * skill_rank("vital_aim") + gear_bonus("crit")
+
+
+# ---------------------------------------------------------------- equipment (GDD 15.1 / 15.2)
+
+func gear_bonus(key: String) -> int:
+	var total := 0
+	for slot: String in equipment:
+		var id: String = equipment[slot]
+		if id != "":
+			total += ItemDB.info(id).get("bonus", {}).get(key, 0)
+	return total
+
+
+## Armour reduces damage taken (GDD 6.2: no manual block input).
+func total_armor() -> int:
+	var total := armor + gear_bonus("armor")
+	for slot: String in equipment:
+		if equipment[slot] != "":
+			total += ItemDB.info(equipment[slot]).get("armor", 0)
+	return total
+
+
+func has_lantern() -> bool:
+	return equipment["belt"] != "" and ItemDB.info(equipment["belt"]).get("lantern", false)
+
+
+func two_handed() -> bool:
+	return equipment["main"] != "" and ItemDB.info(equipment["main"]).get("hands", 1) == 2
+
+
+## Which slot an item would go into (rings: first free ring slot, else ring 1).
+func target_slot(id: String) -> String:
+	var slot: String = ItemDB.info(id).get("slot", "")
+	if slot == "ring":
+		return "ring2" if equipment["ring1"] != "" and equipment["ring2"] == "" else "ring1"
+	return slot
+
+
+## Equip an item from the bag. One/two-hand rules (GDD 15.1): a two-handed weapon frees the off
+## hand, an off-hand item puts a two-handed weapon away. Displaced items go back to the bag
+## (even past the weight limit - you can't drop them mid-swap) [가정].
+func equip(id: String) -> bool:
+	if not ItemDB.is_equipment(id) or inventory.count(id) <= 0:
+		return false
+	var slot := target_slot(id)
+	var before := [max_hp(), max_sp(), max_mp()]
+	inventory.remove(id, 1)
+	if slot == "main" and ItemDB.info(id).get("hands", 1) == 2:
+		_store("off")
+	if slot == "off" and two_handed():
+		_store("main")
+	_store(slot)
+	equipment[slot] = id
+	_apply_max_change(before)
+	return true
+
+
+func unequip(slot: String) -> bool:
+	if equipment.get(slot, "") == "":
+		return false
+	var before := [max_hp(), max_sp(), max_mp()]
+	_store(slot)
+	_apply_max_change(before)
+	return true
+
+
+func _store(slot: String) -> void:
+	if equipment[slot] != "":
+		inventory.add(equipment[slot], 1)
+		equipment[slot] = ""
+	if slot == "belt" and not has_lantern():
+		Game.lantern_on = false
+
+
+## Raised maximums raise the current value by the same amount; lowered ones clamp it.
+func _apply_max_change(before: Array) -> void:
+	hp = clampf(hp + max_hp() - before[0], 1.0 if hp > 0.0 else 0.0, max_hp())
+	sp = clampf(sp + max_sp() - before[1], 0.0, max_sp())
+	mp = clampf(mp + max_mp() - before[2], 0.0, max_mp())
+	changed.emit()
+
+
+## What the character model shows (weapon / shield / lantern on the belt) and a cache key for it.
+func visual_gear() -> Dictionary:
+	return {"main": ItemDB.base_id(equipment["main"]), "off": ItemDB.base_id(equipment["off"]),
+		"lantern": has_lantern()}
+
+
+static func gear_key(g: Dictionary) -> String:
+	return "%s,%s,%s" % [g["main"], g["off"], "L" if g["lantern"] else "-"]
 
 
 func _init() -> void:
@@ -133,29 +223,34 @@ func _init() -> void:
 	inventory.changed.connect(func() -> void: changed.emit())
 
 
+## Stat including equipment bonuses (rings, random options).
+func stat(key: String) -> int:
+	return stats[key] + gear_bonus(key)
+
+
 func max_hp() -> float:
-	return 20.0 + stats["VIT"] * 4.0  # VIT -> max HP
+	return 20.0 + stat("VIT") * 4.0 + gear_bonus("hp")  # VIT -> max HP
 
 
 func max_sp() -> float:
-	return 20.0 + stats["END"] * 4.0  # END -> max SP
+	return 20.0 + stat("END") * 4.0 + gear_bonus("sp")  # END -> max SP
 
 
 func max_mp() -> float:
-	return 10.0 + stats["DIV"] * 2.0  # DIV -> max MP
+	return 10.0 + stat("DIV") * 2.0  # DIV -> max MP
 
 
 func sp_regen() -> float:
-	return 4.0 + stats["VIT"] * 0.4  # VIT -> SP recovery speed
+	return 4.0 + stat("VIT") * 0.4  # VIT -> SP recovery speed
 
 
 func mp_regen() -> float:
-	return 0.2 + stats["MNT"] * 0.04  # MNT -> MP recovery speed
+	return 0.2 + stat("MNT") * 0.04  # MNT -> MP recovery speed
 
 
 ## STR -> carry weight (GDD 5.1). Over capacity: slower; above the hard limit: no pickups.
 func carry_capacity() -> float:
-	return 20.0 + stats["STR"] * 2.0 + 5.0 * skill_rank("pack_mule")
+	return 20.0 + stat("STR") * 2.0 + 5.0 * skill_rank("pack_mule") + gear_bonus("carry")
 
 
 func carry_limit() -> float:
@@ -189,18 +284,21 @@ func weight_state() -> String:
 
 ## STR multiplier for the weapon's physical dice only (GDD 5.1 [확정]); formula [미정].
 func str_multiplier() -> float:
-	return 1.0 + (stats["STR"] - 5) * 0.1
+	return 1.0 + (stat("STR") - 5) * 0.1
 
 
+## Main-hand weapon, or bare fists (1d2) when the hand is empty [가정].
 func weapon() -> Dictionary:
-	return ItemDB.info(weapon_id)
+	if equipment["main"] == "":
+		return {"name": "맨손", "phys": "1d2"}
+	return ItemDB.info(equipment["main"])
 
 
 func combat_profile() -> Dictionary:
 	var w := weapon()
 	return {"name": "주인공", "hit_bonus": total_hit_bonus(), "crit_chance": total_crit_chance(),
 		"phys": w.get("phys", "1d2"), "elem": w.get("elem", []), "str_mult": str_multiplier(),
-		"ac": armor_class, "armor": armor}
+		"ac": armor_class, "armor": total_armor()}
 
 
 func spend_sp(amount: float) -> bool:

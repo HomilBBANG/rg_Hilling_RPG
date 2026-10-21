@@ -281,7 +281,7 @@ func _die() -> void:
 	queue_free()
 
 
-## Loot table [미정]: jelly 1d3 always, core 35 %, mana shard 15 %.
+## Loot table [미정]: jelly 1d3 always, core 35 %, mana shard 15 %, armour piece 12 %.
 func roll_loot() -> Inventory:
 	var inv := Inventory.new()
 	inv.add("slime_jelly", Dice.d(3))
@@ -289,6 +289,10 @@ func roll_loot() -> Inventory:
 		inv.add("slime_core", 1)
 	if _rng.randf() < 0.15:
 		inv.add("mana_shard", 1)
+	# GDD 15.4: equipment from hunting too; pieces may carry a random extra option (15.2).
+	if _rng.randf() < 0.12:
+		var base: String = ["leather_cap", "leather_gloves", "sturdy_boots"][_rng.randi() % 3]
+		inv.add(ItemDB.acquire(base, _rng, 0.6), 1)
 	return inv
 
 

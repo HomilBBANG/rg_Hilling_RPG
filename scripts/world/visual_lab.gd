@@ -425,7 +425,8 @@ func _spawn_actors() -> void:
 
 ## Objects drawn as pre-rendered pixel sprites: [node, bake spec, name] (same name = same sheet).
 func sprite_targets() -> Array:
-	var out := [[player, PrototypePlayer.sprite_bake_spec(), "player"]]
+	var g := Game.player_state.visual_gear()
+	var out := [[player, PrototypePlayer.sprite_bake_spec(g), "player|" + PlayerState.gear_key(g)]]
 	for m in monsters:
 		if is_instance_valid(m):
 			out.append([m, SlimeMonster.sprite_bake_spec(), "slime"])
@@ -482,6 +483,9 @@ func _spawn_loot() -> void:
 		inv.add("iron_ore", 6)
 		inv.add("cat_snack", 3)
 		inv.add("firewood", 2)
+		inv.add("flame_longsword", 1)
+		inv.add("strength_ring", 1)
+		inv.add("luck_necklace", 1)
 		Game.field["loot"].append({"id": "camp_crate", "kind": "crate", "title": "보급 상자",
 			"pos": Vector3(CRATE_POS.x, ground_height(CRATE_POS.x, CRATE_POS.z), CRATE_POS.z), "inv": inv, "expires": -1.0})
 		Game.field["crate_made"] = true
