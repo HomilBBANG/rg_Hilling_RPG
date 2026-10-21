@@ -71,6 +71,10 @@ var _new_dialog: ConfirmationDialog
 var _new_id: LineEdit
 var _new_title: LineEdit
 var _play_button: Button
+var _mode_tabs: TabContainer
+var _page: Control
+## The 컷씬 tab (cutscene files, new-game story order).
+var cutscene_panel: CutsceneEditorPanel
 
 
 func _ready() -> void:
@@ -93,9 +97,18 @@ func _btn(parent: Control, text: String, cb: Callable, tip := "") -> Button:
 
 
 func _build_ui() -> void:
+	# two tabs: 대화 (this graph editor) and 컷씬 (CutsceneEditorPanel)
+	_mode_tabs = TabContainer.new()
+	_mode_tabs.set_anchors_preset(Control.PRESET_FULL_RECT)
+	add_child(_mode_tabs)
 	var root := VBoxContainer.new()
-	root.set_anchors_preset(Control.PRESET_FULL_RECT)
-	add_child(root)
+	root.name = "대화"
+	_mode_tabs.add_child(root)
+	_page = root
+	cutscene_panel = CutsceneEditorPanel.new()
+	cutscene_panel.name = "컷씬"
+	_mode_tabs.add_child(cutscene_panel)
+	cutscene_panel.saved.connect(func(_p: String) -> void: refresh_catalog())
 	# toolbar (wraps on narrow screens) + status line
 	var bar := HFlowContainer.new()
 	root.add_child(bar)
@@ -564,8 +577,16 @@ func _restore_snap() -> void:
 	_update_status()
 
 
+## Opens a cutscene in the 컷씬 tab (from a CutsceneCall node).
+func edit_cutscene(id: String) -> void:
+	_mode_tabs.current_tab = 1
+	if id != "" and str(cutscene_panel.doc.get("cutscene_id", "")) != id:
+		if not cutscene_panel.open_cutscene(id):
+			cutscene_panel._set_status("저장하지 않은 변경이 있어 '%s'를 열지 않았습니다 — 저장하거나 목록에서 다시 고르세요" % id)
+
+
 func _input(event: InputEvent) -> void:
-	if not is_visible_in_tree() or not event is InputEventKey or not event.pressed or event.echo:
+	if not _page.is_visible_in_tree() or not event is InputEventKey or not event.pressed or event.echo:
 		return
 	var k := event as InputEventKey
 	if not k.is_command_or_control_pressed():
@@ -1063,6 +1084,11 @@ func _show_inspector() -> void:
 				n["cutscene_id"] = v
 				_node_edited("cutscene", true)))
 			_note("단계: " + DialogueData.cutscene_steps_text(str(n.get("cutscene_id", ""))) + "\n카메라는 고정 탑다운 그대로. 컷씬이 끝나면 '다음'으로 진행.")
+			var cid := str(n.get("cutscene_id", ""))
+			var eb := Button.new()
+			eb.text = "컷씬 탭에서 편집"
+			eb.pressed.connect(func() -> void: edit_cutscene(cid))
+			_inspector.add_child(eb)
 		"end":
 			_field_label("완료 기록할 이벤트 ID (선택, 다시 재생해도 한 번만 기록)")
 			var le := LineEdit.new()

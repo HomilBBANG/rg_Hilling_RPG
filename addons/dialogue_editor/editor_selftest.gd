@@ -7,6 +7,7 @@ extends RefCounted
 ## DIALOGUE_EDITOR_SELFTEST) and inside the game (--tour=dialogue_editor). Prints [editor] lines.
 
 const TEST_ID := "dialogue.test.editor_selftest"
+const CUT_ID := "cutscene.test.editor_selftest"
 
 
 static func _check(ok: bool, what: String) -> bool:
@@ -185,4 +186,92 @@ static func run(panel: DialogueEditorPanel, shot: Callable) -> void:
 	panel.open_dialogue("dialogue.npc.rosa.main")
 	DirAccess.remove_absolute(ProjectSettings.globalize_path(DialogueData.path_for(TEST_ID)))
 	panel.refresh_list()
+	fails += await _cutscene_checks(panel, shot)
 	print("[editor] done: %d failed checks" % fails)
+
+
+## The 컷씬 tab: open the intro, build a new cutscene with every step type, catch errors, reorder,
+## undo / redo, save → reload, new-game order on/off (restored), preview to the end, clean up.
+static func _cutscene_checks(dpanel: DialogueEditorPanel, shot: Callable) -> int:
+	var fails := 0
+	var cp := dpanel.cutscene_panel
+	var story_before := CutsceneData.new_game_cutscenes()
+	dpanel.edit_cutscene("cutscene.intro")
+	await _frames(cp, 5)
+	fails += 0 if _check(cp.is_visible_in_tree() and str(cp.doc.get("cutscene_id", "")) == "cutscene.intro",
+		"cutscene tab opens cutscene.intro (%d steps)" % cp._step_count()) else 1
+	cp.select_step(2)
+	await _frames(cp, 4)
+	await shot.call("editor_10_cutscene_intro")
+	# new cutscene with every step type
+	fails += 0 if _check(cp.create_cutscene(CUT_ID, "에디터 자체 점검 컷씬"), "create " + CUT_ID) else 1
+	cp.select_step(cp._step_count() - 1)
+	for t: String in CutsceneData.ORDER:
+		cp.add_step(t)
+	var types := PackedStringArray()
+	for st: Dictionary in cp.doc["steps"]:
+		types.append(st["type"])
+	fails += 0 if _check(cp._step_count() == 2 + CutsceneData.ORDER.size(), "added every step type: " + ", ".join(types)) else 1
+	# empty texts / flag key are errors
+	var errs := cp.validate(false)
+	fails += 0 if _check(errs >= 4, "validator caught %d errors (empty narration/line/caption/flag key)" % errs) else 1
+	for st: Dictionary in cp.doc["steps"]:
+		match st["type"]:
+			"narration":
+				st["text"] = "점검 내레이션\n두 번째 줄"
+			"line":
+				st["speaker_id"] = "player"
+				st["expression"] = "surprised"
+				st["text"] = "점검 대사"
+			"caption":
+				st["text"] = "점검 자막"
+			"set_flag":
+				st["key"] = "test.cutscene_editor"
+			"image":
+				st["path"] = "res://assets/ui/title_background.webp"
+	cp._commit()
+	fails += 0 if _check(cp.validate(false) == 0, "after fixes: 0 errors (%d warnings)" % (cp.issues.size())) else 1
+	# reorder + undo / redo
+	var first := str(cp.doc["steps"][0]["type"])
+	cp.move_step(0, 1)
+	var moved := str(cp.doc["steps"][1]["type"]) == first
+	cp.undo()
+	var undone := str(cp.doc["steps"][0]["type"]) == first
+	cp.redo()
+	fails += 0 if _check(moved and undone and str(cp.doc["steps"][1]["type"]) == first, "move step, undo, redo") else 1
+	# save -> reload identical
+	var ok := cp.save(true, true)
+	var before := var_to_str(CutsceneData.normalized(cp.doc))
+	cp.open_cutscene("cutscene.intro")
+	cp.open_cutscene(CUT_ID)
+	var after := var_to_str(CutsceneData.normalized(cp.doc))
+	fails += 0 if _check(ok and before == after and after.contains("두 번째 줄"), "save → reload: steps, fields and Korean text identical") else 1
+	# new-game order on, then restored
+	cp.story_add(CUT_ID)
+	var added := CUT_ID in CutsceneData.new_game_cutscenes()
+	CutsceneData.set_new_game_cutscenes(story_before)
+	cp.refresh_list()
+	fails += 0 if _check(added and CutsceneData.new_game_cutscenes() == story_before, "new-game order: add → data/story.json, restored") else 1
+	# preview plays every step to the end (keys pressed for narration / lines)
+	cp.select_step(3)
+	await _frames(cp, 3)
+	await shot.call("editor_11_cutscene_steps")
+	cp.preview_start(0)
+	var t := 0
+	var shot_taken := false
+	while (cp.previewing or t < 10) and t < 1200:
+		await _frames(cp, 1)
+		t += 1
+		if cp.previewing and not shot_taken and cp.preview_step >= 0 and cp.doc["steps"][cp.preview_step]["type"] == "line":
+			await _frames(cp, 4)
+			await shot.call("editor_12_cutscene_preview_line")
+			shot_taken = true
+		if t % 20 == 0:
+			cp.preview_next()
+	fails += 0 if _check(not cp.previewing and shot_taken, "preview played all %d steps (%d frames)" % [cp._step_count(), t]) else 1
+	# cleanup
+	cp.open_cutscene("cutscene.intro")
+	DirAccess.remove_absolute(ProjectSettings.globalize_path(CutsceneData.path_for(CUT_ID)))
+	cp.refresh_list()
+	dpanel._mode_tabs.current_tab = 0
+	return fails

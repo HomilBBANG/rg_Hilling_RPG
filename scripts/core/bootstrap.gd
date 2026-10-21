@@ -152,7 +152,7 @@ func _arrive() -> void:
 	get_tree().paused = false
 	if note == "new":
 		save_game("new")
-	if note == "new" and not CutsceneData.new_game_cutscenes().is_empty():
+	if note == "new" and _cmd_tour() == "" and not CutsceneData.new_game_cutscenes().is_empty():  # tours skip the story
 		# the story takes over from the loading screen: its first cutscene fades in from black
 		game_hud.overlay.fade_rect.modulate.a = 1.0
 		await game_hud.fade_to(0.0, 0.01)
@@ -1956,6 +1956,7 @@ func _run_cutscene_tour() -> void:
 		if press_t > 1.2:
 			press_t = 0.0
 			cs.hurry()
+	await _frames(3)  # the HUD comes back on the next frame
 	print("[cutscene] story done in %.1f s: flag new_game_seen %s, arrived %s, player moved %.1f m, controls %s, screen black %s, hud back %s" % [t,
 		Game.narrative.get_flag("story.new_game_seen"), Game.narrative.get_flag("story.arrived"), p.global_position.distance_to(start_pos),
 		p.controls_enabled, game_hud.overlay.is_black(), game_hud._info.is_visible_in_tree()])

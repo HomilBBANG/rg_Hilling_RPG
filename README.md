@@ -11,7 +11,11 @@
 > **주인공 모델:** 사용자가 준 AI 생성 모델(Tripo)을 뼈대에 붙여 사용 (걷기·공격·사용 동작, 장비, 스프라이트) → [`notes/PLAYER_MODEL.md`](notes/PLAYER_MODEL.md)
 
 > **대화 에디터:** Godot 에디터 위쪽 `Dialogue` 탭에서 대사·선택지·조건·퀘스트 액션·컷씬 호출을 노드로 작성하고
-> 미리보기·검증·저장·게임에서 실행까지 할 수 있습니다 → [`notes/DIALOGUE_EDITOR.md`](notes/DIALOGUE_EDITOR.md)
+> 미리보기·검증·저장·게임에서 실행까지 할 수 있습니다. **`컷씬` 탭**에서는 인트로·인게임 컷씬(삽화·내레이션·초상화 대사·페이드·
+> 영화 띠·인물 이동)을 단계 목록으로 만들고 미리보기하며, 새 게임 때 재생할 순서도 정합니다 → [`notes/DIALOGUE_EDITOR.md`](notes/DIALOGUE_EDITOR.md)
+
+> **새 게임 컷씬:** `새 게임` → **인트로**(삽화+내레이션, 현실에서 TRPG 세계로 — 임시 문안·삽화 자리표시) → **오프닝**(게임 화면 안,
+> 영화 띠, 주인공 놀람 표정) → 조작 시작. `E`/`Space`/클릭 다음, `ESC` 건너뛰기. 삽화는 `assets/cutscenes/intro_01~04.png`
 
 ## P1에서 해 볼 수 있는 것
 
@@ -163,6 +167,7 @@ captures/sprite_pipeline/   구운 스프라이트 시트(sheets/) + 베이크 v
 captures/p1/                P1 흐름 검증 캡처 19장 (--tour=p1)
 captures/p2/                P2 캡처: 성장(--tour=p2), 장비(--tour=gear), 소모품(--tour=items), 상점·NPC(--tour=shop), 퀘스트·대화(--tour=quest)
 captures/dialogue/           대화창: HUD 숨김, 초상화 자리표시의 화자별 밝기·내레이션·선택지 (--tour=dialogue)
+captures/cutscene/           새 게임 컷씬: 인트로 내레이션·삽화 자리·대사, 오프닝 영화 띠·놀람 표정 (--tour=cutscene)
 captures/dialogue_editor/   실제 Godot 에디터 안의 대화 에디터 자동 점검 캡처
 captures/p3/                P3-1 지역 이동(region_*), P3-2 고정 던전(dungeon_*), P3-3 랜덤 던전(rift_*), P3-4 채집·낚시(life_*, --tour=life), P3-5 요리·제작(craft_*, --tour=craft), 저장 슬롯(save_*, --tour=save)
 notes/             VISUAL_DIRECTION.md, VISUAL_COMPARISON.md, IMPLEMENTATION_ASSUMPTIONS.md, DIALOGUE_EDITOR.md, DRIVING.md
@@ -195,6 +200,8 @@ Godot.exe --path C:/Game/denial -- --tour=rift --capture-dir=C:/Game/denial/capt
 Godot.exe --path C:/Game/denial -- --tour=life --capture-dir=C:/Game/denial/captures/p3
 :: P3-5 요리·제작: U 창, 시설 필요/어디서나, 모닥불·작업대·캠핑카 주방, 피격 중단, 기본 레시피 배우기·숙련도 조건, 특수 레시피(퀘스트·NPC·제작서)
 Godot.exe --path C:/Game/denial -- --tour=craft --capture-dir=C:/Game/denial/captures/p3
+:: 새 게임 컷씬: 인트로→오프닝을 E로 넘기며 촬영, ESC 건너뛰기 확인 (콘솔에 [cutscene] 결과 출력)
+Godot.exe --path C:/Game/denial -- --tour=cutscene --capture-dir=C:/Game/denial/captures/cutscene
 :: 대화창 초상화: 로사·고양이(내레이션·컷씬·선택지·주인공 대사)·왕 대화를 넘기며 화자 쪽만 밝은지 확인 (콘솔에 [dialogue] 결과 출력)
 Godot.exe --path C:/Game/denial -- --tour=dialogue --capture-dir=C:/Game/denial/captures/dialogue
 :: 달리기 동작: Shift 달리기 스프라이트(팔 흔들기, 칼 세워 듦)를 세 방향으로 촬영

@@ -14,6 +14,10 @@ func _enter_tree() -> void:
 	panel.play_requested.connect(_play_in_game)
 	panel.saved.connect(func(_p: String) -> void: EditorInterface.get_resource_filesystem().scan())
 	EditorInterface.get_editor_main_screen().add_child(panel)
+	# the 컷씬 tab exists once the panel is built (_ready)
+	panel.cutscene_panel.can_play_in_game = true
+	panel.cutscene_panel.play_requested.connect(_play_cutscene_in_game)
+	panel.cutscene_panel.saved.connect(func(_p: String) -> void: EditorInterface.get_resource_filesystem().scan())
 	_make_visible(false)
 	var out := OS.get_environment("DIALOGUE_EDITOR_SELFTEST")
 	if out != "":
@@ -47,6 +51,15 @@ func _get_plugin_icon() -> Texture2D:
 func _play_in_game(dialogue_id: String) -> void:
 	var f := FileAccess.open(PLAYTEST_PATH, FileAccess.WRITE)
 	f.store_string(JSON.stringify({"dialogue_id": dialogue_id}))
+	f.close()
+	EditorInterface.play_main_scene()
+
+
+## Same hand-off for the 컷씬 tab: the game plays that cutscene ("story.new_game" = the whole
+## new-game sequence from data/story.json).
+func _play_cutscene_in_game(cutscene_id: String) -> void:
+	var f := FileAccess.open(PLAYTEST_PATH, FileAccess.WRITE)
+	f.store_string(JSON.stringify({"cutscene_id": cutscene_id}))
 	f.close()
 	EditorInterface.play_main_scene()
 
