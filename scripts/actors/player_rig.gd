@@ -11,7 +11,8 @@ const MODEL := preload("res://assets/characters/player/player.glb")
 const ATTACK_TIME := 0.32
 ## Sprite sheet columns: [animation, frame count]. Rows are 8 facing directions.
 ## drink / eat / cast: common use motions per consumable kind (GDD 6.4) and for spells.
-const ANIMS := [["idle", 2], ["walk", 8], ["attack", 5], ["drink", 2], ["eat", 2], ["cast", 2]]
+## run: the middle-aged trot (Shift) - hands held together in front, short quick steps.
+const ANIMS := [["idle", 2], ["walk", 8], ["attack", 5], ["drink", 2], ["eat", 2], ["cast", 2], ["run", 6]]
 const DIRECTIONS := 8
 ## Wrist tilt of the sword at rest (blade forward-down).
 const SWORD_REST_TILT := 1.05
@@ -247,6 +248,9 @@ func pose(walk_phase: float, moving: float, attack_t: float, breathe := 0.0) -> 
 	_rot("upper_arm_R", Vector3(swing * 0.8 - 0.05, 0, 0))
 	_rot("forearm_R", Vector3(lerpf(0.2, 0.3, moving), 0, 0))
 	_rot("hips", Vector3(0, 0, sin(walk_phase) * 0.04 * moving))
+	_rot("spine", Vector3.ZERO)
+	_rot("chest", Vector3.ZERO)
+	_rot("head", Vector3.ZERO)
 	_hips_lift(absf(sin(walk_phase)) * 0.04 * moving + breathe)
 	_sword.rotation = Vector3(SWORD_REST_TILT, 0, 0)
 	_bottle.visible = false
@@ -259,6 +263,34 @@ func pose(walk_phase: float, moving: float, attack_t: float, breathe := 0.0) -> 
 		_rot("forearm_R", Vector3(0.2, 0, 0))
 		_sword.rotation = Vector3(lerpf(0.5, 0.1, e), 0, 0)  # blade lines up with the arm
 		_rot("hips", Vector3(0, deg_to_rad(lerpf(20.0, -15.0, e)), 0))
+
+
+## Running like a middle-aged man: both fists held together in front of the chest (elbows bent,
+## upper arms tucked in), short quick trotting steps with the knees bending, a slight forward lean,
+## a bounce on every step and a waddle of the hips; the held fists bob with the steps.
+## phase in radians (one full stride = TAU, two steps).
+func pose_run(phase: float) -> void:
+	var step := sin(phase)
+	var bob := absf(sin(phase))
+	_rot("thigh_L", Vector3(step * 0.45 + 0.08, 0, 0))
+	_rot("thigh_R", Vector3(-step * 0.45 + 0.08, 0, 0))
+	# the leg swinging back folds at the knee, the leading one stays a little bent
+	_rot("shin_L", Vector3(-0.15 - maxf(0.0, -step) * 0.9, 0, 0))
+	_rot("shin_R", Vector3(-0.15 - maxf(0.0, step) * 0.9, 0, 0))
+	_rot("hips", Vector3(0, step * 0.08, step * 0.07))
+	_rot("spine", Vector3(-0.1, 0, 0))   # lean forward a little
+	_rot("chest", Vector3(-0.05, -step * 0.06, 0))
+	_rot("head", Vector3(0.1, step * 0.05, 0))  # head stays up
+	_hips_lift(bob * 0.06 - 0.02)
+	# fists together in front of the chest, bobbing with each step
+	var pump := cos(phase * 2.0) * 0.08
+	_rot("upper_arm_R", Vector3(0.55 + pump, 0, -0.35))
+	_rot("upper_arm_L", Vector3(0.55 + pump, 0, 0.35))
+	_rot("forearm_R", Vector3(1.55 - pump, 0.6, 0))
+	_rot("forearm_L", Vector3(1.55 - pump, -0.6, 0))
+	_sword.rotation = Vector3(-1.25, 0, 0)  # blade forward-down instead of across the face
+	_bottle.visible = false
+	_bun.visible = false
 
 
 ## Use motion on top of the standing pose: kind "drink" / "eat" (left hand to the mouth with a
@@ -296,5 +328,8 @@ func pose_column(col: int) -> void:
 				"drink", "eat", "cast":
 					pose(0.0, 0.0, -1.0)
 					pose_action(a[0], c)
+				"run":
+					pose(0.0, 0.0, -1.0)
+					pose_run(TAU * c / a[1])
 			return
 		c -= a[1]

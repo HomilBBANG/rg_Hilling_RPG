@@ -44,6 +44,7 @@ var _walk_phase := 0.0
 var _yaw := 0.0
 var _attack_t := -1.0
 var _speed_now := 0.0
+var _running := false  # running this frame (Shift with SP, moving): middle-aged trot
 var _lantern_state := false
 var _swing_hits: Array[Node] = []
 var _aim_dir := Vector3.FORWARD
@@ -207,6 +208,7 @@ func _physics_process(delta: float) -> void:
 		if not st.drain_sp(PlayerState.RUN_SP_PER_SEC * delta):
 			_winded = true
 	var run_now := running and not _winded and dir.length() > 0.05
+	_running = run_now
 	var speed := (RUN_SPEED if run_now else WALK_SPEED) * st.speed_factor()
 	if is_swapping():
 		speed *= SWAP_MOVE_FACTOR
@@ -389,6 +391,8 @@ func _animate(delta: float) -> void:
 		if _attack_t >= PlayerRig.ATTACK_TIME + 0.08:
 			_attack_t = -1.0
 	model.pose(_walk_phase, 1.0 if moving else 0.0, _attack_t)
+	if _running and moving and _attack_t < 0.0 and not is_using():
+		model.pose_run(_walk_phase)
 	if is_using():
 		model.pose_action(_use["anim"], use_frame())
 	if sprite:
@@ -402,6 +406,9 @@ func _update_sprite_frame(moving: bool) -> void:
 	elif _attack_t >= 0.0:
 		var n: int = PlayerRig.ANIMS[2][1]
 		col = PlayerRig.column_for("attack", int(clampf(_attack_t / PlayerRig.ATTACK_TIME, 0.0, 1.0) * (n - 1) + 0.5))
+	elif moving and _running:
+		var nr: int = PlayerRig.ANIMS[6][1]
+		col = PlayerRig.column_for("run", int(fposmod(_walk_phase, TAU) / TAU * nr) % nr)
 	elif moving:
 		var n: int = PlayerRig.ANIMS[1][1]
 		col = PlayerRig.column_for("walk", int(fposmod(_walk_phase, TAU) / TAU * n) % n)

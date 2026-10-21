@@ -476,6 +476,8 @@ func _parse_args() -> void:
 		_run_craft_tour()
 	elif tour == "save":
 		_run_save_tour()
+	elif tour == "run":
+		_run_run_tour()
 	elif tour == "drive":
 		_run_drive_compare()
 	elif tour == "wind":
@@ -2837,4 +2839,29 @@ func _run_save_tour() -> void:
 
 func _slots_used() -> Array:
 	return range(1, SaveManager.SLOTS + 1).filter(func(i: int) -> bool: return SaveManager.exists(i))
+
+
+## Running (Shift): the middle-aged trot sprite - hands held together, short quick steps.
+func _run_run_tour() -> void:
+	_touring = true
+	hud.show_help_panel(false)
+	Game.clock_running = false
+	Game.minute_of_day = 10.5 * 60.0
+	await wait_for_sprites()
+	var p: PrototypePlayer = world.player
+	_place_player(Vector3(-2.0, 0, 3.6), 0.0)
+	await _frames(10)
+	for leg: Array in [["right", Vector2(1, 0)], ["down", Vector2(0, 1)], ["diag", Vector2(-0.7, 0.7)]]:
+		p.scripted_move = leg[1]
+		p.scripted_running = true
+		await _seconds(0.6)
+		for i in 3:
+			await _seconds(0.07)
+			print("[run] %s: running %s, speed %.1f m/s, sp %.0f" % [leg[0], p._running, p._speed_now, Game.player_state.sp])
+			await _p1_shot("run_%s_%d" % [leg[0], i], "running " + leg[0], true)
+	p.scripted_move = Vector2.ZERO
+	p.scripted_running = false
+	await _frames(10)
+	print("[run] stopped: running %s" % p._running)
+	get_tree().quit()
 
