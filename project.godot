@@ -1,5 +1,10 @@
 ; Engine configuration file.
-; Denial — P0 visual tech prototype (Godot 4.7)
+; It's best edited using the editor UI and not directly,
+; since the parameters that go here are not all obvious.
+;
+; Format:
+;   [section] ; section goes between []
+;   param=value ; assign values to parameters
 
 config_version=5
 
@@ -19,16 +24,12 @@ Game="*res://scripts/core/game.gd"
 window/size/viewport_width=1920
 window/size/viewport_height=1080
 window/stretch/mode="canvas_items"
-window/stretch/aspect="keep"
-
-[rendering]
-
-renderer/rendering_method="forward_plus"
-lights_and_shadows/directional_shadow/size=4096
-lights_and_shadows/directional_shadow/soft_shadow_filter_quality=0
-lights_and_shadows/positional_shadow/soft_shadow_filter_quality=0
-anti_aliasing/quality/msaa_3d=0
 
 [editor_plugins]
 
 enabled=PackedStringArray("res://addons/dialogue_editor/plugin.cfg")
+
+[rendering]
+
+lights_and_shadows/directional_shadow/soft_shadow_filter_quality=0
+lights_and_shadows/positional_shadow/soft_shadow_filter_quality=0
