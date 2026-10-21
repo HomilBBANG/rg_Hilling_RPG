@@ -5,3 +5,4 @@
 export_presets.cfg
 # Captures: keep committed PNG/GIF/MP4, ignore raw movie-maker output
 captures/*.avi
+*.blend1
