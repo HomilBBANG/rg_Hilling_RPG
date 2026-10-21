@@ -19,9 +19,6 @@ enum DriveMode { HEADING, ARCADE, LEGACY }
 @export var heading_brake := 30.0         ## m/s^2, S while rolling forward / W while reversing
 @export var heading_coast := 16.0         ## m/s^2, no W/S
 @export var heading_turn_deg := 110.0     ## deg/s, A/D
-## When the nose points down the screen (toward the camera), swap A/D so A still swings the nose
-## to screen-left (user request: feels more natural on a fixed top-down camera).
-@export var flip_steer_facing_down := true
 @export_group("")
 @export_group("Arcade tuning (temporary values)")
 @export var max_speed := 6.0          ## m/s
@@ -56,8 +53,6 @@ var scripted := {}
 
 var _steer := 0.0
 var _shape: BoxShape3D
-var _steer_held := false
-var _steer_flip := false
 var _blocked_t := 0.0
 var _unstick_t := 0.0
 var _unstick_dir := -1.0  # -1 back off, +1 creep forward
@@ -132,17 +127,9 @@ func _drive_heading(delta: float) -> void:
 		speed = move_toward(speed, -heading_reverse_speed * -throttle, rate * delta)
 	else:
 		speed = move_toward(speed, 0.0, heading_coast * delta)
-	# A/D turn the nose left / right at a steady rate, the same way when reversing. Facing down the
-	# screen they are swapped; the choice is made when A/D goes down and kept until released, so a
-	# long turn through the horizontal never reverses mid-turn.
+	# A/D turn the nose left / right at a steady rate, the same way when reversing.
 	if absf(input.x) > 0.05:
-		if not _steer_held:
-			_steer_held = true
-			_steer_flip = flip_steer_facing_down and forward().z > 0.2
-		var steer := -input.x if _steer_flip else input.x
-		_try_rotate(steer * deg_to_rad(heading_turn_deg) * delta)
-	else:
-		_steer_held = false
+		_try_rotate(input.x * deg_to_rad(heading_turn_deg) * delta)
 
 
 func _arcade_input() -> Dictionary:

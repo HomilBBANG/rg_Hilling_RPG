@@ -1009,39 +1009,6 @@ func _run_p1_input_tour() -> void:
 	print("[input] hold D -> nose turned %.0f deg (right = -)" % rad_to_deg(angle_difference(yaw0, veh.rotation.y)))
 	await _hold(KEY_S, 40)
 	print("[input] hold S -> speed %.1f (reverse)" % veh.speed)
-	# facing down the screen: A/D swapped so A still swings the nose to screen-left
-	await _frames(30)
-	veh.rotation.y = -PI * 0.5  # nose toward the camera
-	yaw0 = veh.rotation.y
-	await _hold(KEY_A, 20)
-	print("[input] facing down, hold A -> nose moved %.0f deg (negative = toward screen-left)" % rad_to_deg(angle_difference(yaw0, veh.rotation.y)))
-	veh.rotation.y = PI * 0.5  # nose up the screen
-	yaw0 = veh.rotation.y
-	await _hold(KEY_A, 20)
-	print("[input] facing up, hold A -> nose moved %.0f deg (positive = toward screen-left)" % rad_to_deg(angle_difference(yaw0, veh.rotation.y)))
-	# one long press through the horizontal keeps turning the same way
-	veh.rotation.y = PI * 0.5
-	var turned := 0.0
-	var prev := veh.rotation.y
-	var reversals := 0
-	var last_sign := 0.0
-	var ev := InputEventKey.new()
-	ev.physical_keycode = KEY_A
-	ev.pressed = true
-	Input.parse_input_event(ev)
-	for i in 240:
-		await get_tree().physics_frame
-		var dy := angle_difference(prev, veh.rotation.y)
-		prev = veh.rotation.y
-		turned += dy
-		if absf(dy) > 0.0001:
-			if last_sign != 0.0 and signf(dy) != last_sign:
-				reversals += 1
-			last_sign = signf(dy)
-	var up := ev.duplicate()
-	up.pressed = false
-	Input.parse_input_event(up)
-	print("[input] hold A 4 s from facing up -> turned %.0f deg, direction reversals %d" % [rad_to_deg(turned), reversals])
 	await _frames(30)
 	veh.collision_mask = 1
 	await _key(KEY_E)
