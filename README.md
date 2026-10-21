@@ -8,8 +8,8 @@
 
 ![P1 전투 · 로그 3단계](captures/p1/p1_04_combat_log3.png)
 
-> **주인공 새 원형 v2 (Blender 정지 모델, 검토용 — 아직 게임에 적용 안 함):** [`notes/PLAYER_V2_MODEL.md`](notes/PLAYER_V2_MODEL.md)
-> · 렌더 `art_src/player_v2/renders/` · 게임 화면 비교 `captures/player_v2/` (`--tour=charcompare`)
+> **주인공 새 모델 v3 (Blender 정지 모델, 승인 대기 — 게임에는 아직 넣지 않음):** [`notes/PLAYER_V3_MODEL.md`](notes/PLAYER_V3_MODEL.md)
+> · 렌더 `art_src/player_v3/renders/`
 
 > **대화 에디터:** Godot 에디터 위쪽 `Dialogue` 탭에서 대사·선택지·조건·퀘스트 액션·컷씬 호출을 노드로 작성하고
 > 미리보기·검증·저장·게임에서 실행까지 할 수 있습니다 → [`notes/DIALOGUE_EDITOR.md`](notes/DIALOGUE_EDITOR.md)
