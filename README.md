@@ -8,7 +8,7 @@
 
 ![P1 전투 · 로그 3단계](captures/p1/p1_04_combat_log3.png)
 
-> **주인공 모델:** 사용자가 준 Meshy AI 모델을 뼈대에 붙여 사용 (걷기·공격·사용 동작, 장비, 스프라이트) → [`notes/PLAYER_MODEL.md`](notes/PLAYER_MODEL.md)
+> **주인공 모델:** 사용자가 준 AI 생성 모델(Tripo)을 뼈대에 붙여 사용 (걷기·공격·사용 동작, 장비, 스프라이트) → [`notes/PLAYER_MODEL.md`](notes/PLAYER_MODEL.md)
 
 > **대화 에디터:** Godot 에디터 위쪽 `Dialogue` 탭에서 대사·선택지·조건·퀘스트 액션·컷씬 호출을 노드로 작성하고
 > 미리보기·검증·저장·게임에서 실행까지 할 수 있습니다 → [`notes/DIALOGUE_EDITOR.md`](notes/DIALOGUE_EDITOR.md)

@@ -1,7 +1,7 @@
 class_name PlayerRig
 extends Node3D
-## The player's 3D model: the Meshy AI character (assets/characters/player/player.glb, scaled,
-## decimated and skinned to a simple humanoid skeleton by tools/blender/player_meshy_prepare.py),
+## The player's 3D model: the AI-generated character (assets/characters/player/player.glb, scaled,
+## decimated and skinned to a simple humanoid skeleton by tools/blender/player_model_prepare.py),
 ## posed from code through its bones. Used two ways: as the source model that SpriteBaker renders
 ## into pixel sprite sheets, and live (shadow-only) so the baked sprite still casts a correct
 ## animated shadow. Held items (weapon, shield, potion, bread) ride on the hand / forearm bones and
@@ -109,7 +109,7 @@ func _build() -> void:
 	_bun.visible = false
 
 	# Belt lantern on the left hip, a little behind the hanging arm (GDD 10.3: 허리띠에 끼우는 등불)
-	lantern_anchor = _attach("hips", Vector3(-0.29, 0.6, 0.1))
+	lantern_anchor = _attach("hips", Vector3(-0.43, 0.47, 0.08))
 	var dark := ProtoMesh.mat(Color(0.1, 0.08, 0.08))
 	ProtoMesh.box(lantern_anchor, Vector3(0.11, 0.03, 0.11), Vector3(0, 0.07, 0), dark)
 	ProtoMesh.box(lantern_anchor, Vector3(0.11, 0.03, 0.11), Vector3(0, -0.09, 0), dark)
@@ -284,10 +284,10 @@ func pose_run(phase: float) -> void:
 	_hips_lift(bob * 0.06 - 0.02)
 	# fists together in front of the chest, bobbing with each step
 	var pump := cos(phase * 2.0) * 0.08
-	_rot("upper_arm_R", Vector3(0.55 + pump, 0, -0.35))
-	_rot("upper_arm_L", Vector3(0.55 + pump, 0, 0.35))
-	_rot("forearm_R", Vector3(1.55 - pump, 0.6, 0))
-	_rot("forearm_L", Vector3(1.55 - pump, -0.6, 0))
+	_rot("upper_arm_R", Vector3(0.75 + pump, 0, -0.5))
+	_rot("upper_arm_L", Vector3(0.75 + pump, 0, 0.5))
+	_rot("forearm_R", Vector3(1.45 - pump, 0.95, 0))
+	_rot("forearm_L", Vector3(1.45 - pump, -0.95, 0))
 	_sword.rotation = Vector3(-1.25, 0, 0)  # blade forward-down instead of across the face
 	_bottle.visible = false
 	_bun.visible = false

@@ -1,6 +1,7 @@
-"""Prepares the Meshy AI protagonist model for the game (Blender 4.2+ / bpy 5.x).
+"""Prepares the AI-generated protagonist model for the game (Blender 4.2+ / bpy 5.x).
 
-Input: the Meshy export (static textured mesh, ~475k triangles, 2K PBR textures, no rig).
+Input: the generated export (currently Tripo, art_src/player/source_model.glb: static textured
+mesh in a T-pose, ~97k triangles, 2K PBR textures, no rig).
 Output <out>/player.glb (bones: hips, spine, chest, head, upper_arm_L/R, forearm_L/R, hand_L/R,
 thigh_L/R, shin_L/R, foot_L/R; _L = the character's left): the same character
   - scaled to the game height (1.74 m, feet at 0, centred), facing -Y in Blender (+Z in glTF)
@@ -11,11 +12,13 @@ thigh_L/R, shin_L/R, foot_L/R; _L = the character's left): the same character
   - the shirt split into its own mesh ("Shirt") so the game can give it big plaid checks
   - skinned to a simple humanoid armature (hips, spine, chest, head, arms, hands, legs, feet)
     so PlayerRig can pose walk / attack / use motions from code, like the old procedural rig.
+    Weights are made in the source's T-pose (arms clear of the body), then the arms are lowered
+    and that becomes the rest pose: PlayerRig's motions start from arms hanging at the sides.
 Also writes <out>/player.blend and <out>/renders/rig_test_*.png (rest + a test pose).
 
 Run (from the project folder):
-  blender -b -P tools/blender/player_meshy_prepare.py -- art_src/player_meshy/meshy_source.glb art_src/player_meshy assets/characters/player/player.glb
-  python tools/blender/player_meshy_prepare.py <same three arguments>        (pip install bpy)
+  blender -b -P tools/blender/player_model_prepare.py -- art_src/player/source_model.glb art_src/player assets/characters/player/player.glb
+  python tools/blender/player_model_prepare.py <same three arguments>        (pip install bpy)
 The optional third argument is where the game GLB goes (default <out_dir>/player.glb).
 """
 
@@ -27,24 +30,28 @@ import bpy  # noqa: I001 - bpy before bmesh / mathutils
 from mathutils import Euler, Vector
 
 HEIGHT = 1.74          # same height as the previous in-game model (scene scale unchanged)
-TARGET_TRIS = 16000
+TARGET_TRIS = 28000   # enough for the small face features (eyes) to survive
 TEXTURE_PX = 512       # working size for reading the colour regions
 
-# Joint landmarks measured from the Meshy mesh (height slices): z as a fraction of the height,
-# x / y in metres after scaling. Character faces -Y, so its right side is -X.
+# Joint landmarks measured from the source mesh after scaling (height / width slices), metres,
+# left side (+X; the character faces -Y, so its right side is -X). Arms are horizontal (T-pose).
 JOINTS = {
-    "hips": (0.0, 0.03, 0.40), "spine": (0.0, 0.03, 0.52), "chest": (0.0, 0.03, 0.64),
-    "neck": (0.0, 0.03, 0.755), "head_top": (0.0, 0.0, 1.0),
-    "shoulder": (0.27, 0.03, 0.665), "elbow": (0.385, 0.03, 0.50), "wrist": (0.41, 0.0, 0.375),
-    "hand_end": (0.425, -0.01, 0.28),
-    "hip": (0.155, 0.04, 0.36), "knee": (0.155, 0.04, 0.175), "ankle": (0.155, 0.05, 0.06),
-    "toe": (0.155, -0.14, 0.02),
+    "pelvis": (0.0, 0.04, 0.30), "spine": (0.0, 0.04, 0.55), "chest": (0.0, 0.06, 0.85),
+    "neck": (0.0, 0.06, 1.25), "head_top": (0.0, 0.0, HEIGHT),
+    "shoulder": (0.36, 0.13, 1.06), "elbow": (0.64, 0.13, 1.05), "wrist": (0.80, 0.13, 1.05),
+    "hand_end": (0.95, 0.13, 1.05),
+    "hip": (0.18, 0.04, 0.38), "knee": (0.19, 0.04, 0.22), "ankle": (0.19, 0.06, 0.09),
+    "toe": (0.19, -0.20, 0.03),
 }
+# How far the arms come down from the T-pose for the rest pose (degrees below horizontal). The
+# belly is very wide, so the arms hang 28 degrees out from vertical to clear it.
+ARMS_DOWN = 62.0
+HEAD_FROM = 1.32   # z above which the front of the head has no shirt (dark-red bits there are the eyes)
 
 
 def joint(name, side=1):
-    x, y, f = JOINTS[name]
-    return Vector((x * side, y, f * HEIGHT))
+    x, y, z = JOINTS[name]
+    return Vector((x * side, y, z))
 
 
 # Palette the texture is snapped to (sRGB). The Meshy texture is mostly flat colour islands; the fine
@@ -136,6 +143,11 @@ def paint_faces(body, hi_mesh, hi_labels, names, centers):
     bvh = BVHTree.FromPolygons([v.co.copy() for v in hi_mesh.vertices], [p.vertices[:] for p in hi_mesh.polygons])
     me = body.data
     labels = np.array([hi_labels[bvh.find_nearest(p.center)[2]] for p in me.polygons])
+    # on the face there is no shirt: dark-red bits there belong to the eyes
+    black, dark_ids = names.index("black"), [names.index("shirt_red"), names.index("shirt_dark")]
+    for p in me.polygons:
+        if p.center.z > HEAD_FROM and p.center.y < -0.05 and abs(p.center.x) < 0.25 and labels[p.index] in dark_ids:
+            labels[p.index] = black
     edge_faces = {}
     for p in me.polygons:
         for ek in p.edge_keys:
@@ -145,7 +157,7 @@ def paint_faces(body, hi_mesh, hi_labels, names, centers):
         for p in me.polygons:
             nb = [f for ek in p.edge_keys for f in edge_faces[ek] if f != p.index]
             votes = np.bincount(labels[nb + [p.index]], minlength=len(names))
-            if votes.max() >= 2 and votes[labels[p.index]] < votes.max():
+            if labels[p.index] != black and votes.max() >= 2 and votes[labels[p.index]] < votes.max():
                 new[p.index] = int(np.argmax(votes))
         labels = new
     attr = me.color_attributes.new("Col", "BYTE_COLOR", "CORNER")
@@ -202,7 +214,7 @@ def main():
 
     # --- colour regions from the texture, on the full-resolution mesh
     tex = next(n.image for n in body.data.materials[0].node_tree.nodes if n.type == "TEX_IMAGE"
-               and any(l.to_socket.name == "Base Color" for l in n.outputs["Color"].links))
+               and n.image.colorspace_settings.name == "sRGB")  # base colour (others are data maps)
     tex.scale(TEXTURE_PX, TEXTURE_PX)
     names, centers, lab = texture_labels(tex)
     hi_mesh = body.data.copy()
@@ -259,7 +271,7 @@ def main():
             b.use_connect = connect
         return b
 
-    bone("hips", joint("hips") - Vector((0, 0, 0.12)), joint("spine"))
+    bone("hips", joint("pelvis"), joint("spine"))
     bone("spine", joint("spine"), joint("chest"), "hips", True)
     bone("chest", joint("chest"), joint("neck"), "spine", True)
     bone("head", joint("neck"), joint("head_top"), "chest", True)
@@ -281,6 +293,7 @@ def main():
     empty_groups = [g.name for g in body.vertex_groups
                     if not any(g.index in [x.group for x in v.groups] for v in body.data.vertices)]
     print("[prepare] groups without vertices:", empty_groups)
+    lower_arms(rig, body)
     # the shirt becomes its own mesh (same weights, so it moves exactly with the body)
     bpy.ops.object.select_all(action="DESELECT")
     body.select_set(True)
@@ -309,6 +322,36 @@ def main():
     tris = sum(len(p.vertices) - 2 for o in (body, shirt) for p in o.data.polygons)
     print(f"[prepare] {tris} triangles (shirt {len(shirt.data.polygons)}), {len(arm_data.bones)} bones, written to {out}")
     test_renders(rig, os.path.join(out, "renders"))
+
+
+def lower_arms(rig, body):
+    """T-pose -> arms down: pose the upper arms, bake that deformation into the mesh and make the
+    pose the armature's rest pose (vertex groups stay, the armature modifier is added again)."""
+    bpy.ops.object.select_all(action="DESELECT")
+    rig.select_set(True)
+    bpy.context.view_layer.objects.active = rig
+    bpy.ops.object.mode_set(mode="POSE")
+    for side, sgn in (("L", 1), ("R", -1)):
+        pb = rig.pose.bones[f"upper_arm_{side}"]
+        world_rot = Euler((0, math.radians(ARMS_DOWN * sgn), 0)).to_matrix()
+        rest = pb.bone.matrix_local.to_3x3()
+        pb.rotation_mode = "XYZ"
+        pb.rotation_euler = (rest.inverted() @ world_rot @ rest).to_euler()
+    bpy.ops.object.mode_set(mode="OBJECT")
+    bpy.ops.object.select_all(action="DESELECT")
+    body.select_set(True)
+    bpy.context.view_layer.objects.active = body
+    mod = next(m for m in body.modifiers if m.type == "ARMATURE")
+    bpy.ops.object.modifier_apply(modifier=mod.name)
+    bpy.ops.object.select_all(action="DESELECT")
+    rig.select_set(True)
+    bpy.context.view_layer.objects.active = rig
+    bpy.ops.object.mode_set(mode="POSE")
+    bpy.ops.pose.select_all(action="SELECT")
+    bpy.ops.pose.armature_apply(selected=False)
+    bpy.ops.object.mode_set(mode="OBJECT")
+    mod = body.modifiers.new("Armature", "ARMATURE")
+    mod.object = rig
 
 
 def test_renders(rig, out_dir):
