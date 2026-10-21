@@ -15,6 +15,8 @@ const SPECIES := &"slime"
 const NIGHT_AGGRO_MULT := 1.4  # night is a bit more dangerous (GDD 10.2)
 
 var monster_id := ""
+## Monster definition (data/monsters.json): name, 선공 flag, HP, EXP, combat profile, colours, loot.
+var kind := "meadow_slime"
 var display_name := "슬라임"
 var aggressive := false
 var home := Vector3.ZERO
@@ -52,6 +54,13 @@ var _cooldown := 0.0
 
 func _ready() -> void:
 	_rng.seed = hash(monster_id) if monster_id != "" else randi()
+	var def := MonsterDB.info(kind)
+	display_name = str(def.get("name", display_name))
+	aggressive = bool(def.get("aggressive", aggressive))
+	max_hp = int(def.get("hp", max_hp))
+	exp_reward = int(def.get("exp", exp_reward))
+	profile = profile.merged(def.get("profile", {}), true)
+	profile["name"] = display_name
 	motion_mode = CharacterBody3D.MOTION_MODE_FLOATING
 	collision_layer = LAYER
 	collision_mask = 1 | LAYER
@@ -61,7 +70,7 @@ func _ready() -> void:
 	shape.shape = sph
 	shape.position.y = RADIUS
 	add_child(shape)
-	_rig = SlimeRig.new()
+	_rig = SlimeRig.new(def.get("colors", null), float(def.get("scale", 1.0)))
 	add_child(_rig)
 	_setup_silhouette(Color(1.0, 0.35, 0.3, 0.45))
 	hp = max_hp
@@ -71,8 +80,9 @@ func _ready() -> void:
 	add_to_group("enemies")
 
 
-static func sprite_bake_spec() -> Dictionary:
-	return SlimeVisual.sprite_bake_spec()
+static func sprite_bake_spec(kind_id := "meadow_slime") -> Dictionary:
+	var def := MonsterDB.info(kind_id)
+	return SlimeVisual.sprite_bake_spec(def.get("colors", null), float(def.get("scale", 1.0)))
 
 
 func use_sprite_sheet(sheet: SpriteSheet) -> void:
@@ -282,21 +292,9 @@ func _die() -> void:
 	queue_free()
 
 
-## Loot table [미정]: jelly 1d3 always, core 35 %, mana shard 15 %, armour piece 12 %.
+## Loot table per kind (data/monsters.json) [미정 numbers].
 func roll_loot() -> Inventory:
-	var inv := Inventory.new()
-	inv.add("slime_jelly", Dice.d(3))
-	if _rng.randf() < 0.35:
-		inv.add("slime_core", 1)
-	if _rng.randf() < 0.15:
-		inv.add("mana_shard", 1)
-	if _rng.randf() < 0.1:
-		inv.add("heal_potion", 1)
-	# GDD 15.4: equipment from hunting too; pieces may carry a random extra option (15.2).
-	if _rng.randf() < 0.12:
-		var base: String = ["leather_cap", "leather_gloves", "sturdy_boots"][_rng.randi() % 3]
-		inv.add(ItemDB.acquire(base, _rng, 0.6), 1)
-	return inv
+	return MonsterDB.roll_loot(kind, _rng)
 
 
 func is_engaged() -> bool:

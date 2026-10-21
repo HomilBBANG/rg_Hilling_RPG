@@ -50,8 +50,19 @@ var cat_joined := true
 var cat_affection := 0
 const CAT_AFFECTION_MAX := 100
 const SNACK_AFFECTION := 10
-## Exterior persistence across scene reloads: dead monsters, corpses, death bags, camper parking.
-var field := {"dead": {}, "loot": [], "camper": {}}
+## Outdoor region the exterior world shows (data/regions, P3). Each region keeps its own field
+## state (dead monsters, corpses, death bags, set-piece flags) across reloads and travel.
+var region := RegionDB.START
+var fields := {}
+var field: Dictionary:
+	get:
+		if not fields.has(region):
+			fields[region] = {"dead": {}, "loot": []}
+		return fields[region]
+## Where the camper is parked: it only moves between regions when driven (GDD 9.4 free parking).
+var camper := {"region": RegionDB.START}
+## Places found by visiting them ("region:checkpoint_id" / "region:exit_id"), shown on the map (GDD 11.3).
+var discovered := {}
 ## Shop stock / restock times by shop id (ShopDB), kept across scene reloads.
 var shops := {}
 ## Story flags / completed events set by dialogues (P2-5) and quest progress.
@@ -88,7 +99,8 @@ const ACTIONS := {
 	"toggle_wind": [KEY_B],
 	"toggle_sprites": [KEY_Z],
 	"toggle_fullscreen": [KEY_F11],
-	"toggle_pipeline": [KEY_M],
+	"toggle_pipeline": [KEY_F6],  # debug (M is the world map since P3)
+	"world_map": [KEY_M],
 	"toggle_post": [KEY_P],
 	"toggle_day_night": [KEY_N],
 	"toggle_clock": [KEY_T],

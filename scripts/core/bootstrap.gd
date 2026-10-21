@@ -94,6 +94,8 @@ func _load_world(world_id: StringName) -> void:
 		world.queue_free()
 		render.world_root.remove_child(world)
 	Game.previous_world = prev
+	if world_id == Game.WORLD_EXTERIOR and prev == Game.WORLD_INTERIOR:
+		Game.region = str(Game.camper.get("region", Game.region))  # step out where the camper is parked
 	world = load(Game.WORLD_SCENES[world_id]).instantiate()
 	render.world_root.add_child(world)
 	_configure_camera()
@@ -164,6 +166,8 @@ func _unhandled_input(event: InputEvent) -> void:
 		game_hud.toggle_character()
 	elif event.is_action("journal"):
 		game_hud.toggle_journal()
+	elif event.is_action("world_map"):
+		game_hud.toggle_map()
 	elif event.is_action("combat_log"):
 		game_hud.cycle_log_level()
 	elif event.is_action("debug_status"):
@@ -291,6 +295,8 @@ func _parse_args() -> void:
 		_run_shop_tour()
 	elif tour == "quest":
 		_run_quest_tour()
+	elif tour == "region":
+		_run_region_tour()
 	elif tour == "drive":
 		_run_drive_compare()
 	elif tour == "wind":
@@ -589,6 +595,41 @@ func _cycle_story_stage() -> void:
 		Game.request_world(Game.WORLD_EXTERIOR)
 
 
+func is_busy() -> bool:
+	return _busy
+
+
+## Road exit (GDD 11.1 [확정]): loading screen, then the other region. Driving through takes the
+## camper along (parked at the arrival point); on foot the camper stays where it was (9.4).
+func travel(to_region: String, entry_id: String, driving: bool) -> void:
+	if _busy or not RegionDB.all().has(to_region):
+		return
+	_busy = true
+	game_hud.close_panel()
+	var info := RegionDB.info(to_region)
+	var tips: Array = info.get("tips", [])
+	var tip: String = str(tips[randi() % tips.size()]) if not tips.is_empty() else ""
+	await game_hud.fade_to(1.0, 0.6, "%s\n위험도 %s\n\n%s" % [info.get("name", to_region), RegionDB.danger_text(to_region), tip])
+	var e := RegionDB.entry(to_region, entry_id)
+	if driving and world is VisualLab:
+		world._leaving_with_camper = true
+		world.vehicle.driving = false
+		Game.camper = {"region": to_region, "pos": RegionDB.v3(e.get("camper_pos", e.get("pos", [0, 0]))), "yaw": float(e.get("camper_yaw", 0.0))}
+	Game.spawn_override = {"kind": "drive_in" if driving else "walk_in", "pos": RegionDB.v3(e.get("pos", [0, 0])), "yaw": float(e.get("yaw", 0.0))}
+	var from := Game.region
+	Game.region = to_region
+	Game.request_world(Game.WORLD_EXTERIOR)
+	await _frames(3)
+	await wait_for_sprites()
+	await _frames(8)
+	Game.combat_log.add("%s → %s" % [RegionDB.region_name(from), info.get("name", to_region)], "지역 이동%s — %s (위험도 %s)" % [
+		" (캠핑카와 함께)" if driving else " (캠핑카는 %s에)" % RegionDB.region_name(str(Game.camper.get("region", ""))) if Game.has_camper else "",
+		info.get("name", to_region), RegionDB.danger_text(to_region)], "info")
+	await game_hud.fade_to(0.0, 0.6)
+	hud.toast("%s — 위험도 %s" % [info.get("name", to_region), RegionDB.danger_text(to_region)])
+	_busy = false
+
+
 ## Player HP reached 0 (GDD 2.4 / 12.3 [확정]): field loot is split (goblins take part, the rest
 ## stays at the spot), then wake inside the camper if owned, else at the nearest safe checkpoint
 ## (with the cat beside the player once it has joined). Unconscious time / wake HP are [미정].
@@ -615,7 +656,7 @@ func on_player_died(death_pos: Vector3) -> void:
 		where = "캠핑카 안에서 눈을 떴다"
 		Game.request_world(Game.WORLD_INTERIOR)
 	else:
-		var p: Vector3 = cp.get("pos", VisualLab.DEFAULT_SPAWN)
+		var p: Vector3 = cp.get("pos", world.player.global_position if world is VisualLab else VisualLab.DEFAULT_SPAWN)
 		Game.spawn_override = {"kind": "checkpoint", "pos": p, "yaw": PI * 0.8, "name": cp.get("name", "")}
 		where = "%s에서 정신을 차렸다" % cp.get("name", "체크포인트")
 		Game.request_world(Game.WORLD_EXTERIOR)
@@ -1788,4 +1829,125 @@ func _run_quest_tour() -> void:
 	await _p1_shot("quest_07_playtest_king", "editor playtest: king test dialogue", true)
 	await _talk_through(["accept"])
 	print("[quest] tracker:\n%s" % game_hud._tracker_text())
+	get_tree().quit()
+
+
+# ---------------------------------------------------------------- P3-1 regions
+
+func _wait_travel() -> void:
+	await _frames(2)
+	while _busy:
+		await _frames(2)
+	await wait_for_sprites()
+	await _frames(10)
+
+
+func _run_region_tour() -> void:
+	Dice.rng.seed = 21
+	Game.clock_running = false
+	Game.minute_of_day = 11.0 * 60.0
+	await wait_for_sprites()
+	var st := Game.player_state
+	print("[region] start: %s, regions %s" % [Game.region, ", ".join(PackedStringArray(RegionDB.all().keys()))])
+	var ex: Dictionary = world.exits[0]
+	var exit_pos: Vector3 = ex["pos"]
+	_place_player(exit_pos + Vector3(-5.5, 0, 0.4), -PI * 0.5)
+	await _frames(10)
+	print("[region] near the road exit -> hint '%s'" % world.context_hint())
+	await _p1_shot("region_01_meadow_exit", "meadow road exit to the highland", true)
+	# --- on foot: loading screen, camper stays in the meadow
+	_place_player(exit_pos, -PI * 0.5)
+	await _seconds(1.0)
+	print("[region] walked into the exit -> travelling %s" % _busy)
+	await _p1_shot("region_02_loading", "loading screen", true)
+	await _wait_travel()
+	var p: PrototypePlayer = world.player
+	print("[region] now %s (%s), player at (%.1f, %.1f), camper in %s, camper here %s" % [Game.region, world.world_title(), p.global_position.x,
+		p.global_position.z, Game.camper["region"], world.camper_here()])
+	await _p1_shot("region_03_highland_arrival", "highland arrival (on foot, cat follows)", true)
+	# --- fixed difficulty (7.5): same player, stronger monsters here
+	var kinds := PackedStringArray()
+	for m: SlimeMonster in world.monsters:
+		if not kinds.has(m.kind):
+			kinds.append(m.kind)
+	print("[region] highland monsters: %s" % ", ".join(kinds))
+	for kid in ["meadow_slime", "forest_slime", "moss_slime", "rock_slime"]:
+		var d := MonsterDB.info(kid)
+		print("[region]   %s: HP %d, 피해 %s, AC %d, 방어 %d, EXP %d, 선공 %s" % [d["name"], d["hp"], d["profile"]["phys"], d["profile"]["ac"],
+			d["profile"]["armor"], d["exp"], d["aggressive"]])
+	var hits := 0
+	var dmg := 0
+	for i in 40:
+		var r := Combat.resolve(st.combat_profile(), MonsterDB.info("rock_slime")["profile"].merged({"name": "바위 슬라임"}))
+		hits += 1 if r["hit"] else 0
+		dmg += int(r.get("damage", 0))
+	var hits2 := 0
+	for i in 40:
+		hits2 += 1 if Combat.resolve(st.combat_profile(), MonsterDB.info("meadow_slime")["profile"].merged({"name": "풀밭 슬라임"}))["hit"] else 0
+	print("[region] 40 swings: hit rock slime %d times (damage %d total), meadow slime %d times" % [hits, dmg, hits2])
+	_place_player(Vector3(-9.5, 0, -8.5), PI)
+	await _frames(20)
+	await _p1_shot("region_04_rock_slimes", "highland hills with rock slimes", true)
+	# kill one rock slime: remembered per region
+	var victim: SlimeMonster = null
+	for m: SlimeMonster in world.monsters:
+		if m.kind == "rock_slime":
+			victim = m
+			break
+	var vid := victim.monster_id
+	victim._die()
+	await _frames(5)
+	print("[region] killed %s -> highland field dead %s, loot %d" % [vid, Game.field["dead"].keys(), Game.field["loot"].size()])
+	# quest trigger of the meadow event does not fire here
+	Game.quests.entries.erase("quest.event.lost_parcels")
+	Game.quests.check_triggers(Vector3(40.3, 0, -5.4))
+	print("[region] meadow event trigger coords in the highland -> %s" % Game.quests.state("quest.event.lost_parcels"))
+	# --- walk back west
+	var back: Dictionary = world.exits[0]
+	await _seconds(VisualLab.EXIT_GRACE)
+	_place_player(back["pos"], PI * 0.5)
+	await _seconds(0.5)
+	await _wait_travel()
+	print("[region] back in %s at (%.1f, %.1f); camper here %s; highland dead remembered %s" % [Game.region, world.player.global_position.x,
+		world.player.global_position.z, world.camper_here(), Game.fields["highland"]["dead"].has(vid)])
+	# --- drive the camper through: it comes along and stays parked there
+	world.vehicle.global_position = Vector3(exit_pos.x - 7.0, world.ground_height(exit_pos.x - 7.0, exit_pos.z), exit_pos.z)
+	world.vehicle.rotation.y = 0.0
+	world.enter_vehicle()
+	await _frames(5)
+	world.vehicle.global_position = Vector3(exit_pos.x, world.vehicle.global_position.y, exit_pos.z)
+	await _seconds(0.5)
+	await _wait_travel()
+	print("[region] drove through -> %s, driving %s, camper in %s at (%.1f, %.1f)" % [Game.region, world.vehicle.driving, Game.camper["region"],
+		world.vehicle.global_position.x, world.vehicle.global_position.z])
+	await _p1_shot("region_05_drive_in", "arrived in the highland driving the camper", true)
+	world.exit_vehicle()
+	await _frames(5)
+	print("[region] got out -> parked in %s" % Game.camper["region"])
+	# --- death in the highland with the camper here: wake inside, step out in the highland
+	world.player.global_position = world.player.global_position + Vector3(4, 0, 2)
+	await _frames(3)
+	st.inventory.add("slime_jelly", 3)
+	on_player_died(world.player.global_position)
+	while _busy:
+		await _frames(2)
+	print("[region] died -> world %s" % ("interior" if world is CamperInteriorLab else Game.region))
+	Game.request_world(Game.WORLD_EXTERIOR)
+	await _frames(3)
+	await wait_for_sprites()
+	print("[region] stepped out of the camper -> %s, camper here %s, death bag in highland loot %d" % [Game.region, world.camper_here(), Game.field["loot"].size()])
+	# --- walk to the meadow without the camper, then open the map
+	await _seconds(VisualLab.EXIT_GRACE + 0.2)
+	_place_player(world.exits[0]["pos"], PI * 0.5)
+	await _seconds(0.5)
+	await _wait_travel()
+	print("[region] walked back to %s: camper here %s, F -> '%s'" % [Game.region, world.camper_here(), world.try_toggle_camper_lights()])
+	_place_player(Vector3(44.6, 0, 2.0), 0.0)  # crossroad checkpoint -> discovered
+	await _frames(10)
+	print("[region] discovered: %s" % ", ".join(PackedStringArray(Game.discovered.keys())))
+	await _seconds(2.6)
+	await _key(KEY_M)
+	print("[region] M -> panel %s" % game_hud._panel_kind)
+	await _p1_shot("region_06_world_map", "world map: two regions, road link, camper in the highland", true)
+	await _key(KEY_M)
 	get_tree().quit()

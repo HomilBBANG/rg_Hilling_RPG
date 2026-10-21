@@ -16,7 +16,7 @@ extends RefCounted
 ##   "consume_items": true,               collect items are handed over on completion
 ##   "rewards": {"gen_exp": 0, "life_exp": 0, "gold": 0, "items": {"bread": 2}},   13.4
 ##   "outcomes": {"key": {"label": "", "rewards": {...}}},   optional alternative resolutions (13.2)
-##   "trigger": {"type": "reach", "pos": [x, z], "radius": 6},   auto events only
+##   "trigger": {"type": "reach", "region": "meadow", "pos": [x, z], "radius": 6},   auto events only
 ##   "test_only": true }                   placeholder data, not real story content
 
 const DIR := "res://data/quests"

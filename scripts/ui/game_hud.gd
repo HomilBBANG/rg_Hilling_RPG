@@ -78,9 +78,11 @@ func _ready() -> void:
 	_fade.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_fade.modulate.a = 0.0
 	add_child(_fade)
-	_fade_label = _label("", 40, Vector2(0, 500))
-	_fade_label.size = Vector2(1920, 60)
+	_fade_label = _label("", 36, Vector2(0, 360))
+	_fade_label.size = Vector2(1920, 360)
 	_fade_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_fade_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	_fade_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_fade_label.modulate.a = 0.0
 	_tracker = _label("", 19, Vector2(1440, 18))
 	_tracker.size = Vector2(458, 0)
@@ -910,6 +912,23 @@ func toggle_journal() -> void:
 		v.add_child(_button("닫기 (J)", close_panel)), 920)
 
 
+## World map (GDD 11.3 [확정]): regions and roads are known from the start; checkpoints and
+## other places appear once visited. Pin UI / fog / notes are [미정] - this is a plain overview.
+func toggle_map() -> void:
+	if _panel_kind == "map":
+		close_panel()
+		return
+	_open("map", null, 0.0, func(v: VBoxContainer) -> void:
+		v.add_child(_row_label("월드맵", 400, 26, Color(1.0, 0.9, 0.6)))
+		var m := WorldMap.new()
+		m.font = font
+		m.custom_minimum_size = Vector2(1100, 560)
+		v.add_child(m)
+		var cam_text := "캠핑카: %s" % RegionDB.region_name(str(Game.camper.get("region", ""))) if Game.has_camper else "캠핑카: 아직 없음"
+		v.add_child(_row_label("● 현재 위치   ▲ 체크포인트(방문한 곳)   ■ %s   — 길   ⇄ 지역 연결 도로" % cam_text, 1100, 18, Color(0.8, 0.82, 0.86)))
+		v.add_child(_button("닫기 (M)", close_panel)), 1160)
+
+
 ## Trade post notice board (GDD 13.1: board requests must be accepted directly).
 func open_board(source: Node3D) -> void:
 	_open("board", source, 3.0, func(v: VBoxContainer) -> void:
@@ -975,6 +994,7 @@ func _process(delta: float) -> void:
 	if st.speed_factor() < 0.999:
 		wl += " — %s, 이동 ×%.2f" % [st.weight_state(), st.speed_factor()]
 	lines.append(wl)
+	lines.append("지역 %s · 위험도 %s (M 지도)" % [RegionDB.region_name(Game.region), RegionDB.danger_text(Game.region)] if boot and boot.world is VisualLab else "캠핑카 실내")
 	lines.append("진행 %s (F9)" % Game.STAGE_NAMES[Game.story_stage()])
 	if Game.cat_joined:
 		lines.append("고양이 호감도 %d / %d" % [Game.cat_affection, Game.CAT_AFFECTION_MAX])

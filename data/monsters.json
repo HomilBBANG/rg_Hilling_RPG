@@ -1,0 +1,205 @@
+{
+  "version": 1,
+  "_comment": "Monster definitions (GDD 7.5: strength is fixed per monster / region, no level scaling). Numbers are [미정] placeholders.",
+  "monsters": {
+    "meadow_slime": {
+      "name": "풀밭 슬라임",
+      "aggressive": false,
+      "hp": 9,
+      "exp": 6,
+      "profile": {
+        "hit_bonus": 2,
+        "crit_chance": 5,
+        "phys": "1d4",
+        "str_mult": 1.0,
+        "ac": 9,
+        "armor": 0
+      },
+      "colors": null,
+      "scale": 1.0,
+      "loot": [
+        {
+          "item": "slime_jelly",
+          "chance": 1.0,
+          "dice": "1d3"
+        },
+        {
+          "item": "slime_core",
+          "chance": 0.35
+        },
+        {
+          "item": "mana_shard",
+          "chance": 0.15
+        },
+        {
+          "item": "heal_potion",
+          "chance": 0.1
+        },
+        {
+          "equip_pool": [
+            "leather_cap",
+            "leather_gloves",
+            "sturdy_boots"
+          ],
+          "chance": 0.12,
+          "option_chance": 0.6
+        }
+      ]
+    },
+    "forest_slime": {
+      "name": "숲 슬라임",
+      "aggressive": true,
+      "hp": 9,
+      "exp": 6,
+      "profile": {
+        "hit_bonus": 2,
+        "crit_chance": 5,
+        "phys": "1d4",
+        "str_mult": 1.0,
+        "ac": 9,
+        "armor": 0
+      },
+      "colors": null,
+      "scale": 1.0,
+      "loot": [
+        {
+          "item": "slime_jelly",
+          "chance": 1.0,
+          "dice": "1d3"
+        },
+        {
+          "item": "slime_core",
+          "chance": 0.35
+        },
+        {
+          "item": "mana_shard",
+          "chance": 0.15
+        },
+        {
+          "item": "heal_potion",
+          "chance": 0.1
+        },
+        {
+          "equip_pool": [
+            "leather_cap",
+            "leather_gloves",
+            "sturdy_boots"
+          ],
+          "chance": 0.12,
+          "option_chance": 0.6
+        }
+      ]
+    },
+    "moss_slime": {
+      "name": "이끼 슬라임",
+      "aggressive": false,
+      "hp": 14,
+      "exp": 10,
+      "profile": {
+        "hit_bonus": 3,
+        "crit_chance": 5,
+        "phys": "1d4+1",
+        "str_mult": 1.0,
+        "ac": 10,
+        "armor": 0
+      },
+      "colors": {
+        "body": [
+          0.42,
+          0.66,
+          0.3
+        ],
+        "light": [
+          0.68,
+          0.86,
+          0.45
+        ],
+        "core": [
+          0.24,
+          0.42,
+          0.18
+        ]
+      },
+      "scale": 1.1,
+      "loot": [
+        {
+          "item": "slime_jelly",
+          "chance": 1.0,
+          "dice": "1d4"
+        },
+        {
+          "item": "slime_core",
+          "chance": 0.45
+        },
+        {
+          "item": "mana_shard",
+          "chance": 0.2
+        },
+        {
+          "item": "heal_potion",
+          "chance": 0.12
+        }
+      ]
+    },
+    "rock_slime": {
+      "name": "바위 슬라임",
+      "aggressive": true,
+      "hp": 18,
+      "exp": 15,
+      "profile": {
+        "hit_bonus": 4,
+        "crit_chance": 6,
+        "phys": "1d6+1",
+        "str_mult": 1.0,
+        "ac": 12,
+        "armor": 1
+      },
+      "colors": {
+        "body": [
+          0.58,
+          0.54,
+          0.5
+        ],
+        "light": [
+          0.78,
+          0.74,
+          0.68
+        ],
+        "core": [
+          0.36,
+          0.32,
+          0.3
+        ]
+      },
+      "scale": 1.2,
+      "loot": [
+        {
+          "item": "slime_jelly",
+          "chance": 0.6,
+          "dice": "1d2"
+        },
+        {
+          "item": "iron_ore",
+          "chance": 0.5
+        },
+        {
+          "item": "slime_core",
+          "chance": 0.4
+        },
+        {
+          "item": "mana_shard",
+          "chance": 0.3
+        },
+        {
+          "equip_pool": [
+            "leather_armor",
+            "wooden_shield",
+            "sturdy_boots"
+          ],
+          "chance": 0.12,
+          "option_chance": 0.6
+        }
+      ]
+    }
+  }
+}

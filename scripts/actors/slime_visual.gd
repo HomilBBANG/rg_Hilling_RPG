@@ -32,16 +32,16 @@ func _ready() -> void:
 	add_to_group("enemies")
 
 
-static func sprite_bake_spec() -> Dictionary:
+static func sprite_bake_spec(colors: Variant = null, body_scale := 1.0) -> Dictionary:
 	return {
 		"builder": func(c: int, r: int) -> Node3D:
-			var rig := SlimeRig.new()
+			var rig := SlimeRig.new(colors, body_scale)
 			rig.rotation.y = r * TAU / SlimeRig.DIRECTIONS
 			rig.pose(float(c) / SlimeRig.FRAMES)
 			return rig,
 		"cols": SlimeRig.FRAMES,
 		"rows": SlimeRig.DIRECTIONS,
-		"cell": Vector2(1.6, 2.8),
+		"cell": Vector2(1.6, 2.8) * maxf(1.0, body_scale),
 	}
 
 

@@ -194,6 +194,8 @@ func check_triggers(pos: Vector3) -> void:
 		if q.get("accept", "") != "auto" or not q.has("trigger") or state(id) != "none":
 			continue
 		var t: Dictionary = q["trigger"]
+		if str(t.get("region", RegionDB.START)) != Game.region:
+			continue
 		var p: Array = t.get("pos", [0, 0])
 		if t.get("type", "") == "reach" and Vector2(pos.x - float(p[0]), pos.z - float(p[1])).length() <= float(t.get("radius", 5)):
 			accept(id)

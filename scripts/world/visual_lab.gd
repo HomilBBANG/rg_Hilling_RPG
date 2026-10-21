@@ -1,9 +1,11 @@
 class_name VisualLab
 extends Node3D
-## Outdoor field (P0 visual lab, extended for the P1 core loop): meadow, winding path, forest,
-## pond, camp with the drivable camper, slime groups, safe checkpoints, the black cat.
-## Everything is generated procedurally on load; dead monsters, corpses, the death bag and the
-## camper's parking spot persist in Game.field across scene reloads.
+## Outdoor region (P0 visual lab, extended for the P1 core loop and P3 regions). Which region is
+## built comes from Game.region + data/regions/<id>.json: terrain layout, monster spawns, safe
+## checkpoints, road exits to other regions. The starting meadow adds its hand-built set pieces
+## (camp, trade post, ...) through region "features". Everything is generated procedurally on
+## load; dead monsters, corpses and death bags persist per region in Game.field, the camper's
+## parking spot (and region) in Game.camper.
 
 enum Occlusion { SILHOUETTE, FADE, OFF }
 const OCCLUSION_NAMES := ["실루엣", "수관 디더 투명화", "끔"]
@@ -14,22 +16,11 @@ const DEFAULT_SPAWN := Vector3(-4.3, 0.0, 1.1)
 const CAMPFIRE_POS := Vector3(-2.6, 0.0, 1.9)
 ## Camp layout is designed around the original parking spot (the camper itself can drive away).
 static var CAMP_XF := Transform3D(Basis(Vector3.UP, deg_to_rad(CAMPER_YAW_DEG)), CAMPER_POS)
-## [id, home (x, z), 선공 aggressive]. Groups: passive meadow slimes, aggressive forest slimes.
-const MONSTER_SPAWNS := [
-	["meadow_1", Vector2(14.5, 6.5), false], ["meadow_2", Vector2(16.2, 8.2), false],
-	["meadow_3", Vector2(12.8, 8.8), false],
-	["forest_1", Vector2(25.5, -14.0), true], ["forest_2", Vector2(27.8, -15.6), true],
-	["forest_3", Vector2(24.2, -16.4), true],
-]
+## Monster spawns, checkpoints, exits: data/regions/*.json (meadow = the original layout).
 const MONSTER_RESPAWN_MIN := 120.0  # game minutes [미정]
 const CORPSE_LIFETIME_MIN := 60.0  # game minutes [미정]
-## Safe checkpoints: no monster may fight inside (GDD 2.4 [확정]); placement / radius [미정].
-const CHECKPOINTS := [
-	{"id": "camp", "name": "캠프 모닥불", "pos": Vector3(-1.0, 0.0, 4.8), "radius": 6.5, "marker": false},
-	{"id": "crossroad", "name": "갈림길 돌무지", "pos": Vector3(44.6, 0.0, 2.0), "radius": 5.0, "marker": true},
-	{"id": "lake", "name": "호숫가 쉼터", "pos": Vector3(24.5, 0.0, 25.8), "radius": 5.0, "marker": true},
-	{"id": "trade", "name": "길가 교역소", "pos": Vector3(-22.8, 0.0, 6.0), "radius": 7.0, "marker": false},
-]
+## Seconds after arriving before road exits react (never bounce straight back).
+const EXIT_GRACE := 1.5
 ## Trade post west of the camp (P2-4): stalls with a merchant each, their houses behind.
 ## [stall position, shop id / look, house position]
 const TRADE_STALLS := [
@@ -45,7 +36,12 @@ const PARCELS := [["parcel_1", Vector3(38.7, 0.0, -4.2)], ["parcel_2", Vector3(4
 const PARCEL_QUEST := "quest.event.lost_parcels"
 const CRATE_POS := Vector3(-4.6, 0.0, 2.9)  # inside the camper's turning circle: clear of its way out
 
-var terrain := TerrainField.new()
+var region_id := RegionDB.START
+var region := {}
+## Safe checkpoints of this region (GDD 2.4 [확정]: no monster fights inside); placement / radius [미정].
+var checkpoints: Array[Dictionary] = []
+var exits: Array[Dictionary] = []
+var terrain: TerrainField
 var player: PrototypePlayer
 var camera: TopdownCamera
 var camper: CamperExterior
@@ -70,7 +66,18 @@ func _ready() -> void:
 		Game.start_world = Game.WORLD_EXTERIOR
 		get_tree().change_scene_to_file.call_deferred("res://scenes/bootstrap.tscn")
 		return
-	_rng.seed = 2024
+	region_id = Game.region
+	region = RegionDB.info(region_id)
+	region_id = str(region.get("region_id", RegionDB.START))
+	terrain = TerrainField.new(region.get("terrain", {}))
+	for cp: Dictionary in region.get("checkpoints", []):
+		checkpoints.append({"id": cp["id"], "name": cp["name"], "pos": RegionDB.v3(cp["pos"]),
+			"radius": float(cp["radius"]), "marker": bool(cp.get("marker", false))})
+	for ex: Dictionary in region.get("exits", []):
+		var e := ex.duplicate()
+		e["pos"] = RegionDB.v3(ex["pos"])
+		exits.append(e)
+	_rng.seed = 2024 if region_id == RegionDB.START else hash(region_id)
 	StylizedMaterials.clear_registry()
 	_build_environment()
 	_build_ground()
@@ -81,6 +88,15 @@ func _ready() -> void:
 	_spawn_actors()
 	_spawn_loot()
 	Game.story_changed.connect(_on_story_changed)
+
+
+func has_feature(f: String) -> bool:
+	return (region.get("features", []) as Array).has(f)
+
+
+## The camper is in this region (and owned): only then is it built / drivable here.
+func camper_here() -> bool:
+	return Game.has_camper and str(Game.camper.get("region", RegionDB.START)) == region_id
 
 
 func ground_height(x: float, z: float) -> float:
@@ -114,14 +130,36 @@ func _build_environment() -> void:
 func _build_ground() -> void:
 	var mi := MeshInstance3D.new()
 	mi.name = "Terrain"
-	mi.mesh = terrain.build_mesh(StylizedMaterials.terrain())
+	var tm := StylizedMaterials.terrain()
+	_apply_ground_colors(tm, "")
+	mi.mesh = terrain.build_mesh(tm)
 	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	add_child(mi)
+	if terrain.pond_radius > 0.0:
+		_build_pond()
+
+
+## Optional per-region ground palette (data/regions "ground"): terrain and grass tuft colours.
+func _apply_ground_colors(mat: ShaderMaterial, prefix: String) -> void:
+	var g: Dictionary = region.get("ground", {})
+	for k: String in g:
+		var a: Array = g[k]
+		var c := Color(float(a[0]), float(a[1]), float(a[2]))
+		if prefix == "" and not k.begins_with("tuft_"):
+			mat.set_shader_parameter(k, c)
+		elif prefix == "tuft":
+			match k:
+				"tuft_root": mat.set_shader_parameter("root_color", c)
+				"tuft_tip": mat.set_shader_parameter("tip_color", c)
+				"grass_dark", "grass_mid": mat.set_shader_parameter(k, c)
+
+
+func _build_pond() -> void:
 	# Pond water: semi-transparent, slightly glossy disc with a light rim.
 	var water := MeshInstance3D.new()
 	var disc := CylinderMesh.new()
-	disc.top_radius = TerrainField.POND_RADIUS + 0.2
-	disc.bottom_radius = TerrainField.POND_RADIUS + 0.2
+	disc.top_radius = terrain.pond_radius + 0.2
+	disc.bottom_radius = terrain.pond_radius + 0.2
 	disc.height = 0.02
 	disc.radial_segments = 28
 	disc.rings = 1
@@ -135,14 +173,14 @@ func _build_ground() -> void:
 	wm.specular_mode = BaseMaterial3D.SPECULAR_TOON
 	water.material_override = wm
 	water.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	water.position = Vector3(TerrainField.POND_CENTER.x, TerrainField.WATER_LEVEL, TerrainField.POND_CENTER.y)
+	water.position = Vector3(terrain.pond_center.x, TerrainField.WATER_LEVEL, terrain.pond_center.y)
 	add_child(water)
-	ProtoMesh.static_cylinder_collider(self, TerrainField.POND_RADIUS - 1.0, 6.0, water.position)
+	ProtoMesh.static_cylinder_collider(self, terrain.pond_radius - 1.0, 6.0, water.position)
 	var pad := ProtoMesh.mat(Color(0.3, 0.56, 0.26))
 	var flower := ProtoMesh.mat(Color(0.98, 0.82, 0.88))
 	for i in 9:
 		var a := _rng.randf() * TAU
-		var r := _rng.randf_range(1.5, TerrainField.POND_RADIUS - 1.2)
+		var r := _rng.randf_range(1.5, terrain.pond_radius - 1.2)
 		var p := water.position + Vector3(cos(a) * r, 0.02, sin(a) * r)
 		ProtoMesh.cylinder(self, _rng.randf_range(0.25, 0.45), 0.02, p, pad, Vector3.ZERO, 8)
 		if i % 2 == 0:
@@ -151,9 +189,9 @@ func _build_ground() -> void:
 	var reed := StylizedMaterials.foliage(Color(0.42, 0.6, 0.28), Color(0.7, 0.78, 0.38), Color(0.22, 0.4, 0.2))
 	for i in 26:
 		var a := _rng.randf() * TAU
-		var r := TerrainField.POND_RADIUS + _rng.randf_range(-0.6, 0.6)
-		var x := TerrainField.POND_CENTER.x + cos(a) * r
-		var z := TerrainField.POND_CENTER.y + sin(a) * r
+		var r := terrain.pond_radius + _rng.randf_range(-0.6, 0.6)
+		var x := terrain.pond_center.x + cos(a) * r
+		var z := terrain.pond_center.y + sin(a) * r
 		var c := ProtoMesh.cylinder(self, 0.03, _rng.randf_range(0.6, 1.0), Vector3(x, ground_height(x, z) + 0.35, z), reed, Vector3(_rng.randf_range(-10, 10), 0, _rng.randf_range(-10, 10)), 4, 0.01)
 		c.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		if i % 3 == 0:
@@ -171,12 +209,18 @@ func _block(x: float, z: float, r: float) -> void:
 
 
 func _build_camp() -> void:
+	_build_vehicle()
+	if has_feature("camp"):
+		_build_camp_props()
+
+
+func _build_vehicle() -> void:
 	vehicle = CamperVehicle.new()
 	vehicle.name = "CamperVehicle"
 	vehicle.base_yaw = deg_to_rad(CAMPER_YAW_DEG)
 	vehicle.height_func = Callable(self, "ground_height")
-	vehicle.walk_bounds = Rect2(TerrainField.MIN + Vector2(6, 6), TerrainField.MAX - TerrainField.MIN - Vector2(12, 12))
-	var park: Dictionary = Game.field["camper"]
+	vehicle.walk_bounds = Rect2(terrain.bounds_min + Vector2(6, 6), terrain.bounds_max - terrain.bounds_min - Vector2(12, 12))
+	var park: Dictionary = Game.camper
 	var ppos: Vector3 = park.get("pos", CAMPER_POS)
 	vehicle.position = Vector3(ppos.x, ground_height(ppos.x, ppos.z), ppos.z)
 	vehicle.rotation.y = park.get("yaw", deg_to_rad(CAMPER_YAW_DEG))
@@ -186,6 +230,9 @@ func _build_camp() -> void:
 			func(_p: Node) -> void: Game.request_world(Game.WORLD_INTERIOR), 1.4)
 	InteractPoint.make(camper, Vector3(2.5, 0, 1.75), "E 운전석에 타기", func(_p: Node) -> void: enter_vehicle(), 1.4)
 	_apply_camper_owned()
+
+
+func _build_camp_props() -> void:
 	_block(CAMPER_POS.x, CAMPER_POS.z, 4.2)
 	_block(CAMPER_POS.x - 2.0, CAMPER_POS.z, 2.0)
 	_block(CAMPER_POS.x + 2.5, CAMPER_POS.z, 2.0)
@@ -226,6 +273,24 @@ func _build_camp() -> void:
 
 
 func _build_landmarks() -> void:
+	if has_feature("farm"):
+		_build_farm()
+	if has_feature("trade_post"):
+		_build_trade_post()
+	if has_feature("lost_parcels") or has_feature("trade_post"):
+		_build_quest_props()
+	for cp: Dictionary in checkpoints:
+		var cpos: Vector3 = cp["pos"]
+		if cp["marker"]:
+			_build_checkpoint_marker(cpos + Vector3(0.9, 0, -0.9))
+		_block(cpos.x, cpos.z, 2.0)
+	for ex: Dictionary in exits:
+		_build_exit_marker(ex)
+	if has_feature("camp"):
+		_build_camp_framing()
+
+
+func _build_farm() -> void:
 	var hf := Callable(self, "ground_height")
 	var fence_root := Node3D.new()
 	fence_root.name = "Fence"
@@ -237,14 +302,9 @@ func _build_landmarks() -> void:
 	var shed := _on_ground(NatureProps.shed(), -19.0, 13.0)
 	_register_occluder(shed, 2.6, 3.4)
 	_block(-19, 13, 3.0)
-	_build_trade_post()
-	_build_quest_props()
-	for cp: Dictionary in CHECKPOINTS:
-		var cpos: Vector3 = cp["pos"]
-		if cp["marker"]:
-			_build_checkpoint_marker(cpos + Vector3(0.9, 0, -0.9))
-		_block(cpos.x, cpos.z, 2.0)
 
+
+func _build_camp_framing() -> void:
 	# Diorama framing: a big shade tree, a blossom tree, a pine backdrop behind the camper
 	_place_tree(NatureProps.TreeKind.BROADLEAF, -12.2, 4.2, 1.45)
 	_place_tree(NatureProps.TreeKind.BLOSSOM, 2.2, -3.6, 1.15)
@@ -302,7 +362,7 @@ func _is_free(x: float, z: float, r: float, path_clear: float) -> bool:
 		return false
 	if terrain.pond_distance(x, z) < 1.5 + r:
 		return false
-	if x < TerrainField.MIN.x + 3.0 or x > TerrainField.MAX.x - 3.0 or z < TerrainField.MIN.y + 3.0 or z > TerrainField.MAX.y - 3.0:
+	if x < terrain.bounds_min.x + 3.0 or x > terrain.bounds_max.x - 3.0 or z < terrain.bounds_min.y + 3.0 or z > terrain.bounds_max.y - 3.0:
 		return false
 	for p in _placed:
 		if Vector2(x, z).distance_to(Vector2(p.x, p.y)) < p.z + r:
@@ -317,14 +377,17 @@ func _random_point(center: Vector2, radius: float) -> Vector2:
 
 
 func _scatter_nature() -> void:
+	var sc: Dictionary = region.get("scatter", {})
+	var pine_share := float(sc.get("forest_pine", 0.55))
+	var broad_share := float(sc.get("forest_broadleaf", 0.3))
 	# Forest patch
 	var placed := 0
 	var tries := 0
-	while placed < 46 and tries < 2000:
+	while placed < int(sc.get("forest_trees", 46)) and tries < 2000:
 		tries += 1
-		var p := _random_point(TerrainField.FOREST_CENTER, TerrainField.FOREST_RADIUS)
+		var p := _random_point(terrain.forest_center, terrain.forest_radius)
 		var roll := _rng.randf()
-		var kind := NatureProps.TreeKind.PINE if roll < 0.55 else (NatureProps.TreeKind.BROADLEAF if roll < 0.85 else NatureProps.TreeKind.BIRCH)
+		var kind := NatureProps.TreeKind.PINE if roll < pine_share else (NatureProps.TreeKind.BROADLEAF if roll < pine_share + broad_share else NatureProps.TreeKind.BIRCH)
 		var s := _rng.randf_range(0.85, 1.3)
 		if _is_free(p.x, p.y, 1.1 * s, 1.6):
 			_place_tree(kind, p.x, p.y, s)
@@ -332,14 +395,19 @@ func _scatter_nature() -> void:
 	# Scattered meadow trees (kept away from the camp clearing)
 	placed = 0
 	tries = 0
-	var area := Rect2(TerrainField.MIN, TerrainField.MAX - TerrainField.MIN)
-	while placed < 30 and tries < 2000:
+	var area := Rect2(terrain.bounds_min, terrain.bounds_max - terrain.bounds_min)
+	var mix: Array = sc.get("field_mix", [0.5, 0.25, 0.18, 0.07])
+	var camp_c := terrain.camp_center if terrain.camp_center != Vector2.INF else Vector2(1e6, 1e6)
+	while placed < int(sc.get("field_trees", 30)) and tries < 2000:
 		tries += 1
 		var p := Vector2(_rng.randf_range(area.position.x, area.end.x), _rng.randf_range(area.position.y, area.end.y))
-		if p.distance_to(TerrainField.CAMP_CENTER) < 11.0:
+		if p.distance_to(camp_c) < 11.0:
 			continue
 		var roll := _rng.randf()
-		var kind := NatureProps.TreeKind.BROADLEAF if roll < 0.5 else (NatureProps.TreeKind.BIRCH if roll < 0.75 else (NatureProps.TreeKind.PINE if roll < 0.93 else NatureProps.TreeKind.BLOSSOM))
+		var m0 := float(mix[0])
+		var m1 := m0 + float(mix[1])
+		var m2 := m1 + float(mix[2])
+		var kind := NatureProps.TreeKind.BROADLEAF if roll < m0 else (NatureProps.TreeKind.BIRCH if roll < m1 else (NatureProps.TreeKind.PINE if roll < m2 else NatureProps.TreeKind.BLOSSOM))
 		var s := _rng.randf_range(0.85, 1.25)
 		if _is_free(p.x, p.y, 2.0 * s, 2.5):
 			_place_tree(kind, p.x, p.y, s)
@@ -348,25 +416,28 @@ func _scatter_nature() -> void:
 	for i in 900:
 		var p := Vector2(_rng.randf_range(area.position.x, area.end.x), _rng.randf_range(area.position.y, area.end.y))
 		var roll := _rng.randf()
-		if p.distance_to(TerrainField.CAMP_CENTER) < 6.5:
+		if p.distance_to(camp_c) < 6.5:
 			continue
-		if roll < 0.07:
+		var b0 := float(sc.get("bush", 0.07))
+		var b1 := b0 + float(sc.get("big_rock", 0.03))
+		var b2 := b1 + float(sc.get("small_rock", 0.06))
+		if roll < b0:
 			if _is_free(p.x, p.y, 0.8, 1.6):
 				_place_bush(p.x, p.y, _rng.randi() % 3, _rng.randf_range(0.8, 1.2))
-		elif roll < 0.1:
+		elif roll < b1:
 			if _is_free(p.x, p.y, 0.9, 1.8):
 				_place_rock(p.x, p.y, true, _rng.randf_range(0.7, 1.3))
-		elif roll < 0.16:
+		elif roll < b2:
 			if _is_free(p.x, p.y, 0.3, 1.3):
 				_place_rock(p.x, p.y, false, _rng.randf_range(0.7, 1.4))
-		elif roll < 0.18:
+		elif roll < b2 + 0.02:
 			if _is_free(p.x, p.y, 0.3, 1.5):
 				_on_ground(NatureProps.mushrooms(_rng), p.x, p.y)
-		elif roll < 0.19:
+		elif roll < b2 + 0.03:
 			if _is_free(p.x, p.y, 0.6, 1.8):
 				_on_ground(NatureProps.stump(_rng), p.x, p.y)
 				_block(p.x, p.y, 0.5)
-	for m: Array in TerrainField.MOUNDS:
+	for m: Array in terrain.mounds:
 		var c: Vector2 = m[0]
 		if _is_free(c.x, c.y, 1.0, 1.5):
 			_place_rock(c.x, c.y, true, 1.4)
@@ -379,6 +450,8 @@ func _grass_density(x: float, z: float) -> float:
 	if terrain.pond_distance(x, z) < 1.3:
 		return 0.0
 	var d := 1.0
+	if not has_feature("camp"):
+		return d * lerpf(0.35, 1.0, smoothstep(1.5, 3.0, pd))
 	var local := CAMP_XF.affine_inverse() * Vector3(x, 0, z)
 	if absf(local.x) < 4.0 and absf(local.z) < 1.5:
 		return 0.0
@@ -393,15 +466,21 @@ func _grass_density(x: float, z: float) -> float:
 
 func _build_ground_cover() -> void:
 	var hf := Callable(self, "ground_height")
-	var area := Rect2(TerrainField.MIN + Vector2(3, 3), TerrainField.MAX - TerrainField.MIN - Vector2(6, 6))
+	var area := Rect2(terrain.bounds_min + Vector2(3, 3), terrain.bounds_max - terrain.bounds_min - Vector2(6, 6))
 	var forest := func(x: float, z: float) -> float: return terrain.masks(x, z).b
-	GroundCover.build(self, area, 3000, hf, Callable(self, "_grass_density"), _rng, forest)
-	# A little denser around the camp so the hero shot feels lush (still patchy, not a carpet)
-	GroundCover.build(self, Rect2(-18, -12, 26, 22), 700, hf, Callable(self, "_grass_density"), _rng, forest)
+	GroundCover.build(self, area, roundi(3000 * area.get_area() / 7332.0), hf, Callable(self, "_grass_density"), _rng, forest)
+	if has_feature("camp"):
+		# A little denser around the camp so the hero shot feels lush (still patchy, not a carpet)
+		GroundCover.build(self, Rect2(-18, -12, 26, 22), 700, hf, Callable(self, "_grass_density"), _rng, forest)
 	var edge := func(x: float, z: float) -> float:
 		var pd := terrain.path_distance(x, z)
 		return 0.9 if pd > 0.9 and pd < 2.0 else 0.02
 	GroundCover.pebbles(self, area, 250, hf, edge, _rng)
+	if region.has("ground"):
+		for n in find_children("GrassTufts", "GeometryInstance3D", false, false):
+			var gm: Variant = (n as GeometryInstance3D).material_override
+			if gm is ShaderMaterial:
+				_apply_ground_colors(gm, "tuft")
 
 
 func _spawn_actors() -> void:
@@ -409,26 +488,28 @@ func _spawn_actors() -> void:
 	player = PrototypePlayer.new()
 	player.name = "Player"
 	player.height_func = hf
-	player.walk_bounds = Rect2(TerrainField.MIN + Vector2(4, 4), TerrainField.MAX - TerrainField.MIN - Vector2(8, 8))
+	player.walk_bounds = Rect2(terrain.bounds_min + Vector2(4, 4), terrain.bounds_max - terrain.bounds_min - Vector2(8, 8))
 	add_child(player)
 	var ov := Game.take_spawn_override()
-	var spawn := DEFAULT_SPAWN
-	var yaw := PI * 0.75
+	var ds: Dictionary = region.get("default_spawn", {})
+	var spawn := RegionDB.v3(ds["pos"]) if ds.has("pos") else DEFAULT_SPAWN
+	var yaw := float(ds.get("yaw", PI * 0.75))
 	if ov.has("pos"):
 		spawn = ov["pos"]
 		yaw = ov.get("yaw", 0.0)
-	elif Game.previous_world == Game.WORLD_INTERIOR and Game.has_camper:
+	elif Game.previous_world == Game.WORLD_INTERIOR and camper_here():
 		spawn = camper.door_world_position()
 		yaw = PI
 	player.global_position = Vector3(spawn.x, ground_height(spawn.x, spawn.z), spawn.z)
 	player.face_direction(yaw)
 
-	for spec: Array in MONSTER_SPAWNS:
-		var dead_at: float = Game.field["dead"].get(spec[0], -1.0)
+	for spec: Dictionary in region.get("monsters", []):
+		var dead_at: float = Game.field["dead"].get(spec["id"], -1.0)
 		if dead_at < 0.0:
 			_spawn_monster(spec)
 	_spawn_cat(ov.get("kind", "") == "checkpoint" and Game.cat_joined)
-	_spawn_npcs()
+	if has_feature("trade_post"):
+		_spawn_npcs()
 
 	camera = TopdownCamera.new()
 	camera.name = "Camera"
@@ -438,6 +519,8 @@ func _spawn_actors() -> void:
 	_motes.emitting = false
 	_motes.visible = false
 	add_child(AmbientParticles.leaves(player))
+	if ov.get("kind", "") == "drive_in" and camper_here():
+		enter_vehicle.call_deferred()
 
 
 ## Objects drawn as pre-rendered pixel sprites: [node, bake spec, name] (same name = same sheet).
@@ -446,8 +529,8 @@ func sprite_targets() -> Array:
 	var out := [[player, PrototypePlayer.sprite_bake_spec(g), "player|" + PlayerState.gear_key(g)]]
 	for m in monsters:
 		if is_instance_valid(m):
-			out.append([m, SlimeMonster.sprite_bake_spec(), "slime"])
-	if Game.has_camper:
+			out.append([m, SlimeMonster.sprite_bake_spec(m.kind), "slime" if m.kind in ["meadow_slime", "forest_slime"] else "slime|" + m.kind])
+	if camper_here():
 		out.append([camper, CamperExterior.sprite_bake_spec(CAMPER_YAW_DEG), "camper"])
 	if cat:
 		out.append([cat, CatCompanion.sprite_bake_spec(), "cat"])
@@ -458,15 +541,15 @@ func sprite_targets() -> Array:
 
 # ---------------------------------------------------------------- P1: monsters, loot, safety
 
-func _spawn_monster(spec: Array) -> SlimeMonster:
+func _spawn_monster(spec: Dictionary) -> SlimeMonster:
 	var m := SlimeMonster.new()
-	m.name = "Slime_" + spec[0]
-	m.monster_id = spec[0]
-	m.aggressive = spec[2]
+	m.name = "Slime_" + str(spec["id"])
+	m.monster_id = str(spec["id"])
+	m.kind = str(spec.get("kind", "meadow_slime"))
 	m.height_func = Callable(self, "ground_height")
 	m.world = self
-	var h: Vector2 = spec[1]
-	m.position = Vector3(h.x, ground_height(h.x, h.y), h.y)
+	var h := RegionDB.v3(spec["pos"])
+	m.position = Vector3(h.x, ground_height(h.x, h.z), h.z)
 	add_child(m)
 	m.set_silhouette(occlusion_mode == Occlusion.SILHOUETTE)
 	monsters.append(m)
@@ -497,7 +580,7 @@ func _spawn_loot() -> void:
 	for d: Dictionary in Game.field["loot"]:
 		if d["id"] == "camp_crate":
 			has_crate = true
-	if not has_crate and not Game.field.get("crate_made", false):
+	if has_feature("camp") and not has_crate and not Game.field.get("crate_made", false):
 		var inv := Inventory.new()
 		inv.add("iron_ore", 6)
 		inv.add("cat_snack", 3)
@@ -518,15 +601,15 @@ func _spawn_loot() -> void:
 
 func _respawn_check() -> void:
 	var now := Game.total_minutes()
-	for spec: Array in MONSTER_SPAWNS:
-		var dead_at: float = Game.field["dead"].get(spec[0], -1.0)
+	for spec: Dictionary in region.get("monsters", []):
+		var dead_at: float = Game.field["dead"].get(spec["id"], -1.0)
 		if dead_at >= 0.0 and now - dead_at >= MONSTER_RESPAWN_MIN:
-			Game.field["dead"].erase(spec[0])
+			Game.field["dead"].erase(spec["id"])
 			_spawn_monster(spec)
 
 
 func is_safe(pos: Vector3) -> bool:
-	for cp: Dictionary in CHECKPOINTS:
+	for cp: Dictionary in checkpoints:
 		var c: Vector3 = cp["pos"]
 		if Vector2(pos.x - c.x, pos.z - c.z).length() < cp["radius"]:
 			return true
@@ -535,9 +618,9 @@ func is_safe(pos: Vector3) -> bool:
 
 ## Nearest checkpoint by straight-line distance [미정 selection rule].
 func nearest_checkpoint(pos: Vector3) -> Dictionary:
-	var best: Dictionary = CHECKPOINTS[0]
+	var best: Dictionary = checkpoints[0] if not checkpoints.is_empty() else {}
 	var best_d := INF
-	for cp: Dictionary in CHECKPOINTS:
+	for cp: Dictionary in checkpoints:
 		var c: Vector3 = cp["pos"]
 		var dd := Vector2(pos.x - c.x, pos.z - c.z).length()
 		if dd < best_d:
@@ -745,6 +828,10 @@ func _spawn_cat(rescue: bool) -> void:
 	cat.player = player
 	cat.height_func = Callable(self, "ground_height")
 	var p: Vector3
+	if not Game.cat_joined and not has_feature("camp"):
+		cat.free()  # the roadside encounter only happens in the starting region
+		cat = null
+		return
 	if not Game.cat_joined:
 		cat.mode = CatCompanion.Mode.ENCOUNTER
 		p = CAT_ENCOUNTER_POS
@@ -760,7 +847,7 @@ func _spawn_cat(rescue: bool) -> void:
 
 
 func _apply_camper_owned() -> void:
-	var owned := Game.has_camper
+	var owned := camper_here()
 	vehicle.visible = owned
 	vehicle.process_mode = Node.PROCESS_MODE_INHERIT if owned else Node.PROCESS_MODE_DISABLED
 	vehicle.collision_layer = 1 if owned else 0
@@ -776,7 +863,7 @@ func _on_story_changed() -> void:
 
 
 func enter_vehicle() -> void:
-	if not Game.has_camper or vehicle.driving:
+	if not camper_here() or vehicle.driving:
 		return
 	player.set_driving(true)
 	vehicle.driving = true
@@ -812,7 +899,8 @@ func exit_vehicle() -> void:
 func _save_parking() -> void:
 	if vehicle:
 		# Local position: also valid while the world is leaving the tree (world root = origin).
-		Game.field["camper"] = {"pos": vehicle.position, "yaw": vehicle.rotation.y}
+		if camper_here() and not _leaving_with_camper:
+			Game.camper = {"region": region_id, "pos": vehicle.position, "yaw": vehicle.rotation.y}
 
 
 func _exit_tree() -> void:
@@ -839,6 +927,60 @@ func set_fx(_on: bool) -> void:
 
 
 var _respawn_timer := 0.0
+var _age := 0.0
+## Set by bootstrap.travel when the camper drives out: its new parking spot is already decided.
+var _leaving_with_camper := false
+
+
+## Exit whose zone (plus margin) contains pos, or {}.
+func _exit_near(pos: Vector3, margin: float) -> Dictionary:
+	for ex in exits:
+		var c: Vector3 = ex["pos"]
+		if Vector2(pos.x - c.x, pos.z - c.z).length() < float(ex["radius"]) + margin:
+			return ex
+	return {}
+
+
+## Visiting a checkpoint or road exit marks it on the world map (GDD 11.3).
+func _discover(pos: Vector3) -> void:
+	for cp in checkpoints:
+		var c: Vector3 = cp["pos"]
+		var key := "%s:%s" % [region_id, cp["id"]]
+		if not Game.discovered.has(key) and Vector2(pos.x - c.x, pos.z - c.z).length() < cp["radius"]:
+			Game.discovered[key] = true
+			Game.boot.hud.toast("지도에 표시: " + cp["name"])
+	for ex in exits:
+		var c2: Vector3 = ex["pos"]
+		var key2 := "%s:%s" % [region_id, ex["id"]]
+		if not Game.discovered.has(key2) and Vector2(pos.x - c2.x, pos.z - c2.z).length() < float(ex["radius"]) + 8.0:
+			Game.discovered[key2] = true
+
+
+## Road exit: two stone posts and a signpost naming where the road leads.
+func _build_exit_marker(ex: Dictionary) -> void:
+	var c: Vector3 = ex["pos"]
+	var stone := ProtoMesh.mat(Color(0.58, 0.57, 0.54))
+	var cloth := ProtoMesh.mat(Color(0.86, 0.72, 0.36))
+	# posts either side of the road, across the direction toward the region edge
+	var b_min := terrain.bounds_min
+	var b_max := terrain.bounds_max
+	var horizontal := minf(c.x - b_min.x, b_max.x - c.x) < minf(c.z - b_min.y, b_max.y - c.z)
+	var side := Vector3(0, 0, 2.6) if horizontal else Vector3(2.6, 0, 0)
+	for sgn in [-1.0, 1.0]:
+		var pp: Vector3 = c + side * sgn
+		var post := _on_ground(Node3D.new(), pp.x, pp.z)
+		ProtoMesh.cylinder(post, 0.32, 1.5, Vector3(0, 0.75, 0), stone, Vector3.ZERO, 7)
+		ProtoMesh.sphere(post, 0.3, Vector3(0, 1.55, 0), stone, Vector3(1, 0.7, 1), 7, 4)
+		var flag := WindSway.new()
+		flag.mode = WindSway.Mode.FLAG
+		flag.position = Vector3(0, 1.3, 0.3)
+		post.add_child(flag)
+		ProtoMesh.box(flag, Vector3(0.36, 0.22, 0.03), Vector3(0.2, -0.1, 0), cloth)
+		ProtoMesh.static_cylinder_collider(post, 0.35, 2.0, Vector3(0, 0.5, 0))
+		_block(pp.x, pp.z, 1.0)
+	var sign_pos: Vector3 = c + side * 1.6 + (Vector3(-2.2, 0, 0) if c.x > 0 else Vector3(2.2, 0, 0))
+	_on_ground(NatureProps.signpost(), sign_pos.x, sign_pos.z)
+	_block(c.x, c.z, float(ex["radius"]) + 1.5)
 
 
 func _process(delta: float) -> void:
@@ -853,6 +995,13 @@ func _process(delta: float) -> void:
 		_respawn_check()
 	if vehicle.driving and Input.is_action_just_pressed("interact"):
 		exit_vehicle()
+	_age += delta
+	_discover(player.global_position if not vehicle.driving else vehicle.global_position)
+	if _age > EXIT_GRACE and Game.boot and not Game.boot.is_busy():
+		var at := vehicle.global_position if vehicle.driving else player.global_position
+		var ex := _exit_near(at, 0.0)
+		if not ex.is_empty() and (vehicle.driving or player.visible):
+			Game.boot.travel(ex["to_region"], ex["to_entry"], vehicle.driving)
 
 
 func _update_occluder_fade(delta: float) -> void:
@@ -893,7 +1042,7 @@ func occlusion_mode_name() -> String:
 
 
 func player_near_camper() -> bool:
-	if not Game.has_camper:
+	if not camper_here():
 		return false
 	if vehicle.driving:
 		return true
@@ -906,6 +1055,8 @@ func player_near_camper() -> bool:
 func try_toggle_camper_lights() -> String:
 	if not Game.has_camper:
 		return "아직 캠핑카가 없습니다 (F9: 진행 단계 전환)"
+	if not camper_here():
+		return "캠핑카는 %s에 세워 두었다" % RegionDB.region_name(str(Game.camper.get("region", "")))
 	if not player_near_camper():
 		return "캠핑카 근처(%.0fm 이내)에서만 F 라이트를 켤 수 있습니다" % CAMPER_LIGHT_RANGE
 	Game.camper_lights_on = not Game.camper_lights_on
@@ -915,10 +1066,13 @@ func try_toggle_camper_lights() -> String:
 func context_hint() -> String:
 	if vehicle.driving:
 		return "운전 중 — W 전진 · S 후진 · A/D 머리 좌/우 · E 내리기(정지 시) · F 라이트"
+	var ex := _exit_near(player.global_position, 7.0)
+	if not ex.is_empty():
+		return "이 길을 따라가면 → %s (위험도 %s)" % [RegionDB.region_name(ex["to_region"]), RegionDB.danger_text(ex["to_region"])]
 	if player_near_camper():
 		return "캠핑카 근처 — F: 외부 라이트"
 	return ""
 
 
 func world_title() -> String:
-	return "야외 필드 (visual_lab)"
+	return "%s (위험도 %s)" % [RegionDB.region_name(region_id), RegionDB.danger_text(region_id)]

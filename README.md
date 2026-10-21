@@ -23,6 +23,7 @@
 | 실내 | 문 매트 `E` 밖으로, 오른쪽 아래 선반 `E` **창고**(개별/모두/소지품 전체 옮기기), 간이침대 `E` **수면**(1~12시간, HP 10%) |
 | 고양이 | 실내에 항상 있음: `E` 쓰다듬기, `R` 간식(소지품의 고양이 간식 1개 → 호감도 +10). 창고에 간식 6개가 있음 |
 | 사망/복귀 | 캠핑카 보유(단계 C) → 실내 간이침대 옆에서 기상. 미보유(A/B) → 가장 가까운 안전 체크포인트(캠프 모닥불·갈림길 돌무지·호숫가 쉼터). B에서는 고양이가 곁을 돌다 앉음. 가방의 일부는 고블린이 가져가고 나머지는 쓰러진 자리의 "짐 꾸러미"로 남음 |
+| 지역 이동 (P3-1) | 지역 2곳: **바람결 초원**(시작, 위험도 ★)과 **솔바람 고원**(위험도 ★★, 바위 슬라임·이끼 슬라임). 초원 갈림길에서 동쪽으로 난 길 끝(돌기둥 두 개)으로 걸어가거나 **캠핑카로 달려 들어가면** 로딩 화면 후 다른 지역. 걸어가면 캠핑카는 세워 둔 곳에 남고, 운전해서 가면 차도 함께 감. 지역마다 몬스터 강함 고정(레벨 연동 없음), 쓰러진 몬스터·시체·짐 꾸러미는 지역별로 기억. `M` **월드맵**: 두 지역·길·연결 도로·현재 위치·캠핑카 위치, 방문한 체크포인트 표시 |
 | 퀘스트 (P2-5) | **NPC 의뢰**: 로사에게 `R`로 말을 걸어 대화에서 직접 수락(젤리 5개 → 보고하면 골드·EXP·빵). **게시판**(교역소 가운데) `E`: 반복 의뢰(풀밭 슬라임 3마리), 긴급 의뢰(숲 슬라임 3마리, **24시간 제한** — 실패해도 다시 받기). **현장 사건**: 갈림길 가는 길의 넘어진 짐수레에 다가가면 수락 없이 시작 → 꾸러미 3개를 주워 브론에게 → **해결 2가지**(사례 없이 돌려줌 = 생활 EXP / 사례를 받음 = 골드+일반 EXP). `J` 퀘스트 기록, 오른쪽 위에 진행 목록 |
 | 대화 (P2-5) | 계산대 앞 `R` 대화(로사·브론). 대화창: `E`/`Space`/클릭 다음, `1`~`9` 선택. 대화 중에는 이동·공격 잠금, 카메라 그대로. 대사·분기는 모두 `data/dialogues/*.json` (대화 에디터로 편집) |
 | 상점·NPC (P2-4) | 캠프 서쪽 길가 **교역소**: 로사의 잡화점(08~20시)·브론의 대장간(09~18시). 계산대 앞 `E`로 거래 — 사기·팔기(상인마다 매입가가 다르고, 희귀 재료는 대장간만 삼). 재고는 1일/3일마다 다시 채워짐. 대장간에서 착용 장비 **강화**(100% 성공, 최대 +3). 문 닫는 시각이면 주인이 집으로 걸어 들어가고 거래 불가. 골드는 HUD에 표시(시작 50) |
@@ -73,6 +74,7 @@ git clone -b claude/gallant-edison-84bkyp https://github.com/HomilBBANG/rg_Hilli
 | 마우스 왼쪽 클릭 | 기본 공격 1회 (마우스 방향, 누르고 있어도 반복 안 함, SP 4) |
 | `E` / `R` | 조사·상호작용(시체·상자·짐 꾸러미·문·운전석·창고·침대·고양이·상점 계산대·게시판) / 고양이 간식 · NPC 대화 |
 | `J` | 퀘스트 기록 (진행 중·완료·실패) |
+| `M` | 월드맵 |
 | `Tab` | 소지품 (열어도 게임은 멈추지 않음) |
 | `C` | 능력치 창: 일반 EXP로 레벨업(능력치 포인트 +1)·능력치 투자·기본 스킬 습득 (자동 레벨업 없음) |
 | `G` | 전투 로그 1 → 2 → 3단계 |
@@ -84,7 +86,7 @@ git clone -b claude/gallant-edison-84bkyp https://github.com/HomilBBANG/rg_Hilli
 | `O` | 픽셀 외곽선 ON/OFF (**기본 ON**: 실루엣 1픽셀 짙은 선, Forward+ 전용) |
 | `Z` | 스프라이트 파이프라인 ON/OFF — 캐릭터·슬라임·캠핑카를 3D 모델에서 구운 픽셀 스프라이트로 그릴지, 실시간 3D로 그릴지 |
 | `F1` / `F2` / `F3` / `F4` | **PXL-COARSE 320×180 (×6)** / **PXL-MID 480×270 (×4)** / **PXL-SOFT 640×360 (×3, 기본)** / **3D-NATIVE 1920×1080(픽셀화 OFF)** |
-| `M` | 픽셀화 파이프라인 전환: M1 SubViewport 확대 ↔ M2 3D 해상도 스케일링(nearest) |
+| `F6` | 픽셀화 파이프라인 전환(디버그): M1 SubViewport 확대 ↔ M2 3D 해상도 스케일링(nearest) |
 | `P` | 모드 3: 색 단계 제한 + 4×4 디더 ON/OFF (색보정 셰이더 안의 옵션) |
 | `N` | 낮(12:00) ↔ 밤(22:00) |
 | `T` | 게임 시계 진행/정지 (현실 1초 = 게임 1분) |
@@ -140,7 +142,7 @@ scripts/ui/        game_hud.gd (HP/SP/MP, 전투 로그, 조사·소지품·창�
 scripts/dialogue/  dialogue_data.gd(포맷·검증), dialogue_runner.gd, dialogue_context.gd, game_dialogue_context.gd, cutscene_runner.gd
 scripts/game/      quest_db.gd, quest_manager.gd, narrative_state.gd, shop_db.gd (P2 데이터 시스템)
 addons/dialogue_editor/  대화 에디터 플러그인 (에디터 전용, 게임 빌드에는 불필요)
-data/              dialogues/, quests/, cutscenes/ (JSON), speakers.json — 코드 없이 콘텐츠 추가
+data/              dialogues/, quests/, cutscenes/, regions/ (JSON), monsters.json, speakers.json — 코드 없이 콘텐츠 추가
 scripts/world/     interact_point.gd, loot_container.gd (상호작용·시체/상자/짐 꾸러미)
 scripts/visuals/   sprite_baker.gd, sprite_sheet.gd, baked_sprite.gd (스프라이트 파이프라인)
 scripts/vehicle/   camper_exterior.gd, camper_vehicle.gd(운전), prototype_camper_lights.gd
@@ -152,6 +154,7 @@ captures/sprite_pipeline/   구운 스프라이트 시트(sheets/) + 베이크 v
 captures/p1/                P1 흐름 검증 캡처 19장 (--tour=p1)
 captures/p2/                P2 캡처: 성장(--tour=p2), 장비(--tour=gear), 소모품(--tour=items), 상점·NPC(--tour=shop), 퀘스트·대화(--tour=quest)
 captures/dialogue_editor/   실제 Godot 에디터 안의 대화 에디터 자동 점검 캡처
+captures/p3/                P3-1 지역 이동: 초원 출구·로딩 화면·고원·바위 슬라임·캠핑카 동반 이동·월드맵 (--tour=region)
 notes/             VISUAL_DIRECTION.md, VISUAL_COMPARISON.md, IMPLEMENTATION_ASSUMPTIONS.md, DIALOGUE_EDITOR.md, DRIVING.md
 docs/              GDD.md(v10.2), CAT_COMPANION_HANDOFF.md, DIALOGUE_EDITOR_HANDOFF.md(v10.5), GRAPHICS_PROTOTYPE.md, CLAUDE_CODE_HANDOFF.md
 ```
@@ -172,6 +175,8 @@ Godot.exe --path C:/Game/denial -- --tour=p1input
 Godot.exe --path C:/Game/denial -- --tour=shop --capture-dir=C:/Game/denial/captures/p2
 :: P2 퀘스트·대화: 로사 의뢰 수락→보고, 게시판 반복·시간 제한, 현장 사건 결말 분기, 퀘스트 기록, 컷씬 호출, 에디터 '게임에서 실행' 전달
 Godot.exe --path C:/Game/denial -- --tour=quest --capture-dir=C:/Game/denial/captures/p2
+:: P3-1 지역 이동: 걸어서/운전해서 지역 이동, 지역별 난이도·기억, 사망 후 캠핑카 지역 복귀, 월드맵
+Godot.exe --path C:/Game/denial -- --tour=region --capture-dir=C:/Game/denial/captures/p3
 :: 대화 에디터 자동 점검 (실제 에디터 안에서 실행 후 자동 종료, 콘솔에 [editor] PASS/FAIL)
 set DIALOGUE_EDITOR_SELFTEST=C:/Game/denial/captures/dialogue_editor
 Godot.exe --path C:/Game/denial -e
