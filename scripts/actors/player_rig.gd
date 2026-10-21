@@ -32,6 +32,7 @@ var _lantern_glass: MeshInstance3D
 var _glass_on: Material
 var _glass_off: Material
 static var _body_mat: StandardMaterial3D
+static var _shirt_mat: StandardMaterial3D
 
 
 func _init() -> void:
@@ -118,12 +119,37 @@ func _build() -> void:
 	pose(0.0, 0.0, -1.0)
 
 
-## Same flat cel look as the rest of the game (ProtoMesh toon), keeping the model's colour texture.
+## Same flat cel look as the rest of the game (ProtoMesh toon). The body carries flat palette
+## colours per face (vertex colours, see the prepare script); the shirt is its own mesh and gets
+## big buffalo plaid checks projected on it, like the old model, so the pattern reads at sprite size.
 static func _toon(mi: MeshInstance3D) -> StandardMaterial3D:
+	if mi.name.begins_with("Shirt"):
+		if _shirt_mat == null:
+			_shirt_mat = _plaid_mat()
+		return _shirt_mat
 	if _body_mat == null:
 		_body_mat = ProtoMesh.unique_mat(Color.WHITE)
-		_body_mat.albedo_texture = (mi.mesh.surface_get_material(0) as StandardMaterial3D).albedo_texture
+		_body_mat.vertex_color_use_as_albedo = true
 	return _body_mat
+
+
+## Simplified red/dark-red buffalo plaid (big checks so it survives pixelation).
+static func _plaid_mat() -> StandardMaterial3D:
+	var img := Image.create(4, 4, false, Image.FORMAT_RGB8)
+	var red := Color(0.8, 0.2, 0.19)
+	var mid := Color(0.6, 0.14, 0.14)
+	var dark := Color(0.38, 0.09, 0.1)
+	for y in 4:
+		for x in 4:
+			var a := x < 2
+			var b := y < 2
+			img.set_pixel(x, y, dark if a and b else (mid if a or b else red))
+	var m := ProtoMesh.unique_mat(Color.WHITE)
+	m.albedo_texture = ImageTexture.create_from_image(img)
+	m.texture_filter = BaseMaterial3D.TEXTURE_FILTER_NEAREST
+	m.uv1_triplanar = true
+	m.uv1_scale = Vector3.ONE * 2.2   # one repeat = 0.45 m: checks of about 23 cm
+	return m
 
 
 ## A point along a bone at rest (rig space), `along` metres from its head.
