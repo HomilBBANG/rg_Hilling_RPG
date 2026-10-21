@@ -30,6 +30,11 @@ var _panel_range := 2.5
 var _panel_refresh: Callable
 var _panel_kind := ""
 var _sleep_hours := 8
+var dialogue: DialogueBox
+var cutscene: CutsceneRunner
+var _caption: Label
+var _tracker: Label
+var _tracker_t := 0.0
 
 
 func _ready() -> void:
@@ -77,6 +82,25 @@ func _ready() -> void:
 	_fade_label.size = Vector2(1920, 60)
 	_fade_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_fade_label.modulate.a = 0.0
+	_tracker = _label("", 19, Vector2(1440, 18))
+	_tracker.size = Vector2(458, 0)
+	_tracker.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	_tracker.add_theme_color_override("font_color", Color(1.0, 0.93, 0.75))
+	cutscene = CutsceneRunner.new()
+	add_child(cutscene)
+	dialogue = DialogueBox.new()
+	dialogue.cutscenes = cutscene
+	add_child(dialogue)
+	_caption = _label("", 28, Vector2(0, 760))
+	_caption.size = Vector2(1920, 50)
+	_caption.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_caption.add_theme_color_override("font_color", Color(0.95, 0.93, 0.86))
+	move_child(_fade, -1)
+	move_child(_fade_label, -1)
+	Game.quests.changed.connect(func() -> void:
+		_tracker_t = 0.0
+		if _panel_kind in ["journal", "board"]:
+			_refresh_panel())
 	Game.combat_log.added.connect(func(_e: Dictionary) -> void: _refresh_log())
 	Game.player_state.changed.connect(_on_player_changed)
 	_refresh_log()
@@ -793,8 +817,148 @@ func toggle_character() -> void:
 		v.add_child(_button("닫기 (C)", close_panel)), 880)
 
 
+# ---------------------------------------------------------------- dialogue / quests (P2-5)
+
+## Opens a dialogue by id (data/dialogues). Returns false when the file is missing.
+func start_dialogue(dialogue_id: String) -> bool:
+	if dialogue_id == "" or dialogue.active():
+		return false
+	close_panel()
+	return dialogue.play(dialogue_id)
+
+
+func dialogue_active() -> bool:
+	return dialogue.active()
+
+
+func show_caption(text: String) -> void:
+	_caption.text = text
+
+
+func toast_quest(text: String) -> void:
+	if boot and boot.hud:
+		boot.hud.toast(text)
+
+
+func _quest_time_text(id: String) -> String:
+	var left := Game.quests.time_left(id)
+	if left < 0.0:
+		return ""
+	return "남은 시간 %d시간 %02d분" % [int(left) / 60, int(left) % 60]
+
+
+func _tracker_text() -> String:
+	var lines := PackedStringArray()
+	for id: String in Game.quests.entries:
+		if not Game.quests.is_open(id):
+			continue
+		var head := "◆ " + QuestDB.title(id)
+		if Game.quests.state(id) == "ready":
+			head += " — 보고하기"
+		lines.append(head)
+		for o in Game.quests.objectives_text(id):
+			lines.append(o)
+		var t := _quest_time_text(id)
+		if t != "":
+			lines.append(t)
+		if lines.size() > 12:
+			break
+	if lines.is_empty():
+		return ""
+	return "퀘스트 (J)\n" + "\n".join(lines)
+
+
+func toggle_journal() -> void:
+	if _panel_kind == "journal":
+		close_panel()
+		return
+	_open("journal", null, 0.0, func(v: VBoxContainer) -> void:
+		v.add_child(_row_label("퀘스트 기록", 400, 26, Color(1.0, 0.9, 0.6)))
+		var groups := {"open": [], "completed": [], "failed": []}
+		for id: String in Game.quests.entries:
+			var s := Game.quests.state(id)
+			groups["open" if s in ["active", "ready"] else s].append(id)
+		for g in [["open", "진행 중"], ["completed", "완료"], ["failed", "실패"]]:
+			v.add_child(_row_label("%s (%d)" % [g[1], groups[g[0]].size()], 400, 22, Color(0.8, 0.86, 1.0)))
+			if groups[g[0]].is_empty():
+				v.add_child(_row_label("  없음", 400, 18, Color(0.6, 0.62, 0.66)))
+			for id: String in groups[g[0]]:
+				var q := QuestDB.info(id)
+				var e: Dictionary = Game.quests.entries[id]
+				var head := "  %s  [%s]" % [q.get("title", id), QuestDB.SOURCE_NAMES.get(q.get("source", ""), "")]
+				if Game.quests.state(id) == "ready":
+					head += " — 목표 달성, 보고하기"
+				v.add_child(_row_label(head, 860, 20))
+				var desc := _row_label("    " + str(q.get("desc", "")), 860, 17, Color(0.75, 0.77, 0.8))
+				desc.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+				desc.clip_text = false
+				v.add_child(desc)
+				if g[0] == "open":
+					for o in Game.quests.objectives_text(id):
+						v.add_child(_row_label("    " + o, 860, 18, Color(0.95, 0.9, 0.7)))
+					var t := _quest_time_text(id)
+					if t != "":
+						v.add_child(_row_label("    " + t, 860, 18, Color(1.0, 0.6, 0.5)))
+					v.add_child(_row_label("    보상: " + QuestDB.reward_text(QuestDB.rewards_for(id)), 860, 17, Color(0.7, 0.85, 0.7)))
+				elif g[0] == "completed":
+					var oc: String = e.get("outcome", "")
+					var label := str(q.get("outcomes", {}).get(oc, {}).get("label", ""))
+					v.add_child(_row_label("    %s완료 %d회 · 보상 %s" % ["결과: %s · " % label if label != "" else "", e.get("completions", 1),
+						QuestDB.reward_text(QuestDB.rewards_for(id, oc))], 860, 17, Color(0.7, 0.85, 0.7)))
+				elif q.get("repeatable", false):
+					v.add_child(_row_label("    반복 의뢰 — 다시 받을 수 있다", 860, 17, Color(0.7, 0.8, 0.9)))
+		v.add_child(_button("닫기 (J)", close_panel)), 920)
+
+
+## Trade post notice board (GDD 13.1: board requests must be accepted directly).
+func open_board(source: Node3D) -> void:
+	_open("board", source, 3.0, func(v: VBoxContainer) -> void:
+		v.add_child(_row_label("교역소 게시판", 400, 26, Color(1.0, 0.9, 0.6)))
+		for id: String in QuestDB.all():
+			var q: Dictionary = QuestDB.all()[id]
+			if q.get("source", "") != "board":
+				continue
+			var s := Game.quests.state(id)
+			var row := HBoxContainer.new()
+			var head := q.get("title", id) as String
+			if q.get("repeatable", false):
+				head += "  (반복)"
+			if float(q.get("time_limit_hours", 0)) > 0.0:
+				head += "  (제한 %d시간)" % int(q["time_limit_hours"])
+			row.add_child(_row_label(head, 640, 21))
+			var b: Button
+			match s:
+				"ready":
+					b = _button("보고하기", func() -> void: Game.quests.complete(id), 150)
+				"active":
+					b = _button("진행 중", func() -> void: pass, 150)
+					b.disabled = true
+				_:
+					var again: bool = s in ["completed", "failed"]
+					b = _button("다시 수락" if again else "수락", func() -> void: Game.quests.accept(id), 150)
+					b.disabled = not Game.quests.can_accept(id)
+					if b.disabled:
+						b.text = "완료"
+			row.add_child(b)
+			v.add_child(row)
+			var desc := _row_label("  " + str(q.get("desc", "")), 800, 17, Color(0.75, 0.77, 0.8))
+			desc.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+			desc.clip_text = false
+			v.add_child(desc)
+			var info := "  보상: %s" % QuestDB.reward_text(QuestDB.rewards_for(id))
+			if s in ["active", "ready"]:
+				info += "  —  " + "  ".join(Game.quests.objectives_text(id))
+				var t := _quest_time_text(id)
+				if t != "":
+					info += "  ·  " + t
+			elif s == "failed":
+				info += "  ·  지난번엔 실패 — 다시 받을 수 있다"
+			v.add_child(_row_label(info, 800, 17, Color(0.7, 0.85, 0.7)))
+		v.add_child(_button("닫기 (E)", close_panel)), 860)
+
+
 func _on_player_changed() -> void:
-	if _panel_kind in ["inventory", "loot", "storage", "character", "shop"]:
+	if _panel_kind in ["inventory", "loot", "storage", "character", "shop", "journal", "board"]:
 		_refresh_panel()
 
 
@@ -828,8 +992,14 @@ func _process(delta: float) -> void:
 	if pl and pl.is_using():
 		var n := int(pl.use_progress() * 10.0)
 		text = "%s  %s%s  (맞으면 중단)" % [pl.use_label(), "▮".repeat(n), "▯".repeat(10 - n)]
+	if dialogue.active() or cutscene.playing:
+		text = ""
 	_prompt.text = text
 	_update_quickbar()
+	_tracker_t -= delta
+	if _tracker_t <= 0.0:
+		_tracker_t = 0.25
+		_tracker.text = _tracker_text()
 	# The detailed log would show through an open panel: collapse it to one line meanwhile.
 	var want_detail := Game.combat_log.level == 3 and _panel == null
 	if _log_detail.visible != want_detail:

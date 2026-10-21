@@ -44,6 +44,8 @@ var _rescue_center := Vector3.ZERO
 var _spot := Vector3.ZERO
 var _spot_wait := 0.0
 var _rng := RandomNumberGenerator.new()
+var _script_goal := Vector3.INF
+var _script_speed := 0.0
 
 
 func _ready() -> void:
@@ -108,6 +110,16 @@ func start_rescue() -> void:
 	mode = Mode.RESCUE
 	_rescue_t = 0.0
 	_rescue_center = player.global_position
+
+
+## Cutscene hook (CutsceneRunner): walk to a point, overriding the current mode; Vector3.INF releases.
+func scripted_walk_to(goal: Vector3, speed: float) -> void:
+	_script_goal = goal
+	_script_speed = speed
+
+
+func scripted_walking() -> bool:
+	return _script_goal != Vector3.INF and _flat(_script_goal - global_position).length() > 0.15
 
 
 func face(pos: Vector3) -> void:
@@ -211,6 +223,10 @@ func _physics_process(delta: float) -> void:
 					_spot_wait = _rng.randf_range(7.0, 13.0)
 				goal = _spot
 				speed = WALK_SPEED * 0.6
+	if _script_goal != Vector3.INF:
+		use_follow = false
+		goal = _script_goal
+		speed = _script_speed
 	var desired := follow_vel
 	if not use_follow:
 		var d := _flat(goal - global_position)

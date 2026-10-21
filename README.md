@@ -8,6 +8,9 @@
 
 ![P1 전투 · 로그 3단계](captures/p1/p1_04_combat_log3.png)
 
+> **대화 에디터:** Godot 에디터 위쪽 `Dialogue` 탭에서 대사·선택지·조건·퀘스트 액션·컷씬 호출을 노드로 작성하고
+> 미리보기·검증·저장·게임에서 실행까지 할 수 있습니다 → [`notes/DIALOGUE_EDITOR.md`](notes/DIALOGUE_EDITOR.md)
+
 ## P1에서 해 볼 수 있는 것
 
 | 흐름 | 방법 |
@@ -20,6 +23,8 @@
 | 실내 | 문 매트 `E` 밖으로, 오른쪽 아래 선반 `E` **창고**(개별/모두/소지품 전체 옮기기), 간이침대 `E` **수면**(1~12시간, HP 10%) |
 | 고양이 | 실내에 항상 있음: `E` 쓰다듬기, `R` 간식(소지품의 고양이 간식 1개 → 호감도 +10). 창고에 간식 6개가 있음 |
 | 사망/복귀 | 캠핑카 보유(단계 C) → 실내 간이침대 옆에서 기상. 미보유(A/B) → 가장 가까운 안전 체크포인트(캠프 모닥불·갈림길 돌무지·호숫가 쉼터). B에서는 고양이가 곁을 돌다 앉음. 가방의 일부는 고블린이 가져가고 나머지는 쓰러진 자리의 "짐 꾸러미"로 남음 |
+| 퀘스트 (P2-5) | **NPC 의뢰**: 로사에게 `R`로 말을 걸어 대화에서 직접 수락(젤리 5개 → 보고하면 골드·EXP·빵). **게시판**(교역소 가운데) `E`: 반복 의뢰(풀밭 슬라임 3마리), 긴급 의뢰(숲 슬라임 3마리, **24시간 제한** — 실패해도 다시 받기). **현장 사건**: 갈림길 가는 길의 넘어진 짐수레에 다가가면 수락 없이 시작 → 꾸러미 3개를 주워 브론에게 → **해결 2가지**(사례 없이 돌려줌 = 생활 EXP / 사례를 받음 = 골드+일반 EXP). `J` 퀘스트 기록, 오른쪽 위에 진행 목록 |
+| 대화 (P2-5) | 계산대 앞 `R` 대화(로사·브론). 대화창: `E`/`Space`/클릭 다음, `1`~`9` 선택. 대화 중에는 이동·공격 잠금, 카메라 그대로. 대사·분기는 모두 `data/dialogues/*.json` (대화 에디터로 편집) |
 | 상점·NPC (P2-4) | 캠프 서쪽 길가 **교역소**: 로사의 잡화점(08~20시)·브론의 대장간(09~18시). 계산대 앞 `E`로 거래 — 사기·팔기(상인마다 매입가가 다르고, 희귀 재료는 대장간만 삼). 재고는 1일/3일마다 다시 채워짐. 대장간에서 착용 장비 **강화**(100% 성공, 최대 +3). 문 닫는 시각이면 주인이 집으로 걸어 들어가고 거래 불가. 골드는 HUD에 표시(시작 50) |
 | 소모품·퀵슬롯 (P2-3) | `1`~`4` 소모품 퀵슬롯, `5`~`8` 스킬·마법 퀵슬롯. 물약은 0.8초 마시는 동안 천천히 이동, 빵·통조림은 멈춰서 먹음 — 동작이 끝나야 효과, **사용 중 맞으면 중단되고 아이템은 남음**. Tab에서 사용·등록, 보급 상자의 '마법서: 작은 치유'를 읽으면 마법을 배워 5번 칸에 등록(MP 8, 재사용 3초) |
 | 장비 (P2-2) | `Tab`에서 장착/해제: 머리·몸통·장갑·신발·목걸이·반지 2·허리띠·주무기/보조 손. 양손 무기(불꽃 장검)는 보조 손을 비움. 교체는 0.6초 동작 뒤 적용(그동안 공격 불가). 방어구가 받는 피해를 줄이고, 일부 드롭 장비에는 무작위 옵션. 등불은 등불 허리띠가 있어야 켤 수 있음. 시험용 장비: 캠핑카 창고·캠프 보급 상자 |
@@ -66,7 +71,8 @@ git clone -b claude/gallant-edison-84bkyp https://github.com/HomilBBANG/rg_Hilli
 |---|---|
 | `WASD` / 방향키 | 이동 (걷기 SP 0, `Shift` 달리기 SP 8/초) |
 | 마우스 왼쪽 클릭 | 기본 공격 1회 (마우스 방향, 누르고 있어도 반복 안 함, SP 4) |
-| `E` / `R` | 조사·상호작용(시체·상자·짐 꾸러미·문·운전석·창고·침대·고양이·상점 계산대) / 고양이 간식 |
+| `E` / `R` | 조사·상호작용(시체·상자·짐 꾸러미·문·운전석·창고·침대·고양이·상점 계산대·게시판) / 고양이 간식 · NPC 대화 |
+| `J` | 퀘스트 기록 (진행 중·완료·실패) |
 | `Tab` | 소지품 (열어도 게임은 멈추지 않음) |
 | `C` | 능력치 창: 일반 EXP로 레벨업(능력치 포인트 +1)·능력치 투자·기본 스킬 습득 (자동 레벨업 없음) |
 | `G` | 전투 로그 1 → 2 → 3단계 |
@@ -130,7 +136,11 @@ scripts/world/     visual_lab.gd, camper_interior_lab.gd, terrain_field.gd, natu
 scripts/actors/    prototype_player.gd, player_rig.gd, slime_monster.gd(P1 AI), slime_visual.gd, slime_rig.gd,
                    cat_companion.gd, cat_rig.gd (검은 고양이)
 scripts/game/      dice.gd, combat.gd, player_state.gd, inventory.gd, item_db.gd, combat_log.gd (P1 규칙·데이터)
-scripts/ui/        game_hud.gd (HP/SP/MP, 전투 로그, 조사·소지품·창고·수면 패널)
+scripts/ui/        game_hud.gd (HP/SP/MP, 전투 로그, 조사·소지품·창고·수면·상점·게시판·퀘스트 기록), dialogue_box.gd
+scripts/dialogue/  dialogue_data.gd(포맷·검증), dialogue_runner.gd, dialogue_context.gd, game_dialogue_context.gd, cutscene_runner.gd
+scripts/game/      quest_db.gd, quest_manager.gd, narrative_state.gd, shop_db.gd (P2 데이터 시스템)
+addons/dialogue_editor/  대화 에디터 플러그인 (에디터 전용, 게임 빌드에는 불필요)
+data/              dialogues/, quests/, cutscenes/ (JSON), speakers.json — 코드 없이 콘텐츠 추가
 scripts/world/     interact_point.gd, loot_container.gd (상호작용·시체/상자/짐 꾸러미)
 scripts/visuals/   sprite_baker.gd, sprite_sheet.gd, baked_sprite.gd (스프라이트 파이프라인)
 scripts/vehicle/   camper_exterior.gd, camper_vehicle.gd(운전), prototype_camper_lights.gd
@@ -140,9 +150,10 @@ captures/visual_direction/  카메라 A/B/C 비교 (디오라마 방향)
 captures/p0_baseline/       P0 테스트 장면 6종 + 렌더 모드 비교 + 이동 영상
 captures/sprite_pipeline/   구운 스프라이트 시트(sheets/) + 베이크 vs 실시간 3D 비교
 captures/p1/                P1 흐름 검증 캡처 19장 (--tour=p1)
-captures/p2/                P2 캡처: 성장(--tour=p2), 장비(--tour=gear), 소모품(--tour=items), 상점·NPC(--tour=shop)
-notes/             VISUAL_DIRECTION.md, VISUAL_COMPARISON.md, IMPLEMENTATION_ASSUMPTIONS.md
-docs/              GDD.md(v10.2), CAT_COMPANION_HANDOFF.md, GRAPHICS_PROTOTYPE.md, CLAUDE_CODE_HANDOFF.md
+captures/p2/                P2 캡처: 성장(--tour=p2), 장비(--tour=gear), 소모품(--tour=items), 상점·NPC(--tour=shop), 퀘스트·대화(--tour=quest)
+captures/dialogue_editor/   실제 Godot 에디터 안의 대화 에디터 자동 점검 캡처
+notes/             VISUAL_DIRECTION.md, VISUAL_COMPARISON.md, IMPLEMENTATION_ASSUMPTIONS.md, DIALOGUE_EDITOR.md, DRIVING.md
+docs/              GDD.md(v10.2), CAT_COMPANION_HANDOFF.md, DIALOGUE_EDITOR_HANDOFF.md(v10.5), GRAPHICS_PROTOTYPE.md, CLAUDE_CODE_HANDOFF.md
 ```
 
 `GRAPHICS_PROTOTYPE.md` 6장의 `actors/*.tscn`, `props/*.tscn`은 별도 씬 파일로 만들지 않고, 같은 역할을
@@ -159,6 +170,12 @@ Godot.exe --path C:/Game/denial -- --tour=p1 --capture-dir=C:/Game/denial/captur
 Godot.exe --path C:/Game/denial -- --tour=p1input
 :: P2 상점·NPC: 교역소·잡화점·대장간 강화·귀가 (콘솔에 [shop] 결과 출력)
 Godot.exe --path C:/Game/denial -- --tour=shop --capture-dir=C:/Game/denial/captures/p2
+:: P2 퀘스트·대화: 로사 의뢰 수락→보고, 게시판 반복·시간 제한, 현장 사건 결말 분기, 퀘스트 기록, 컷씬 호출, 에디터 '게임에서 실행' 전달
+Godot.exe --path C:/Game/denial -- --tour=quest --capture-dir=C:/Game/denial/captures/p2
+:: 대화 에디터 자동 점검 (실제 에디터 안에서 실행 후 자동 종료, 콘솔에 [editor] PASS/FAIL)
+set DIALOGUE_EDITOR_SELFTEST=C:/Game/denial/captures/dialogue_editor
+Godot.exe --path C:/Game/denial -e
+set DIALOGUE_EDITOR_SELFTEST=
 :: 카메라 A/B/C 비교 8장
 Godot.exe --path C:/Game/denial -- --tour=styles --capture-dir=C:/Game/denial/captures/visual_direction
 :: P0 스크린샷 18장
@@ -171,6 +188,7 @@ Godot.exe --path C:/Game/denial --write-movie C:/Game/walk.avi --fixed-fps 30 --
 
 - **실제 GPU에서 실행하지 않았습니다.** 검증은 클라우드 컨테이너의 소프트웨어 렌더러(Mesa llvmpipe, Vulkan
   Forward+ 및 OpenGL Compatibility)에서 했습니다. FPS 수치(8~30)는 소프트웨어 렌더 기준이라 의미가 없습니다.
+- **대화 에디터**는 실제 Godot 4.7.2 에디터 안에서 자동 점검(14개 항목 통과)했지만, 가상 디스플레이(xvfb)라 **마우스 드래그·연결 조작감은 직접 확인**이 필요합니다. 에디터를 열면 Godot가 `project.godot`를 다시 써서(기본값 줄 정리) diff가 생길 수 있습니다 — 동작에는 영향 없음.
 - 픽셀 외곽선은 Forward+ 전용이며 Compatibility에서는 자동으로 꺼집니다(디오라마 버전은 Compatibility에서 미검증).
 - 이동 중 픽셀 떨림은 녹화 영상의 프레임으로만 확인했습니다. **실시간 체감은 직접 실행해서 판단**해 주세요.
 - Forward+와 Compatibility의 밤 밝기가 다릅니다(Compatibility가 더 밝고 헤드라이트 빔이 더 뚜렷함).

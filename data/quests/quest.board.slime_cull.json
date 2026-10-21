@@ -1,0 +1,16 @@
+{
+  "version": 1,
+  "quest_id": "quest.board.slime_cull",
+  "title": "풀밭 슬라임 솎아내기",
+  "desc": "교역소 게시판의 상시 의뢰. 길가 풀밭의 슬라임 3마리를 처치하고 게시판에 보고한다.",
+  "giver": "board",
+  "source": "board",
+  "accept": "direct",
+  "repeatable": true,
+  "time_limit_hours": 0,
+  "objectives": [
+    {"id": "slimes", "type": "kill", "target": "meadow", "count": 3, "text": "풀밭 슬라임 처치"}
+  ],
+  "consume_items": false,
+  "rewards": {"gen_exp": 15, "life_exp": 0, "gold": 20, "items": {}}
+}

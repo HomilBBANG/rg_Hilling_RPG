@@ -1,0 +1,284 @@
+{
+  "version": 1,
+  "dialogue_id": "dialogue.npc.bron.main",
+  "metadata": {
+    "title": "브론 — 대장간 대화 + 흩어진 짐 결말 분기",
+    "tags": [
+      "npc",
+      "bron",
+      "quest",
+      "event",
+      "trade_post"
+    ],
+    "notes": "임시 대사. '길에 흩어진 짐' 현장 사건의 두 가지 해결(사례 없이 돌려줌=생활 EXP / 사례를 받음=골드+일반 EXP)."
+  },
+  "start_node_id": "start",
+  "nodes": [
+    {
+      "id": "start",
+      "type": "start"
+    },
+    {
+      "id": "cond_parcels",
+      "type": "condition",
+      "check": {
+        "kind": "quest",
+        "quest_id": "quest.event.lost_parcels",
+        "state": "ready"
+      }
+    },
+    {
+      "id": "line_found",
+      "type": "line",
+      "speaker_id": "bron",
+      "text": "이건… 내 광석 수레에 실려 있던 짐이잖나!\n길에서 주워 온 건가?"
+    },
+    {
+      "id": "choice_parcels",
+      "type": "choice",
+      "options": [
+        {
+          "port": "return",
+          "text": "그냥 돌려드릴게요."
+        },
+        {
+          "port": "reward",
+          "text": "사례는 받을게요."
+        }
+      ]
+    },
+    {
+      "id": "act_return",
+      "type": "action",
+      "action": "quest_complete",
+      "args": {
+        "quest_id": "quest.event.lost_parcels",
+        "outcome": "return"
+      }
+    },
+    {
+      "id": "act_trust",
+      "type": "action",
+      "action": "set_flag",
+      "args": {
+        "key": "bron.trust",
+        "value": true
+      }
+    },
+    {
+      "id": "line_return",
+      "type": "line",
+      "speaker_id": "bron",
+      "text": "허, 요즘 보기 드문 사람이군. 고맙네.\n그 마음은 잊지 않지."
+    },
+    {
+      "id": "act_reward",
+      "type": "action",
+      "action": "quest_complete",
+      "args": {
+        "quest_id": "quest.event.lost_parcels",
+        "outcome": "reward"
+      }
+    },
+    {
+      "id": "line_reward",
+      "type": "line",
+      "speaker_id": "bron",
+      "text": "당연하지. 자, 받게. 덕분에 화로를 쉬지 않겠어."
+    },
+    {
+      "id": "cond_active",
+      "type": "condition",
+      "check": {
+        "kind": "quest",
+        "quest_id": "quest.event.lost_parcels",
+        "state": "active"
+      }
+    },
+    {
+      "id": "line_hint",
+      "type": "line",
+      "speaker_id": "bron",
+      "text": "갈림길 쪽에서 내 짐수레가 넘어졌다더군. 꾸러미를 보면 챙겨 주게."
+    },
+    {
+      "id": "cond_trust",
+      "type": "condition",
+      "check": {
+        "kind": "flag",
+        "key": "bron.trust"
+      }
+    },
+    {
+      "id": "line_trust",
+      "type": "line",
+      "speaker_id": "bron",
+      "text": "오, 자네군. 무기 손볼 거면 말만 하게."
+    },
+    {
+      "id": "line_default",
+      "type": "line",
+      "speaker_id": "bron",
+      "text": "뭐 필요한가? 강화라면 장비를 차고 오게. 실패 같은 건 없어."
+    },
+    {
+      "id": "end",
+      "type": "end",
+      "complete_event": ""
+    }
+  ],
+  "connections": [
+    {
+      "from": "start",
+      "port": "next",
+      "to": "cond_parcels"
+    },
+    {
+      "from": "cond_parcels",
+      "port": "true",
+      "to": "line_found"
+    },
+    {
+      "from": "cond_parcels",
+      "port": "false",
+      "to": "cond_active"
+    },
+    {
+      "from": "line_found",
+      "port": "next",
+      "to": "choice_parcels"
+    },
+    {
+      "from": "choice_parcels",
+      "port": "return",
+      "to": "act_return"
+    },
+    {
+      "from": "choice_parcels",
+      "port": "reward",
+      "to": "act_reward"
+    },
+    {
+      "from": "act_return",
+      "port": "next",
+      "to": "act_trust"
+    },
+    {
+      "from": "act_trust",
+      "port": "next",
+      "to": "line_return"
+    },
+    {
+      "from": "line_return",
+      "port": "next",
+      "to": "end"
+    },
+    {
+      "from": "act_reward",
+      "port": "next",
+      "to": "line_reward"
+    },
+    {
+      "from": "line_reward",
+      "port": "next",
+      "to": "end"
+    },
+    {
+      "from": "cond_active",
+      "port": "true",
+      "to": "line_hint"
+    },
+    {
+      "from": "cond_active",
+      "port": "false",
+      "to": "cond_trust"
+    },
+    {
+      "from": "line_hint",
+      "port": "next",
+      "to": "end"
+    },
+    {
+      "from": "cond_trust",
+      "port": "true",
+      "to": "line_trust"
+    },
+    {
+      "from": "cond_trust",
+      "port": "false",
+      "to": "line_default"
+    },
+    {
+      "from": "line_trust",
+      "port": "next",
+      "to": "end"
+    },
+    {
+      "from": "line_default",
+      "port": "next",
+      "to": "end"
+    }
+  ],
+  "editor_positions": {
+    "start": [
+      0,
+      280
+    ],
+    "cond_parcels": [
+      220,
+      280
+    ],
+    "line_found": [
+      520,
+      40
+    ],
+    "choice_parcels": [
+      840,
+      40
+    ],
+    "act_return": [
+      1160,
+      -40
+    ],
+    "act_trust": [
+      1460,
+      -40
+    ],
+    "line_return": [
+      1760,
+      -40
+    ],
+    "act_reward": [
+      1160,
+      140
+    ],
+    "line_reward": [
+      1460,
+      140
+    ],
+    "cond_active": [
+      520,
+      340
+    ],
+    "line_hint": [
+      840,
+      300
+    ],
+    "cond_trust": [
+      840,
+      480
+    ],
+    "line_trust": [
+      1160,
+      440
+    ],
+    "line_default": [
+      1160,
+      580
+    ],
+    "end": [
+      2080,
+      300
+    ]
+  }
+}

@@ -1,0 +1,13 @@
+{
+  "version": 1,
+  "cutscene_id": "cutscene.cat.first_appearance",
+  "title": "(테스트) 고양이 첫 등장",
+  "test_only": true,
+  "_comment": "Test data for the CutsceneCall node. The real trigger for the cat joining is still [미정] in the GDD; this is not wired into the story.",
+  "steps": [
+    {"type": "caption", "text": "…등 뒤에서 작은 발소리가 따라온다.", "seconds": 2.2},
+    {"type": "actor_move", "actor": "cat", "to": "player", "offset": [1.1, 0.9], "speed": 2.2},
+    {"type": "actor_face", "actor": "cat", "target": "player"},
+    {"type": "wait", "seconds": 0.6}
+  ]
+}

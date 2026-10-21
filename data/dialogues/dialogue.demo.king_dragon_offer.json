@@ -1,0 +1,155 @@
+{
+  "version": 1,
+  "dialogue_id": "dialogue.demo.king_dragon_offer",
+  "metadata": {
+    "title": "(테스트) 왕의 의뢰",
+    "tags": [
+      "test",
+      "king",
+      "quest"
+    ],
+    "notes": "핸드오프 샘플 기반 데이터 계약 검증용. 왕 대사·선택지·수락 방식은 GDD 미확정 — 정식 서사 아님. 월드에는 배치하지 않음 (에디터 미리보기 / '게임에서 실행'으로만 확인)."
+  },
+  "start_node_id": "start",
+  "nodes": [
+    {
+      "id": "start",
+      "type": "start"
+    },
+    {
+      "id": "cond_first",
+      "type": "condition",
+      "check": {
+        "kind": "quest",
+        "quest_id": "quest.main.dragon",
+        "state": "none"
+      }
+    },
+    {
+      "id": "line_01",
+      "type": "line",
+      "speaker_id": "king",
+      "text": "여행자여, 부탁할 일이 있다. (테스트 대사)"
+    },
+    {
+      "id": "choice_01",
+      "type": "choice",
+      "options": [
+        {
+          "port": "accept",
+          "text": "의뢰를 수락한다."
+        },
+        {
+          "port": "later",
+          "text": "나중에 듣겠다."
+        }
+      ]
+    },
+    {
+      "id": "accept",
+      "type": "action",
+      "action": "quest_accept",
+      "args": {
+        "quest_id": "quest.main.dragon"
+      }
+    },
+    {
+      "id": "line_02",
+      "type": "line",
+      "speaker_id": "king",
+      "text": "고맙다. 길은 험하니 몸조심하게. (테스트 대사)"
+    },
+    {
+      "id": "line_03",
+      "type": "line",
+      "speaker_id": "king",
+      "text": "그 일은 잘 되어 가는가? (테스트 대사)"
+    },
+    {
+      "id": "end",
+      "type": "end",
+      "complete_event": ""
+    }
+  ],
+  "connections": [
+    {
+      "from": "start",
+      "port": "next",
+      "to": "cond_first"
+    },
+    {
+      "from": "cond_first",
+      "port": "true",
+      "to": "line_01"
+    },
+    {
+      "from": "cond_first",
+      "port": "false",
+      "to": "line_03"
+    },
+    {
+      "from": "line_01",
+      "port": "next",
+      "to": "choice_01"
+    },
+    {
+      "from": "choice_01",
+      "port": "accept",
+      "to": "accept"
+    },
+    {
+      "from": "choice_01",
+      "port": "later",
+      "to": "end"
+    },
+    {
+      "from": "accept",
+      "port": "next",
+      "to": "line_02"
+    },
+    {
+      "from": "line_02",
+      "port": "next",
+      "to": "end"
+    },
+    {
+      "from": "line_03",
+      "port": "next",
+      "to": "end"
+    }
+  ],
+  "editor_positions": {
+    "start": [
+      0,
+      160
+    ],
+    "cond_first": [
+      220,
+      160
+    ],
+    "line_01": [
+      520,
+      40
+    ],
+    "choice_01": [
+      840,
+      40
+    ],
+    "accept": [
+      1160,
+      0
+    ],
+    "line_02": [
+      1460,
+      0
+    ],
+    "line_03": [
+      520,
+      300
+    ],
+    "end": [
+      1780,
+      180
+    ]
+  }
+}

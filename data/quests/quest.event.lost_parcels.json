@@ -1,0 +1,21 @@
+{
+  "version": 1,
+  "quest_id": "quest.event.lost_parcels",
+  "title": "길에 흩어진 짐",
+  "desc": "갈림길 가는 길에 짐수레가 넘어져 있다. 꾸러미마다 대장간 표식이 찍혀 있다 — 세 꾸러미를 모아 브론에게 가져가자.",
+  "giver": "bron",
+  "source": "event",
+  "accept": "auto",
+  "repeatable": false,
+  "time_limit_hours": 0,
+  "trigger": {"type": "reach", "pos": [40.3, -5.4], "radius": 6.5},
+  "objectives": [
+    {"id": "parcels", "type": "collect", "item": "lost_parcel", "count": 3, "text": "흩어진 짐 꾸러미"}
+  ],
+  "consume_items": true,
+  "rewards": {"gen_exp": 8, "life_exp": 0, "gold": 25, "items": {}},
+  "outcomes": {
+    "return": {"label": "사례 없이 돌려줌", "rewards": {"gen_exp": 0, "life_exp": 12, "gold": 0, "items": {}}},
+    "reward": {"label": "사례를 받음", "rewards": {"gen_exp": 8, "life_exp": 0, "gold": 25, "items": {}}}
+  }
+}

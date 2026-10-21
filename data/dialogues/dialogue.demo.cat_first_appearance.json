@@ -1,0 +1,129 @@
+{
+  "version": 1,
+  "dialogue_id": "dialogue.demo.cat_first_appearance",
+  "metadata": {
+    "title": "(테스트) 고양이 첫 등장 컷씬 호출",
+    "tags": [
+      "test",
+      "cat",
+      "cutscene"
+    ],
+    "notes": "CutsceneCall 노드 검증용. 고양이가 정식 동행이 되는 계기는 GDD [미정]이라 실제 스토리에 연결하지 않음."
+  },
+  "start_node_id": "start",
+  "nodes": [
+    {
+      "id": "start",
+      "type": "start"
+    },
+    {
+      "id": "line_01",
+      "type": "line",
+      "speaker_id": "narrator",
+      "text": "(테스트) 용 토벌을 위해 길을 나선 참이었다."
+    },
+    {
+      "id": "cut_01",
+      "type": "cutscene",
+      "cutscene_id": "cutscene.cat.first_appearance"
+    },
+    {
+      "id": "line_02",
+      "type": "line",
+      "speaker_id": "cat",
+      "text": "야옹."
+    },
+    {
+      "id": "choice_01",
+      "type": "choice",
+      "options": [
+        {
+          "port": "look",
+          "text": "돌아본다."
+        },
+        {
+          "port": "walk",
+          "text": "그냥 걷는다."
+        }
+      ]
+    },
+    {
+      "id": "line_03",
+      "type": "line",
+      "speaker_id": "player",
+      "text": "…따라오는 거야?"
+    },
+    {
+      "id": "end",
+      "type": "end",
+      "complete_event": "demo.cat_first_appearance"
+    }
+  ],
+  "connections": [
+    {
+      "from": "start",
+      "port": "next",
+      "to": "line_01"
+    },
+    {
+      "from": "line_01",
+      "port": "next",
+      "to": "cut_01"
+    },
+    {
+      "from": "cut_01",
+      "port": "next",
+      "to": "line_02"
+    },
+    {
+      "from": "line_02",
+      "port": "next",
+      "to": "choice_01"
+    },
+    {
+      "from": "choice_01",
+      "port": "look",
+      "to": "line_03"
+    },
+    {
+      "from": "choice_01",
+      "port": "walk",
+      "to": "end"
+    },
+    {
+      "from": "line_03",
+      "port": "next",
+      "to": "end"
+    }
+  ],
+  "editor_positions": {
+    "start": [
+      0,
+      120
+    ],
+    "line_01": [
+      220,
+      100
+    ],
+    "cut_01": [
+      540,
+      100
+    ],
+    "line_02": [
+      840,
+      100
+    ],
+    "choice_01": [
+      1140,
+      100
+    ],
+    "line_03": [
+      1460,
+      40
+    ],
+    "end": [
+      1780,
+      140
+    ]
+  }
+}

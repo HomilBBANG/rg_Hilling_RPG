@@ -1,0 +1,280 @@
+{
+  "version": 1,
+  "dialogue_id": "dialogue.npc.rosa.main",
+  "metadata": {
+    "title": "로사 — 잡화점 대화 + 젤리 잼 의뢰",
+    "tags": [
+      "npc",
+      "rosa",
+      "quest",
+      "trade_post"
+    ],
+    "notes": "임시 대사 (정식 서사 아님). 로사에게 R로 말을 걸면 열린다 (data/speakers.json의 talk)."
+  },
+  "start_node_id": "start",
+  "nodes": [
+    {
+      "id": "start",
+      "type": "start"
+    },
+    {
+      "id": "cond_none",
+      "type": "condition",
+      "check": {
+        "kind": "quest",
+        "quest_id": "quest.rosa.jelly",
+        "state": "none"
+      }
+    },
+    {
+      "id": "line_offer",
+      "type": "line",
+      "speaker_id": "rosa",
+      "text": "어서 와요! 마침 잘 왔어요.\n잼을 만들고 싶은데 슬라임 젤리가 모자라요. 다섯 개만 구해 줄 수 있어요?"
+    },
+    {
+      "id": "choice_offer",
+      "type": "choice",
+      "options": [
+        {
+          "port": "accept",
+          "text": "좋아요, 구해 올게요."
+        },
+        {
+          "port": "later",
+          "text": "지금은 좀 바빠요."
+        }
+      ]
+    },
+    {
+      "id": "act_accept",
+      "type": "action",
+      "action": "quest_accept",
+      "args": {
+        "quest_id": "quest.rosa.jelly"
+      }
+    },
+    {
+      "id": "line_thanks",
+      "type": "line",
+      "speaker_id": "rosa",
+      "text": "고마워요! 길 동쪽 풀밭 슬라임이 말랑한 젤리를 떨어뜨려요."
+    },
+    {
+      "id": "line_later",
+      "type": "line",
+      "speaker_id": "rosa",
+      "text": "괜찮아요. 마음이 바뀌면 언제든 말 걸어 줘요."
+    },
+    {
+      "id": "cond_ready",
+      "type": "condition",
+      "check": {
+        "kind": "quest",
+        "quest_id": "quest.rosa.jelly",
+        "state": "ready"
+      }
+    },
+    {
+      "id": "line_ready",
+      "type": "line",
+      "speaker_id": "rosa",
+      "text": "어머, 젤리 다섯 개! 정말 구해 왔네요."
+    },
+    {
+      "id": "act_complete",
+      "type": "action",
+      "action": "quest_complete",
+      "args": {
+        "quest_id": "quest.rosa.jelly",
+        "outcome": ""
+      }
+    },
+    {
+      "id": "line_reward",
+      "type": "line",
+      "speaker_id": "rosa",
+      "text": "잼이 되면 꼭 맛보여 줄게요. 이건 약속한 사례예요."
+    },
+    {
+      "id": "cond_active",
+      "type": "condition",
+      "check": {
+        "kind": "quest",
+        "quest_id": "quest.rosa.jelly",
+        "state": "active"
+      }
+    },
+    {
+      "id": "line_wait",
+      "type": "line",
+      "speaker_id": "rosa",
+      "text": "젤리는 천천히 모아 와도 돼요. 풀밭 쪽 슬라임이에요."
+    },
+    {
+      "id": "line_small",
+      "type": "line",
+      "speaker_id": "rosa",
+      "text": "오늘도 좋은 날이에요. 물약이나 빵이 필요하면 말해요."
+    },
+    {
+      "id": "end",
+      "type": "end",
+      "complete_event": ""
+    }
+  ],
+  "connections": [
+    {
+      "from": "start",
+      "port": "next",
+      "to": "cond_none"
+    },
+    {
+      "from": "cond_none",
+      "port": "true",
+      "to": "line_offer"
+    },
+    {
+      "from": "cond_none",
+      "port": "false",
+      "to": "cond_ready"
+    },
+    {
+      "from": "line_offer",
+      "port": "next",
+      "to": "choice_offer"
+    },
+    {
+      "from": "choice_offer",
+      "port": "accept",
+      "to": "act_accept"
+    },
+    {
+      "from": "choice_offer",
+      "port": "later",
+      "to": "line_later"
+    },
+    {
+      "from": "act_accept",
+      "port": "next",
+      "to": "line_thanks"
+    },
+    {
+      "from": "line_thanks",
+      "port": "next",
+      "to": "end"
+    },
+    {
+      "from": "line_later",
+      "port": "next",
+      "to": "end"
+    },
+    {
+      "from": "cond_ready",
+      "port": "true",
+      "to": "line_ready"
+    },
+    {
+      "from": "cond_ready",
+      "port": "false",
+      "to": "cond_active"
+    },
+    {
+      "from": "line_ready",
+      "port": "next",
+      "to": "act_complete"
+    },
+    {
+      "from": "act_complete",
+      "port": "next",
+      "to": "line_reward"
+    },
+    {
+      "from": "line_reward",
+      "port": "next",
+      "to": "end"
+    },
+    {
+      "from": "cond_active",
+      "port": "true",
+      "to": "line_wait"
+    },
+    {
+      "from": "cond_active",
+      "port": "false",
+      "to": "line_small"
+    },
+    {
+      "from": "line_wait",
+      "port": "next",
+      "to": "end"
+    },
+    {
+      "from": "line_small",
+      "port": "next",
+      "to": "end"
+    }
+  ],
+  "editor_positions": {
+    "start": [
+      0,
+      300
+    ],
+    "cond_none": [
+      220,
+      300
+    ],
+    "line_offer": [
+      520,
+      40
+    ],
+    "choice_offer": [
+      840,
+      40
+    ],
+    "act_accept": [
+      1160,
+      0
+    ],
+    "line_thanks": [
+      1460,
+      0
+    ],
+    "line_later": [
+      1160,
+      160
+    ],
+    "cond_ready": [
+      520,
+      340
+    ],
+    "line_ready": [
+      840,
+      300
+    ],
+    "act_complete": [
+      1160,
+      300
+    ],
+    "line_reward": [
+      1460,
+      300
+    ],
+    "cond_active": [
+      840,
+      480
+    ],
+    "line_wait": [
+      1160,
+      460
+    ],
+    "line_small": [
+      1160,
+      600
+    ],
+    "end": [
+      1800,
+      320
+    ]
+  }
+}

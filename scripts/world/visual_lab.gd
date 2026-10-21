@@ -37,6 +37,12 @@ const TRADE_STALLS := [
 	[Vector3(-25.6, 0.0, 4.2), "bron", Vector3(-26.4, 0.0, -1.2)],
 ]
 const CAT_ENCOUNTER_POS := Vector3(7.5, 0.0, 3.0)
+## P2-5: trade post notice board, and the overturned cart of the "lost parcels" field event
+## (its trigger area lives in data/quests/quest.event.lost_parcels.json).
+const BOARD_POS := Vector3(-22.9, 0.0, 3.3)
+const CART_POS := Vector3(40.8, 0.0, -6.4)
+const PARCELS := [["parcel_1", Vector3(38.7, 0.0, -4.2)], ["parcel_2", Vector3(42.1, 0.0, -3.9)], ["parcel_3", Vector3(39.3, 0.0, -7.6)]]
+const PARCEL_QUEST := "quest.event.lost_parcels"
 const CRATE_POS := Vector3(-4.6, 0.0, 2.9)  # inside the camper's turning circle: clear of its way out
 
 var terrain := TerrainField.new()
@@ -232,6 +238,7 @@ func _build_landmarks() -> void:
 	_register_occluder(shed, 2.6, 3.4)
 	_block(-19, 13, 3.0)
 	_build_trade_post()
+	_build_quest_props()
 	for cp: Dictionary in CHECKPOINTS:
 		var cpos: Vector3 = cp["pos"]
 		if cp["marker"]:
@@ -544,7 +551,11 @@ func nearest_checkpoint(pos: Vector3) -> Dictionary:
 func drop_death_loot(pos: Vector3) -> Dictionary:
 	var inv := Game.player_state.inventory
 	var units: Array[String] = []
+	var kept := {}  # quest items stay in the bag (assumption: losing them could block a quest)
 	for e in inv.items:
+		if ItemDB.category(e["id"]) == "quest":
+			kept[e["id"]] = e["count"]
+			continue
 		for i in e["count"]:
 			units.append(e["id"])
 	if units.is_empty():
@@ -558,6 +569,8 @@ func drop_death_loot(pos: Vector3) -> Dictionary:
 	for i in range(take_n, units.size()):
 		bag.add(units[i], 1)
 	inv.clear()
+	for id: String in kept:
+		inv.add(id, kept[id])
 	if not bag.is_empty():
 		var d := {"id": "bag_%d" % int(Game.total_minutes()), "kind": "bag", "title": "쓰러진 자리의 짐 꾸러미",
 			"pos": Vector3(pos.x, ground_height(pos.x, pos.z), pos.z), "inv": bag, "expires": -1.0}
@@ -605,10 +618,15 @@ func _build_trade_post() -> void:
 		_block(h.x, h.z, 3.0)
 		# the counter interaction for the customer side (south, toward the path)
 		var ip := InteractPoint.make(self, Vector3(p.x, 0.0, p.z + 0.9), "", Callable(), 1.4)
+		ip.alt_prompt = "R 대화"
+		ip.alt_action = func(_pl: Node) -> void:
+			var n := _npc_for(shop_id)
+			if n and n.is_working():
+				Game.hud.start_dialogue(DialogueData.talk_dialogue(n.look))
 		ip.prompt_func = func() -> String:
 			var n := _npc_for(shop_id)
 			if n and n.is_working():
-				return "E 거래하기 — %s" % ShopDB.info(shop_id)["name"]
+				return "E 거래하기 · R 대화 — %s" % ShopDB.info(shop_id)["name"]
 			return "%s — 영업 종료 (%s)" % [ShopDB.info(shop_id)["name"], ShopDB.hours_text(shop_id)]
 		ip.action = func(_pl: Node) -> void:
 			var n := _npc_for(shop_id)
@@ -617,6 +635,61 @@ func _build_trade_post() -> void:
 			else:
 				Game.boot.hud.toast("%s은(는) 지금 문을 닫았다 — 영업시간 %s" % [ShopDB.info(shop_id)["name"], ShopDB.hours_text(shop_id)])
 	_on_ground(NatureProps.signpost(), -22.8, 6.8)
+
+
+func _build_quest_props() -> void:
+	var wood := ProtoMesh.mat(Color(0.56, 0.4, 0.25))
+	var dark := ProtoMesh.mat(Color(0.36, 0.25, 0.16))
+	var paper := ProtoMesh.mat(Color(0.95, 0.92, 0.82))
+	# notice board between the two stalls
+	var board := _on_ground(Node3D.new(), BOARD_POS.x, BOARD_POS.z)
+	for x in [-0.7, 0.7]:
+		ProtoMesh.box(board, Vector3(0.1, 1.9, 0.1), Vector3(x, 0.95, 0), dark)
+	ProtoMesh.box(board, Vector3(1.7, 1.0, 0.08), Vector3(0, 1.35, 0.02), wood)
+	ProtoMesh.box(board, Vector3(1.9, 0.08, 0.3), Vector3(0, 1.92, 0), dark)
+	for spec in [[-0.45, 1.5, 0.4], [0.1, 1.42, 0.5], [0.5, 1.2, 0.35], [-0.3, 1.12, 0.3]]:
+		ProtoMesh.box(board, Vector3(spec[2], spec[2] * 0.75, 0.02), Vector3(spec[0], spec[1], 0.08), paper)
+	ProtoMesh.static_box_collider(self, Vector3(1.8, 2.0, 0.3), Vector3(BOARD_POS.x, 1.0, BOARD_POS.z))
+	_block(BOARD_POS.x, BOARD_POS.z, 1.2)
+	var bip := InteractPoint.make(self, BOARD_POS + Vector3(0, 0, 0.8), "E 게시판 보기 — 의뢰 수락·보고", Callable(), 1.4)
+	bip.action = func(_pl: Node) -> void: Game.hud.open_board(bip)
+	# overturned cart + scattered parcels (field event: starts by walking close, no acceptance)
+	var cart := _on_ground(Node3D.new(), CART_POS.x, CART_POS.z)
+	cart.rotation_degrees.y = 28.0
+	var bed := ProtoMesh.box(cart, Vector3(1.8, 0.12, 1.1), Vector3(0, 0.45, 0), wood, Vector3(0, 0, 24))
+	bed.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON
+	ProtoMesh.box(cart, Vector3(1.8, 0.4, 0.06), Vector3(0, 0.62, 0.55), dark, Vector3(0, 0, 24))
+	ProtoMesh.box(cart, Vector3(1.8, 0.4, 0.06), Vector3(0, 0.62, -0.55), dark, Vector3(0, 0, 24))
+	ProtoMesh.cylinder(cart, 0.42, 0.1, Vector3(-0.2, 0.42, 0.68), dark, Vector3(90, 0, 0), 12)
+	ProtoMesh.cylinder(cart, 0.42, 0.1, Vector3(0.9, 0.08, -0.2), dark, Vector3(0, 0, 0), 12)
+	ProtoMesh.box(cart, Vector3(1.4, 0.06, 0.06), Vector3(-1.5, 0.05, 0.1), dark, Vector3(0, 15, 0))
+	ProtoMesh.static_box_collider(self, Vector3(1.9, 1.0, 1.4), Vector3(CART_POS.x, 0.5, CART_POS.z))
+	_block(CART_POS.x, CART_POS.z, 2.0)
+	var taken: Dictionary = Game.field.get("parcels", {})
+	for spec: Array in PARCELS:
+		var pid: String = spec[0]
+		var pp: Vector3 = spec[1]
+		_block(pp.x, pp.z, 0.8)
+		if taken.has(pid):
+			continue
+		var pr := _on_ground(Node3D.new(), pp.x, pp.z)
+		pr.rotation_degrees.y = float(pid.hash() % 60)
+		ProtoMesh.box(pr, Vector3(0.5, 0.36, 0.42), Vector3(0, 0.18, 0), ProtoMesh.mat(Color(0.7, 0.55, 0.36)))
+		ProtoMesh.box(pr, Vector3(0.52, 0.05, 0.1), Vector3(0, 0.37, 0), ProtoMesh.mat(Color(0.5, 0.2, 0.16)))
+		var ip := InteractPoint.make(self, pp, "E 흩어진 짐 꾸러미 줍기 (대장간 표식)", Callable(), 1.3)
+		ip.enabled_func = func() -> bool: return Game.quests.is_open(PARCEL_QUEST)
+		ip.action = func(_pl: Node) -> void:
+			if not Game.player_state.can_carry(ItemDB.weight("lost_parcel")):
+				Game.boot.hud.toast("너무 무겁다 — 짐을 줄이고 다시 줍자")
+				return
+			Game.player_state.inventory.add("lost_parcel", 1)
+			Game.player_state.changed.emit()
+			var t: Dictionary = Game.field.get("parcels", {})
+			t[pid] = true
+			Game.field["parcels"] = t
+			Game.boot.hud.toast("흩어진 짐 꾸러미를 주웠다 (%d/3)" % Game.player_state.inventory.count("lost_parcel"))
+			pr.queue_free()
+			ip.queue_free()
 
 
 func _spawn_npcs() -> void:
@@ -772,6 +845,8 @@ func _process(delta: float) -> void:
 	if player == null:
 		return
 	_update_occluder_fade(delta)
+	if player.visible:
+		Game.quests.check_triggers(player.global_position)
 	_respawn_timer -= delta
 	if _respawn_timer <= 0.0:
 		_respawn_timer = 1.0

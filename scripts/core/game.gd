@@ -54,6 +54,9 @@ const SNACK_AFFECTION := 10
 var field := {"dead": {}, "loot": [], "camper": {}}
 ## Shop stock / restock times by shop id (ShopDB), kept across scene reloads.
 var shops := {}
+## Story flags / completed events set by dialogues (P2-5) and quest progress.
+var narrative := NarrativeState.new()
+var quests := QuestManager.new()
 ## One-shot spawn instruction for the next world load (death wake-up, vehicle exit, ...).
 var spawn_override := {}
 ## Set when actors appear after a world load (respawn, cat joins): bootstrap re-applies sprites.
@@ -107,6 +110,7 @@ const ACTIONS := {
 	"debug_status": [KEY_F10],
 	"debug_heal": [KEY_F8],
 	"debug_stage": [KEY_F9],
+	"journal": [KEY_J],
 }
 
 
@@ -146,6 +150,7 @@ func _process(delta: float) -> void:
 	if clock_running:
 		advance_minutes(delta * GAME_MINUTES_PER_SECOND)
 	player_state.tick(delta)
+	quests.update()
 
 
 func advance_minutes(m: float) -> void:

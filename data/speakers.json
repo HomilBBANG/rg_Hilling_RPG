@@ -1,0 +1,12 @@
+{
+  "version": 1,
+  "_comment": "speaker_id -> display name. 'talk' = dialogue opened when the player talks to this NPC (R). Change it here, not in code.",
+  "speakers": {
+    "narrator": {"name": ""},
+    "player": {"name": "주인공"},
+    "rosa": {"name": "로사", "talk": "dialogue.npc.rosa.main"},
+    "bron": {"name": "브론", "talk": "dialogue.npc.bron.main"},
+    "king": {"name": "왕"},
+    "cat": {"name": "검은 고양이"}
+  }
+}

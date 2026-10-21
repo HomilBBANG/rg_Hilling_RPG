@@ -1,3 +1,4 @@
+@tool  # read by the dialogue editor (item ids / names in conditions)
 class_name ItemDB
 extends RefCounted
 ## Prototype item table. Names/weights/numbers are development placeholders, not final data.
@@ -16,6 +17,8 @@ const ITEMS := {
 	"cat_snack": {"name": "고양이 간식", "value": 4, "weight": 0.1, "desc": "검은 고양이가 좋아하는 간식."},
 	"firewood": {"name": "장작", "value": 3, "weight": 2.0, "desc": "잘 마른 장작."},
 	"iron_ore": {"name": "철광석", "value": 12, "weight": 4.0, "desc": "무거운 광석 덩어리."},
+	# quest items: no merchant buys them, goblins don't take them
+	"lost_parcel": {"name": "흩어진 짐 꾸러미", "cat": "quest", "value": 0, "weight": 1.5, "desc": "대장간 표식이 찍힌 꾸러미."},
 	# --- consumables (GDD 6.4): effect applies when the use motion ends; a hit cancels it
 	"canned_food": {"name": "통조림", "value": 8, "weight": 0.5, "kind": "consumable", "use": "eat", "effect": {"hp": 15},
 		"desc": "현실에서 가져온 통조림. HP +15."},

@@ -282,6 +282,17 @@ func _on_died() -> void:
 		Game.boot.on_player_died(global_position)
 
 
+## Dialogue / cutscene lock: no movement, attacks or interaction until it ends. The camera is
+## untouched. On release a short block stops the key that closed the dialogue from re-opening it.
+func set_talking(on: bool) -> void:
+	controls_enabled = not on
+	scripted_move = Vector2.ZERO
+	_interact_block = 0.3
+	if on:
+		cancel_use("대화")
+		focus = null
+
+
 ## Hide/show while sitting in the camper's driver seat.
 func set_driving(on: bool) -> void:
 	_use = {}

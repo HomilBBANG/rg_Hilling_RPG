@@ -6,7 +6,7 @@ config_version=5
 [application]
 
 config/name="Denial"
-config/description="P1 코어 플레이 프로토타입: 고정 탑다운 3D + 픽셀화 렌더, 전투·시체·중량·캠핑카·고양이"
+config/description="P1 코어 + P2 시스템 프로토타입: 고정 탑다운 3D 픽셀 렌더, 전투·캠핑카·고양이·성장·장비·상점·퀘스트·대화 에디터"
 run/main_scene="res://scenes/bootstrap.tscn"
 config/features=PackedStringArray("4.7", "Forward Plus")
 
@@ -28,3 +28,7 @@ lights_and_shadows/directional_shadow/size=4096
 lights_and_shadows/directional_shadow/soft_shadow_filter_quality=0
 lights_and_shadows/positional_shadow/soft_shadow_filter_quality=0
 anti_aliasing/quality/msaa_3d=0
+
+[editor_plugins]
+
+enabled=PackedStringArray("res://addons/dialogue_editor/plugin.cfg")

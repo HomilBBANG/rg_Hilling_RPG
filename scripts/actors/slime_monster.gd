@@ -276,6 +276,7 @@ func _die() -> void:
 		display_name, exp_reward, Game.player_state.gen_exp, Game.player_state.exp_to_next()], "death")
 	if Game.hud:
 		Game.hud.float_text(global_position + Vector3(0, 1.4, 0), "EXP +%d" % exp_reward, Color(0.6, 0.85, 1.0))
+	Game.quests.on_kill(monster_id)
 	if world and world.has_method("on_monster_killed"):
 		world.on_monster_killed(self)
 	queue_free()

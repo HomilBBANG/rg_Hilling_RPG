@@ -1,0 +1,16 @@
+{
+  "version": 1,
+  "quest_id": "quest.board.urgent_forest",
+  "title": "긴급: 숲 슬라임 떼",
+  "desc": "숲 슬라임이 길까지 내려온다. 하루(게임 시간 24시간) 안에 숲 슬라임 3마리를 처치하고 게시판에 보고. 실패해도 다시 받을 수 있다.",
+  "giver": "board",
+  "source": "board",
+  "accept": "direct",
+  "repeatable": true,
+  "time_limit_hours": 24,
+  "objectives": [
+    {"id": "slimes", "type": "kill", "target": "forest", "count": 3, "text": "숲 슬라임 처치"}
+  ],
+  "consume_items": false,
+  "rewards": {"gen_exp": 25, "life_exp": 0, "gold": 40, "items": {"heal_potion": 1}}
+}

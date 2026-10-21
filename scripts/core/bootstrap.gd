@@ -59,6 +59,27 @@ func _ready() -> void:
 	render.settings_changed.connect(_on_render_settings_changed)
 	_load_world(Game.start_world)
 	_parse_args()
+	_check_dialogue_playtest()
+
+
+## The dialogue editor's "게임에서 실행" writes this file and starts the game: play that dialogue
+## in the real dialogue box with the live game state (the editor never edits saves).
+const PLAYTEST_PATH := "user://dialogue_playtest.json"
+
+
+func _check_dialogue_playtest() -> void:
+	if not FileAccess.file_exists(PLAYTEST_PATH):
+		return
+	var d: Variant = DialogueData.read_json(PLAYTEST_PATH)
+	DirAccess.remove_absolute(ProjectSettings.globalize_path(PLAYTEST_PATH))
+	if not d is Dictionary:
+		return
+	await wait_for_sprites()
+	await _frames(10)
+	var id := str(d.get("dialogue_id", ""))
+	hud.toast("대화 에디터에서 실행: " + id)
+	if not game_hud.start_dialogue(id):
+		hud.toast("대화 파일을 찾을 수 없다: " + id)
 
 
 func _load_world(world_id: StringName) -> void:
@@ -130,12 +151,19 @@ func _unhandled_input(event: InputEvent) -> void:
 		return
 	if _busy and not event.is_action("pause"):
 		return
+	# Dialogue / cutscene own the keys while open (ESC still pauses).
+	if not event.is_action("pause") and (game_hud.dialogue_active() or game_hud.cutscene.playing):
+		if game_hud.dialogue_active():
+			game_hud.dialogue.handle_key(event)
+		return
 	if event.is_action("pause"):
 		get_tree().paused = not get_tree().paused
 	elif event.is_action("inventory"):
 		game_hud.toggle_inventory()
 	elif event.is_action("character"):
 		game_hud.toggle_character()
+	elif event.is_action("journal"):
+		game_hud.toggle_journal()
 	elif event.is_action("combat_log"):
 		game_hud.cycle_log_level()
 	elif event.is_action("debug_status"):
@@ -261,6 +289,8 @@ func _parse_args() -> void:
 		_run_items_tour()
 	elif tour == "shop":
 		_run_shop_tour()
+	elif tour == "quest":
+		_run_quest_tour()
 	elif tour == "drive":
 		_run_drive_compare()
 	elif tour == "wind":
@@ -1602,4 +1632,160 @@ func _run_shop_tour() -> void:
 	Game.minute_of_day = 8.0 * 60.0 + 1.0
 	await _seconds(4.0)
 	print("[shop] 08:00 -> rosa %s, visible %s" % [Npc.Where.keys()[rosa.where], rosa.visible])
+	get_tree().quit()
+
+
+# ---------------------------------------------------------------- P2-5 quests / dialogue
+
+## Presses keys through an open dialogue: E for lines, the number key for choices (by port).
+func _talk_through(picks: Array, log_prefix := "[quest]") -> PackedStringArray:
+	var said := PackedStringArray()
+	var pi := 0
+	for i in 40:
+		if not game_hud.dialogue_active():
+			break
+		var ev: Dictionary = game_hud.dialogue.event
+		match ev.get("type", ""):
+			"line":
+				said.append("%s: %s" % [ev["name"], str(ev["text"]).split("\n")[0]])
+				await _key(KEY_E)
+			"choice":
+				var want: String = picks[pi] if pi < picks.size() else ev["options"][0]["port"]
+				pi += 1
+				var idx := 0
+				for j in ev["options"].size():
+					if ev["options"][j]["port"] == want:
+						idx = j
+				said.append("[선택 %d. %s]" % [idx + 1, ev["options"][idx]["text"]])
+				await _key(KEY_1 + idx)
+			_:
+				await _frames(5)  # cutscene playing
+	print("%s   %s" % [log_prefix, " | ".join(said)])
+	return said
+
+
+func _run_quest_tour() -> void:
+	Dice.rng.seed = 11
+	Game.clock_running = false
+	Game.minute_of_day = 10.5 * 60.0
+	await wait_for_sprites()
+	var st := Game.player_state
+	var p: PrototypePlayer = world.player
+	var rosa_stall: Vector3 = VisualLab.TRADE_STALLS[0][0]
+	var bron_stall: Vector3 = VisualLab.TRADE_STALLS[1][0]
+	# --- NPC request through a dialogue (13.1: accepted directly)
+	_place_player(rosa_stall + Vector3(0, 0, 1.5), 0.0)
+	await _frames(5)
+	var cam_before: Transform3D = world.camera.global_transform
+	print("[quest] prompt at rosa: '%s'" % p.focus.prompt_text())
+	await _key(KEY_R)
+	print("[quest] R at rosa -> dialogue %s '%s', controls %s" % [game_hud.dialogue_active(), game_hud.dialogue.dialogue_id, p.controls_enabled])
+	await _frames(3)
+	await _p1_shot("quest_01_rosa_dialogue", "rosa offers a request in the dialogue box", true)
+	await _key(KEY_E)
+	await _frames(3)
+	await _p1_shot("quest_02_choice", "choice", true)
+	await _talk_through(["accept"])
+	await _frames(20)
+	print("[quest] after dialogue: state %s, controls %s, camera unchanged %s" % [Game.quests.state("quest.rosa.jelly"), p.controls_enabled,
+		world.camera.global_transform.is_equal_approx(cam_before)])
+	await _key(KEY_R)
+	await _talk_through([])
+	print("[quest] talk again while active -> state %s (no duplicate accept)" % Game.quests.state("quest.rosa.jelly"))
+	st.inventory.add("slime_jelly", 5)
+	await _frames(10)
+	print("[quest] +5 jelly -> state %s" % Game.quests.state("quest.rosa.jelly"))
+	var g0 := st.gold
+	var e0 := st.gen_exp
+	await _key(KEY_R)
+	await _talk_through([])
+	print("[quest] turn-in -> %s, gold %d -> %d, EXP %d -> %d, bread %d, jelly %d" % [Game.quests.state("quest.rosa.jelly"), g0, st.gold, e0, st.gen_exp,
+		st.inventory.count("bread"), st.inventory.count("slime_jelly")])
+	g0 = st.gold
+	await _key(KEY_R)
+	await _talk_through([])
+	print("[quest] replay after completion -> gold %d (unchanged: %s)" % [st.gold, st.gold == g0])
+	# --- notice board (repeatable, timed)
+	_place_player(VisualLab.BOARD_POS + Vector3(0, 0, 1.3), 0.0)
+	await _frames(5)
+	await _key(KEY_E)
+	print("[quest] E at board -> panel %s" % game_hud._panel_kind)
+	Game.quests.accept("quest.board.slime_cull")
+	Game.quests.accept("quest.board.urgent_forest")
+	await _frames(5)
+	await _p1_shot("quest_03_board", "notice board with two accepted requests", true)
+	game_hud.close_panel()
+	var killed := 0
+	for m: SlimeMonster in world.monsters.duplicate():
+		if m.monster_id.begins_with("meadow"):
+			m._die()
+			killed += 1
+	await _frames(5)
+	print("[quest] killed %d meadow slimes -> slime_cull %s (%s)" % [killed, Game.quests.state("quest.board.slime_cull"), ", ".join(Game.quests.objectives_text("quest.board.slime_cull"))])
+	g0 = st.gold
+	print("[quest] report at board: %s" % Game.quests.complete("quest.board.slime_cull"))
+	print("[quest]   gold %d -> %d; repeatable can re-accept: %s -> accept '%s' state %s" % [g0, st.gold, Game.quests.can_accept("quest.board.slime_cull"),
+		Game.quests.accept("quest.board.slime_cull"), Game.quests.state("quest.board.slime_cull")])
+	print("[quest] urgent time left %.0f min" % Game.quests.time_left("quest.board.urgent_forest"))
+	Game.advance_minutes(24.0 * 60.0 + 5.0)
+	await _frames(3)
+	print("[quest] +24h -> urgent %s, can re-accept %s" % [Game.quests.state("quest.board.urgent_forest"), Game.quests.can_accept("quest.board.urgent_forest")])
+	Game.quests.accept("quest.board.urgent_forest")
+	print("[quest] re-accepted urgent -> %s, %.0f min left" % [Game.quests.state("quest.board.urgent_forest"), Game.quests.time_left("quest.board.urgent_forest")])
+	Game.minute_of_day = 10.5 * 60.0
+	# --- field event: no acceptance, starts on arrival
+	print("[quest] lost_parcels before arriving: %s" % Game.quests.state(VisualLab.PARCEL_QUEST))
+	_place_player(VisualLab.CART_POS + Vector3(-1.0, 0, 2.6), 0.0)
+	await _frames(10)
+	print("[quest] arrived at the cart -> %s (auto, no acceptance)" % Game.quests.state(VisualLab.PARCEL_QUEST))
+	await _p1_shot("quest_04_event_cart", "overturned cart field event", true)
+	for spec: Array in VisualLab.PARCELS:
+		_place_player(spec[1] + Vector3(0, 0, 0.9), 0.0)
+		await _frames(5)
+		await _key(KEY_E)
+	await _frames(10)
+	print("[quest] parcels %d -> %s" % [st.inventory.count("lost_parcel"), Game.quests.state(VisualLab.PARCEL_QUEST)])
+	# --- two resolutions at the blacksmith (13.2): return for free -> life EXP only
+	_place_player(bron_stall + Vector3(0, 0, 1.5), 0.0)
+	await _frames(5)
+	var life0 := st.life_exp
+	g0 = st.gold
+	await _key(KEY_R)
+	await _talk_through(["return"])
+	print("[quest] bron, returned for free -> %s, life EXP %d -> %d, gold %d -> %d, parcels %d, flag bron.trust %s" % [
+		Game.quests.state(VisualLab.PARCEL_QUEST), life0, st.life_exp, g0, st.gold, st.inventory.count("lost_parcel"), Game.narrative.get_flag("bron.trust")])
+	await _key(KEY_R)
+	await _talk_through([])
+	# --- journal + tracker
+	await _seconds(2.8)  # let the toasts fade
+	await _key(KEY_J)
+	print("[quest] J -> panel %s" % game_hud._panel_kind)
+	await _p1_shot("quest_05_journal", "quest journal (J)", true)
+	await _key(KEY_J)
+	# --- CutsceneCall through the same runner (test data)
+	_place_player(Vector3(-4.0, 0, 3.2), 0.0)
+	await _frames(10)
+	world.cat.global_position = p.global_position + Vector3(-4.5, 0, 1.5)  # start out of the way
+	var cat_from: Vector3 = world.cat.global_position
+	cam_before = world.camera.global_transform
+	game_hud.start_dialogue("dialogue.demo.cat_first_appearance")
+	await _key(KEY_E)
+	await _seconds(0.8)
+	print("[quest] cutscene playing %s, caption '%s'" % [game_hud.cutscene.playing, game_hud._caption.text])
+	await _p1_shot("quest_06_cutscene_caption", "cutscene caption", true)
+	while game_hud.cutscene.playing:
+		await _frames(2)
+	print("[quest] cutscene done: cat moved %.1f m" % cat_from.distance_to(world.cat.global_position))
+	await _talk_through(["look"])
+	print("[quest] after cutscene dialogue: event recorded %s, controls %s, camera unchanged %s" % [Game.narrative.event_done("demo.cat_first_appearance"),
+		p.controls_enabled, world.camera.global_transform.is_equal_approx(cam_before)])
+	# --- the editor's "run in game" hand-off file
+	var f := FileAccess.open(PLAYTEST_PATH, FileAccess.WRITE)
+	f.store_string(JSON.stringify({"dialogue_id": "dialogue.demo.king_dragon_offer"}))
+	f.close()
+	await _check_dialogue_playtest()
+	print("[quest] playtest file -> dialogue %s '%s', file removed %s" % [game_hud.dialogue_active(), game_hud.dialogue.dialogue_id, not FileAccess.file_exists(PLAYTEST_PATH)])
+	await _p1_shot("quest_07_playtest_king", "editor playtest: king test dialogue", true)
+	await _talk_through(["accept"])
+	print("[quest] tracker:\n%s" % game_hud._tracker_text())
 	get_tree().quit()

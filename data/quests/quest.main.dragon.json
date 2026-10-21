@@ -1,0 +1,17 @@
+{
+  "version": 1,
+  "quest_id": "quest.main.dragon",
+  "title": "(테스트) 왕의 드래곤 토벌 의뢰",
+  "desc": "대화 에디터 데이터 계약 검증용 자리표시자. 실제 서사·목표·보상은 GDD에서 아직 정하지 않았다.",
+  "giver": "king",
+  "source": "npc",
+  "accept": "direct",
+  "repeatable": false,
+  "time_limit_hours": 0,
+  "test_only": true,
+  "objectives": [
+    {"id": "dragon", "type": "count", "count": 1, "text": "드래곤 토벌 (자리표시자)"}
+  ],
+  "consume_items": false,
+  "rewards": {}
+}

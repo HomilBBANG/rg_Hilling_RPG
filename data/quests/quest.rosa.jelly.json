@@ -1,0 +1,16 @@
+{
+  "version": 1,
+  "quest_id": "quest.rosa.jelly",
+  "title": "로사의 젤리 잼",
+  "desc": "로사가 잼을 만들 슬라임 젤리 5개를 부탁했다. 풀밭 슬라임에게서 얻을 수 있다.",
+  "giver": "rosa",
+  "source": "npc",
+  "accept": "direct",
+  "repeatable": false,
+  "time_limit_hours": 0,
+  "objectives": [
+    {"id": "jelly", "type": "collect", "item": "slime_jelly", "count": 5, "text": "슬라임 젤리"}
+  ],
+  "consume_items": true,
+  "rewards": {"gen_exp": 10, "life_exp": 0, "gold": 30, "items": {"bread": 2}}
+}
