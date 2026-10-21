@@ -51,7 +51,7 @@ Ctrl+C / Ctrl+V 복사·붙여넣기(내부 연결 유지, 새 ID) · Ctrl+D 복
 data/dialogues/<dialogue_id>.json   대화 (version, dialogue_id, metadata{title,tags,notes}, start_node_id, nodes, connections, editor_positions)
 data/quests/<quest_id>.json         퀘스트 (목표·보상·결과 분기·시간 제한·반복·현장 사건 트리거)
 data/cutscenes/<cutscene_id>.json   컷씬 단계
-data/speakers.json                  화자 ID → 표시 이름, NPC가 여는 대화(talk), 대화창 초상화 모델(portrait)
+data/speakers.json                  화자 ID → 표시 이름, NPC가 여는 대화(talk), 대화창 초상화 그림 경로(portrait, 생략 시 assets/portraits/<id>.png)
 ```
 
 - 연결은 `connections`에만 저장하고 노드 ID로 잇습니다(표시 이름·위치를 바꿔도 끊기지 않음).

@@ -209,6 +209,7 @@ const ACTIONS := {
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	_register_actions()
+	Settings.load_and_apply()
 	# Camper storage starts with a few supplies so storage / snacks can be tested.
 	storage.add("cat_snack", 6)
 	storage.add("canned_food", 4)

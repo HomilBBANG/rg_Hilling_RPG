@@ -16,11 +16,6 @@ const LOOKS := {
 	"bron": {"skin": Color(0.84, 0.6, 0.44), "hair": Color(0.22, 0.16, 0.12), "style": "short",
 		"shirt": Color(0.42, 0.44, 0.5), "apron": Color(0.5, 0.32, 0.18), "pants": Color(0.26, 0.24, 0.24),
 		"boots": Color(0.2, 0.15, 0.12), "beard": true},
-	# 왕 (demo dialogue speaker, dialogue portrait only for now): grey hair and beard, gold crown,
-	# royal red shirt, purple robe front
-	"king": {"skin": Color(0.94, 0.74, 0.6), "hair": Color(0.82, 0.8, 0.78), "style": "crown",
-		"shirt": Color(0.66, 0.16, 0.18), "apron": Color(0.42, 0.24, 0.56), "pants": Color(0.3, 0.2, 0.32),
-		"boots": Color(0.24, 0.16, 0.12), "beard": true},
 }
 
 var hips: Node3D
@@ -62,12 +57,6 @@ func _init(look_id := "rosa") -> void:
 	ProtoMesh.sphere(hips, 0.3, Vector3(0, 1.06, 0.03), hair, Vector3(1.04, 0.78, 1.0), 12, 8)
 	if look["style"] == "bun":
 		ProtoMesh.sphere(hips, 0.13, Vector3(0, 1.2, 0.22), hair, Vector3.ONE, 8, 5)
-	elif look["style"] == "crown":
-		var gold := ProtoMesh.mat(Color(0.95, 0.76, 0.26), 0.4)
-		ProtoMesh.cylinder(hips, 0.2, 0.1, Vector3(0, 1.25, 0.02), gold, Vector3.ZERO, 10)
-		for i in 5:
-			var a := TAU * i / 5.0
-			ProtoMesh.cylinder(hips, 0.045, 0.1, Vector3(sin(a) * 0.17, 1.34, 0.02 + cos(a) * 0.17), gold, Vector3.ZERO, 4, 0.0)
 	if look["beard"]:
 		ProtoMesh.sphere(hips, 0.2, Vector3(0, 0.83, -0.18), hair, Vector3(1.15, 0.9, 0.7), 10, 6)
 	for side in [-1.0, 1.0]:

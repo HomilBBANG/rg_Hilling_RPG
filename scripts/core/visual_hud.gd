@@ -135,9 +135,10 @@ func _process(delta: float) -> void:
 	if _capture_mode:
 		return
 	_toast_time -= delta
-	_toast.visible = _toast_time > 0.0
+	var talking: bool = boot.game_hud != null and boot.game_hud.dialogue_active()
+	_toast.visible = _toast_time > 0.0 and not talking
 	_pause.visible = get_tree().paused and not boot.menu_open()
-	_hint.visible = not (boot.game_hud and boot.game_hud.dialogue_active())
+	_hint.visible = not talking  # no UI but the conversation while talking
 	var r: PixelRenderController = boot.render
 	var w: Node = boot.world
 	if r == null or w == null:

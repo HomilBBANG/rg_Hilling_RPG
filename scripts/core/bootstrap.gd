@@ -2778,6 +2778,14 @@ func _run_save_tour() -> void:
 			await _frames(10)
 			print("[tour] saved ", save_screenshot("p1_save_01_title_empty.png"))  # title hides the HUD; _p1_shot would show it
 			print("[save] title open %s, paused %s, slots used %s" % [title_open(), get_tree().paused, _slots_used()])
+			title.open_slots("new")
+			await _frames(6)
+			print("[tour] saved ", save_screenshot("p1_save_01b_new_game_slots.png"))
+			title.close_panel()
+			title.open_settings()
+			await _frames(6)
+			print("[tour] saved ", save_screenshot("p1_save_01c_settings.png"))
+			title.close_panel()
 			start_slot(1, true)
 		1:
 			print("[save] new game in slot 1 -> slot %d, file written %s, gold %d, day %d, region %s" % [Game.slot, SaveManager.exists(1), st.gold, Game.day, Game.region])
@@ -2811,6 +2819,7 @@ func _run_save_tour() -> void:
 			pause_menu._leave("title")
 		2:
 			show_title()
+			title.open_slots("load")
 			await _frames(10)
 			print("[tour] saved ", save_screenshot("p1_save_03_title_slot1.png"))  # title hides the HUD; _p1_shot would show it
 			print("[save] back at the title: slots used %s, slot 1 card '%s'" % [_slots_used(), SaveManager.read(1)["meta"]])

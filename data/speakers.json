@@ -1,12 +1,12 @@
 {
   "version": 1,
-  "_comment": "speaker_id -> display name. 'talk' = dialogue opened when the player talks to this NPC (R). 'portrait' = model shown in the dialogue window (rig: player / npc + look / cat; none = name plate only). Change it here, not in code.",
+  "_comment": "speaker_id -> display name. 'talk' = dialogue opened when the player talks to this NPC (R). Dialogue portrait image: assets/portraits/<speaker_id>.png by default, or set 'portrait' to another res:// path (no image = placeholder shape). Change it here, not in code.",
   "speakers": {
     "narrator": {"name": ""},
-    "player": {"name": "주인공", "portrait": {"rig": "player"}},
-    "rosa": {"name": "로사", "talk": "dialogue.npc.rosa.main", "portrait": {"rig": "npc", "look": "rosa"}},
-    "bron": {"name": "브론", "talk": "dialogue.npc.bron.main", "portrait": {"rig": "npc", "look": "bron"}},
-    "king": {"name": "왕", "portrait": {"rig": "npc", "look": "king"}},
-    "cat": {"name": "검은 고양이", "portrait": {"rig": "cat"}}
+    "player": {"name": "주인공"},
+    "rosa": {"name": "로사", "talk": "dialogue.npc.rosa.main"},
+    "bron": {"name": "브론", "talk": "dialogue.npc.bron.main"},
+    "king": {"name": "왕"},
+    "cat": {"name": "검은 고양이"}
   }
 }

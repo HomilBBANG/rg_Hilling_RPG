@@ -31,6 +31,7 @@ var _panel_refresh: Callable
 var _panel_kind := ""
 var _sleep_hours := 8
 var dialogue: DialogueBox
+var _talk_hidden: Array[CanvasItem] = []
 var fishing: FishingPanel
 var cutscene: CutsceneRunner
 var _caption: Label
@@ -847,6 +848,23 @@ func toggle_character() -> void:
 
 # ---------------------------------------------------------------- dialogue / quests (P2-5)
 
+## While a dialogue is open the whole HUD steps aside so only the conversation is on screen.
+## Runs after everything else in _process: widgets that re-show themselves every frame are hidden
+## again before drawing, and everything hidden here comes back when the dialogue ends.
+func _apply_talk_mode() -> void:
+	if dialogue.active():
+		for c in get_children():
+			if c is CanvasItem and c.visible and not c in [dialogue, fishing, _fade, _fade_label, _caption]:
+				c.visible = false
+				if not c in _talk_hidden:
+					_talk_hidden.append(c)
+	elif not _talk_hidden.is_empty():
+		for c in _talk_hidden:
+			if is_instance_valid(c):
+				c.visible = true
+		_talk_hidden.clear()
+
+
 ## Opens a dialogue by id (data/dialogues). Returns false when the file is missing.
 func start_dialogue(dialogue_id: String) -> bool:
 	if dialogue_id == "" or dialogue.active():
@@ -1232,11 +1250,6 @@ func _process(delta: float) -> void:
 		text = ""
 	_prompt.text = text
 	_update_quickbar()
-	# the dialogue window takes the bottom of the screen: quickbar and log step aside meanwhile
-	var talking := dialogue.active()
-	_log_box.visible = not talking
-	for q: Dictionary in _quick_slots:
-		q["panel"].visible = not talking
 	_tracker_t -= delta
 	if _tracker_t <= 0.0:
 		_tracker_t = 0.25
@@ -1250,6 +1263,7 @@ func _process(delta: float) -> void:
 	_update_floats(delta)
 	_save_note_t -= delta
 	_save_note.modulate.a = clampf(_save_note_t, 0.0, 1.0)
+	_apply_talk_mode()
 	if _panel and _panel_source:
 		var p2: Node3D = w.player if w else null
 		if not is_instance_valid(_panel_source) or p2 == null \

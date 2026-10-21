@@ -1,52 +1,25 @@
 class_name DialoguePortrait
 extends Control
-## One side of the dialogue window: the speaker's own game model (PlayerRig / NpcRig / CatRig)
-## rendered live into a small SubViewport with its own world and light, scaled up with nearest
-## filtering so it reads as pixel art like the field sprites, with a dark 1-px outline, a dithered
-## fade at the bottom edge and a name plate below. Which model a speaker uses is data (data/speakers.json "portrait").
-## The side that is not speaking is drawn at 50% opacity (set_active).
+## One side of the dialogue window: the speaker's portrait image with a name plate below.
+## Images are drawn separately: drop `assets/portraits/<speaker_id>.png` in (or point the
+## speaker's "portrait" in data/speakers.json at another file). Until an image exists, a plain
+## placeholder shape (frame + bust silhouette in the speaker's colour) holds the spot so the
+## layout can be judged. The side that is not speaking is drawn at 50% opacity (set_active).
 
-const RES := Vector2i(120, 120)
-const PIXEL := 3
+const SIZE := Vector2(360, 360)
 const DIM := 0.5
-const FACE_TURN := 0.55  # yaw towards the other side (3/4 view)
-const OUTLINE_SHADER := """
-shader_type canvas_item;
-uniform vec4 outline_color : source_color = vec4(0.09, 0.07, 0.08, 1.0);
-varying vec4 tint;
-void vertex() { tint = COLOR; }
-void fragment() {
-	vec4 c = texture(TEXTURE, UV);
-	vec2 px = TEXTURE_PIXEL_SIZE;
-	if (c.a < 0.5) {
-		float n = max(max(texture(TEXTURE, UV + vec2(px.x, 0.0)).a, texture(TEXTURE, UV - vec2(px.x, 0.0)).a),
-			max(texture(TEXTURE, UV + vec2(0.0, px.y)).a, texture(TEXTURE, UV - vec2(0.0, px.y)).a));
-		c = n >= 0.5 ? outline_color : vec4(0.0);
-	} else {
-		c.a = 1.0;
-	}
-	// ordered-dither dissolve over the bottom rows so the bust has no hard cut edge
-	ivec2 p = ivec2(UV / px) % 4;
-	int bayer[16] = int[](0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5);
-	if (float(bayer[p.y * 4 + p.x]) / 16.0 < smoothstep(0.84, 1.0, UV.y)) {
-		c.a = 0.0;
-	}
-	COLOR = c * tint;
-}
-"""
+const PORTRAIT_DIR := "res://assets/portraits"
 
-## -1 = left (faces right), 1 = right (faces left)
+## -1 = left (protagonist), 1 = right (conversation partner)
 var side := -1
 var speaker := ""
 var active := false
 
-var _vp: SubViewport
-var _cam: Camera3D
-var _model: Node3D
 var _image: TextureRect
+var _placeholder: Control
 var _plate: PanelContainer
 var _plate_label: Label
-var _t := 0.0
+var _color := Color.WHITE
 var _tween: Tween
 
 
@@ -56,40 +29,17 @@ func _init(p_side := -1) -> void:
 
 func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
-	size = Vector2(RES * PIXEL) + Vector2(0, 40)
-	_vp = SubViewport.new()
-	_vp.size = RES
-	_vp.own_world_3d = true
-	_vp.transparent_bg = true
-	_vp.msaa_3d = Viewport.MSAA_DISABLED
-	_vp.render_target_update_mode = SubViewport.UPDATE_DISABLED
-	add_child(_vp)
-	var env := WorldEnvironment.new()
-	env.environment = Environment.new()
-	env.environment.background_mode = Environment.BG_CLEAR_COLOR
-	env.environment.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
-	env.environment.ambient_light_color = Color(0.62, 0.64, 0.74)
-	env.environment.ambient_light_energy = 0.75
-	_vp.add_child(env)
-	var sun := DirectionalLight3D.new()
-	sun.light_energy = 1.15
-	sun.light_color = Color(1.0, 0.96, 0.88)
-	# from the front, above, slightly from the side the character looks towards
-	sun.rotation = Vector3(deg_to_rad(-38.0), deg_to_rad(28.0 * -side), 0)
-	_vp.add_child(sun)
-	_cam = Camera3D.new()
-	_cam.projection = Camera3D.PROJECTION_ORTHOGONAL
-	_vp.add_child(_cam)
+	size = SIZE + Vector2(0, 40)
+	_placeholder = Control.new()
+	_placeholder.size = SIZE
+	_placeholder.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_placeholder.draw.connect(_draw_placeholder)
+	add_child(_placeholder)
 	_image = TextureRect.new()
-	_image.texture = _vp.get_texture()
-	_image.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
-	_image.size = Vector2(RES * PIXEL)
+	_image.size = SIZE
 	_image.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	_image.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	_image.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var sm := ShaderMaterial.new()
-	sm.shader = Shader.new()
-	sm.shader.code = OUTLINE_SHADER
-	_image.material = sm
 	add_child(_image)
 	_plate = PanelContainer.new()
 	var sb := StyleBoxFlat.new()
@@ -115,28 +65,29 @@ func _ready() -> void:
 	visible = false
 
 
-## Shows this speaker's model and name (re-uses the model when the speaker did not change).
+## Shows this speaker's portrait (or the placeholder) and name.
 func set_speaker(id: String) -> void:
 	if id == speaker:
 		return
 	speaker = id
-	if _model:
-		_model.queue_free()
-		_model = null
+	visible = id != ""
+	if id == "":
+		return
 	var info: Dictionary = DialogueData.speakers().get(id, {})
-	_plate_label.text = str(info.get("name", id)) if id != "" else ""
+	_plate_label.text = str(info.get("name", id))
 	_plate.visible = _plate_label.text != ""
 	_plate.reset_size()
-	_plate.position = Vector2((size.x - _plate.size.x) * 0.5, RES.y * PIXEL - 22)
-	_model = _build_model(info.get("portrait", {}))
-	_image.visible = _model != null
-	visible = id != ""
-	if _model:
-		_model.rotation.y = PI - FACE_TURN * side
-		_vp.add_child(_model)
-		_pose(0.0)
-		_frame()
-	_vp.render_target_update_mode = SubViewport.UPDATE_ALWAYS if visible else SubViewport.UPDATE_DISABLED
+	_plate.position = Vector2((size.x - _plate.size.x) * 0.5, SIZE.y - 22)
+	var path := str(info.get("portrait", PORTRAIT_DIR.path_join(id + ".png")))
+	_image.texture = load(path) as Texture2D if ResourceLoader.exists(path) else null
+	_image.visible = _image.texture != null
+	_placeholder.visible = _image.texture == null
+	_color = Color.from_hsv(float(hash(id) % 360) / 360.0, 0.45, 0.85)
+	_placeholder.queue_redraw()
+
+
+func has_image() -> bool:
+	return _image.texture != null
 
 
 ## Full opacity while this side is speaking, 50% otherwise.
@@ -158,53 +109,20 @@ func clear() -> void:
 	modulate.a = DIM
 
 
-func _build_model(p: Variant) -> Node3D:
-	if not p is Dictionary or (p as Dictionary).is_empty():
-		return null
-	match str(p.get("rig", "")):
-		"player":
-			var rig := PlayerRig.new()
-			var w: Node = Game.boot.world if Game.boot else null
-			var pl: PrototypePlayer = w.get("player") if w else null
-			if pl and pl.model:
-				rig.set_gear(pl.model.gear)  # same weapon / shield as on the field
-			return rig
-		"npc":
-			var look := str(p.get("look", ""))
-			return NpcRig.new(look) if NpcRig.LOOKS.has(look) else null
-		"cat":
-			return CatRig.new()
-	return null
-
-
-func _pose(t: float) -> void:
-	var breathe := sin(t * TAU * 0.4) * 0.008
-	if _model is PlayerRig:
-		(_model as PlayerRig).pose(0.0, 0.0, -1.0, breathe)
-	elif _model is NpcRig:
-		(_model as NpcRig).pose(0.0, 0.0, breathe)
-	elif _model is CatRig:
-		(_model as CatRig).pose_sit()
-
-
-## Bust framing from the model's bounds: the top ~1 m of a person (head and chest), all of a cat.
-func _frame() -> void:
-	var box := AABB()
-	var first := true
-	for mi: MeshInstance3D in _model.find_children("*", "MeshInstance3D", true, false):
-		if not mi.is_visible_in_tree():
-			continue
-		var b: AABB = _model.global_transform.affine_inverse() * mi.global_transform * mi.get_aabb()
-		box = b if first else box.merge(b)
-		first = false
-	var top := box.end.y
-	var span := minf(box.size.y, 1.0)
-	_cam.size = span * 1.08
-	_cam.position = Vector3(0, top - span * 0.5 + span * 0.02, 4.0)
-
-
-func _process(delta: float) -> void:
-	if _model == null or not is_visible_in_tree():
-		return
-	_t += delta
-	_pose(_t)
+## Placeholder only: a frame and a head-and-shoulders silhouette turned a little towards the
+## middle of the screen, plus the file name the real image should have.
+func _draw_placeholder() -> void:
+	var c := _placeholder
+	var frame := Rect2(Vector2(20, 20), SIZE - Vector2(40, 40))
+	c.draw_rect(frame, Color(0.08, 0.08, 0.11, 0.55))
+	c.draw_rect(frame, _color, false, 3.0)
+	var shade := _color.darkened(0.25)
+	var body := Rect2(Vector2(90, 230), Vector2(180, 110))
+	c.draw_rect(body, shade)
+	c.draw_circle(Vector2(body.position.x, body.end.y - 50), 50, shade)
+	c.draw_circle(Vector2(body.end.x, body.end.y - 50), 50, shade)
+	var head := Vector2(180 - side * 16, 150)  # turned towards the other speaker
+	c.draw_circle(head, 76, _color)
+	c.draw_circle(head + Vector2(-side * 40, 4), 11, _color.darkened(0.5))  # eye on the facing side
+	c.draw_multiline_string(get_theme_default_font(), Vector2(frame.position.x, frame.position.y + 30),
+		"초상화 자리\n%s.png" % speaker, HORIZONTAL_ALIGNMENT_CENTER, frame.size.x, 20, -1, Color(1, 1, 1, 0.85))
