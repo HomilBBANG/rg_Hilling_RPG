@@ -10,6 +10,8 @@ const HIP_HEIGHT := 0.42
 ## Sprite sheet columns: [animation, frame count]. Rows are 8 facing directions.
 const ANIMS := [["idle", 2], ["walk", 8], ["attack", 5]]
 const DIRECTIONS := 8
+## Wrist tilt of the sword at rest (blade forward-down).
+const SWORD_REST_TILT := 1.05
 
 var hips: Node3D
 var lantern_anchor: Node3D
@@ -19,6 +21,7 @@ var _arm_l: Node3D
 var _arm_r: Node3D
 var _elbow_l: Node3D
 var _elbow_r: Node3D
+var _sword: Node3D
 var _lantern_glass: MeshInstance3D
 var _glass_on: Material
 var _glass_off: Material
@@ -137,6 +140,19 @@ func _build() -> void:
 		else:
 			_elbow_r = elbow
 
+	# Iron sword (철검, GDD 6.2 example weapon) in the right hand. The wrist pivot sits in the fist;
+	# the blade runs along the sword's -Y: tilted forward-down at rest, straightened along the
+	# arm during the swing so it sweeps flat in front of the body.
+	_sword = _limb(_elbow_r, Vector3(0, -0.21, -0.02))
+	var steel := ProtoMesh.mat(Color(0.8, 0.83, 0.87), 0.3)
+	var iron := ProtoMesh.mat(Color(0.36, 0.37, 0.42), 0.4)
+	var leather := ProtoMesh.mat(Color(0.42, 0.26, 0.15))
+	ProtoMesh.sphere(_sword, 0.035, Vector3(0, 0.09, 0), iron, Vector3.ONE, 6, 4)        # pommel
+	ProtoMesh.cylinder(_sword, 0.026, 0.13, Vector3(0, 0.02, 0), leather, Vector3.ZERO, 6)  # grip
+	ProtoMesh.box(_sword, Vector3(0.21, 0.035, 0.05), Vector3(0, -0.055, 0), iron)            # crossguard
+	ProtoMesh.box(_sword, Vector3(0.08, 0.46, 0.024), Vector3(0, -0.3, 0), steel)             # blade
+	ProtoMesh.box(_sword, Vector3(0.056, 0.056, 0.024), Vector3(0, -0.53, 0), steel, Vector3(0, 0, 45))  # tip
+
 	# Belt lantern on the left hip (GDD 10.3: 허리띠에 끼우는 등불)
 	lantern_anchor = Node3D.new()
 	lantern_anchor.position = Vector3(-0.36, 0.0, -0.04)
@@ -192,12 +208,14 @@ func pose(walk_phase: float, moving: float, attack_t: float, breathe := 0.0) -> 
 	_elbow_r.rotation = Vector3(lerpf(0.25, 0.3, moving), 0, 0)
 	hips.position.y = HIP_HEIGHT + absf(sin(walk_phase)) * 0.04 * moving + breathe
 	hips.rotation = Vector3(0, 0, sin(walk_phase) * 0.04 * moving)
+	_sword.rotation = Vector3(SWORD_REST_TILT, 0, 0)
 	if attack_t >= 0.0:
 		var t := clampf(attack_t / ATTACK_TIME, 0.0, 1.0)
 		var e := 1.0 - pow(1.0 - t, 3.0)
-		# Placeholder strike: right arm sweeps forward right -> left (no weapon in the concept).
+		# Strike: right arm sweeps the sword forward right -> left.
 		_arm_r.rotation = Vector3(deg_to_rad(80.0), deg_to_rad(lerpf(75.0, -80.0, e)), 0.0)
 		_elbow_r.rotation = Vector3(0.2, 0, 0)
+		_sword.rotation = Vector3(lerpf(0.5, 0.1, e), 0, 0)  # blade lines up with the arm
 		hips.rotation.y = deg_to_rad(lerpf(20.0, -15.0, e))
 
 

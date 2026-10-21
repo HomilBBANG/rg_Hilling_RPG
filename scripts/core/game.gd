@@ -82,7 +82,7 @@ const ACTIONS := {
 	"toggle_interior": [KEY_I],
 	"toggle_help": [KEY_H],
 	"toggle_snap": [KEY_K],
-	"toggle_projection": [KEY_C],
+	"toggle_projection": [KEY_F7],  # debug (C is the character sheet)
 	"toggle_occlusion": [KEY_X],
 	"zoom_in": [KEY_EQUAL, KEY_KP_ADD],
 	"zoom_out": [KEY_MINUS, KEY_KP_SUBTRACT],
@@ -91,6 +91,7 @@ const ACTIONS := {
 	"interact": [KEY_E],
 	"interact_alt": [KEY_R],
 	"inventory": [KEY_TAB],
+	"character": [KEY_C],
 	"combat_log": [KEY_G],
 	"debug_status": [KEY_F3],
 	"debug_heal": [KEY_F8],

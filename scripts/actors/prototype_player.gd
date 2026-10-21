@@ -102,7 +102,8 @@ static func sprite_bake_spec() -> Dictionary:
 		"rows": PlayerRig.DIRECTIONS,
 		# Cell is centred on the feet, so its half-height must exceed the projected head height
 		# (~2.05 m * cos(pitch)); 2.7 m clipped the top of the head.
-		"cell": Vector2(2.7, 4.2),
+		# Wider than the body: the sword sweeps about 1.3 m to either side during the swing.
+		"cell": Vector2(3.3, 4.2),
 		"albedo_setup": func(insts: Array[Node3D]) -> void:
 			for i in insts:
 				(i as PlayerRig).set_lantern(false),

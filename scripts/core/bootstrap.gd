@@ -134,6 +134,8 @@ func _unhandled_input(event: InputEvent) -> void:
 		get_tree().paused = not get_tree().paused
 	elif event.is_action("inventory"):
 		game_hud.toggle_inventory()
+	elif event.is_action("character"):
+		game_hud.toggle_character()
 	elif event.is_action("combat_log"):
 		game_hud.cycle_log_level()
 	elif event.is_action("debug_status"):
@@ -248,6 +250,8 @@ func _parse_args() -> void:
 		_run_walk_tour()
 	elif tour == "p1":
 		_run_p1_tour()
+	elif tour == "p2":
+		_run_p2_tour()
 	elif tour == "drive":
 		_run_drive_compare()
 	elif tour == "wind":
@@ -1245,3 +1249,72 @@ func _hold_with(held: Key, extra: Key, frames: int) -> void:
 		e.pressed = false
 		Input.parse_input_event(e)
 	await get_tree().physics_frame
+
+
+# ---------------------------------------------------------------- P2-1 growth tour
+
+## Kill slimes for general EXP, open the character sheet with a real C key press, level up,
+## spend stat points and learn a basic skill; prints derived values before/after.
+func _run_p2_tour() -> void:
+	_touring = true
+	Dice.rng.seed = 11
+	Game.clock_running = false
+	Game.minute_of_day = 10.5 * 60.0
+	Game.combat_log.level = 2
+	await wait_for_sprites()
+	var st := Game.player_state
+	var p: PrototypePlayer = world.player
+	_place_player(Vector3(12.0, 0, 5.0), -PI * 0.5)
+	await _frames(10)
+	var kills := 0
+	var shot := false
+	for n in 6:
+		if st.can_level_up() and kills >= 4:
+			break
+		var target := _nearest_monster(p.global_position)
+		if target == null:
+			break
+		var swings := 0
+		while is_instance_valid(target) and swings < 40:
+			var d := target.global_position - p.global_position
+			d.y = 0
+			if d.length() > 1.2:
+				p.scripted_move = Vector2(d.x, d.z).normalized()
+				await get_tree().physics_frame
+				continue
+			p.scripted_move = Vector2.ZERO
+			p.start_attack(target.global_position)
+			swings += 1
+			await _seconds(0.12)
+			if not shot and swings == 2:
+				shot = true
+				await _p1_shot("p2_01_sword_swing", "sword swing", true)
+			await _seconds(0.33)
+			st.sp = st.max_sp()
+			st.hp = st.max_hp()
+		if not is_instance_valid(target):
+			kills += 1
+	p.scripted_move = Vector2.ZERO
+	print("[p2] kills %d, Lv %d, EXP %d / %d, can level up %s" % [kills, st.level, st.gen_exp, st.exp_to_next(), st.can_level_up()])
+	await _frames(20)
+	await _p1_shot("p2_02_hud_levelup_ready", "HUD: level-up ready")
+	_touring = false  # let the real key events through
+	await _key(KEY_C)
+	print("[p2] C -> panel %s" % game_hud._panel_kind)
+	await _p1_shot("p2_03_character_panel", "character panel")
+	var before := "HP %d SP %d carry %.0f mult %.1f hit %d crit %d" % [st.max_hp(), st.max_sp(), st.carry_capacity(), st.str_multiplier(), st.total_hit_bonus(), st.total_crit_chance()]
+	var leveled := st.level_up()
+	st.add_stat("STR")
+	st.add_exp(30)
+	st.learn_skill("accuracy")
+	game_hud._refresh_panel()
+	await _frames(3)
+	var after := "HP %d SP %d carry %.0f mult %.1f hit %d crit %d" % [st.max_hp(), st.max_sp(), st.carry_capacity(), st.str_multiplier(), st.total_hit_bonus(), st.total_crit_chance()]
+	print("[p2] level_up %s -> Lv %d, points %d, STR %d, accuracy rank %d" % [leveled, st.level, st.stat_points, st.stats["STR"], st.skill_rank("accuracy")])
+	print("[p2] before: %s" % before)
+	print("[p2] after:  %s" % after)
+	print("[p2] combat profile hit bonus %d, phys %s" % [st.combat_profile()["hit_bonus"], st.combat_profile()["phys"]])
+	await _p1_shot("p2_04_after_levelup", "after level-up + STR + skill")
+	await _key(KEY_C)
+	print("[p2] C again -> panel open %s" % game_hud.panel_open())
+	get_tree().quit()

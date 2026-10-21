@@ -479,8 +479,62 @@ func open_sleep(source: Node3D) -> void:
 
 # ---------------------------------------------------------------- per frame
 
+## Character sheet (GDD 5.1-5.3): spend general EXP on a level-up (+1 stat point) or on basic
+## skills; put stat points into the 7 stats. Nothing happens automatically.
+func toggle_character() -> void:
+	if _panel_kind == "character":
+		close_panel()
+		return
+	var st := Game.player_state
+	_open("character", null, 0.0, func(v: VBoxContainer) -> void:
+		v.add_child(_row_label("주인공 — Lv %d" % st.level, 400, 28, Color(1.0, 0.9, 0.6)))
+		var h := HBoxContainer.new()
+		h.add_child(_row_label("일반 EXP %d / 레벨업 %d" % [st.gen_exp, st.exp_to_next()], 330, 22))
+		var lv := _button("레벨업 (EXP %d 사용)" % st.exp_to_next(), func() -> void:
+			if st.level_up():
+				Game.combat_log.add("레벨 %d — 능력치 포인트 +%d" % [st.level, PlayerState.STAT_POINTS_PER_LEVEL], "", "info")
+				boot.hud.toast("레벨 %d! 능력치 포인트를 투자하세요" % st.level)
+			_refresh_panel())
+		lv.disabled = not st.can_level_up()
+		h.add_child(lv)
+		v.add_child(h)
+		v.add_child(_row_label("생활 EXP %d (생활 활동·퀘스트로 획득 — 아직 획득처 없음) · 자동 레벨업 없음" % st.life_exp, 760, 18, Color(0.7, 0.75, 0.8)))
+		v.add_child(_row_label("능력치 포인트 %d" % st.stat_points, 400, 22, Color(0.6, 0.85, 1.0) if st.stat_points > 0 else Color(0.8, 0.82, 0.85)))
+		for key: String in PlayerState.STAT_KEYS:
+			var row := HBoxContainer.new()
+			var info: Array = PlayerState.STAT_INFO[key]
+			row.add_child(_row_label("%s %s" % [key, info[0]], 130, 21))
+			row.add_child(_row_label("%d" % st.stats[key], 50, 21, Color(1.0, 0.95, 0.8)))
+			var plus := _button(" + ", func() -> void:
+				st.add_stat(key)
+				_refresh_panel())
+			plus.disabled = st.stat_points <= 0
+			row.add_child(plus)
+			row.add_child(_row_label("  " + info[1], 520, 18, Color(0.72, 0.76, 0.8)))
+			v.add_child(row)
+		v.add_child(_row_label("최대 HP %d · SP %d · MP %d · 소지 %.0f/%.0f kg · 물리 배율 ×%.1f · 명중 +%d · 치명 %d%%" % [
+			st.max_hp(), st.max_sp(), st.max_mp(), st.carry_capacity(), st.carry_limit(), st.str_multiplier(),
+			st.total_hit_bonus(), st.total_crit_chance()], 820, 18, Color(0.75, 0.88, 0.75)))
+		v.add_child(_row_label("기본 스킬 — 일반 EXP로 스승 없이 습득", 600, 22, Color(1.0, 0.9, 0.6)))
+		for id: String in PlayerState.SKILLS:
+			var sk: Dictionary = PlayerState.SKILLS[id]
+			var row2 := HBoxContainer.new()
+			var rank := st.skill_rank(id)
+			row2.add_child(_row_label("%s %d/%d" % [sk["name"], rank, sk["max"]], 210, 21))
+			row2.add_child(_row_label(sk["desc"], 230, 18, Color(0.72, 0.76, 0.8)))
+			var cost := st.skill_cost(id)
+			var b := _button("최대" if cost < 0 else "습득 (EXP %d)" % cost, func() -> void:
+				if st.learn_skill(id):
+					Game.combat_log.add("기본 스킬 습득: %s %d단계" % [sk["name"], st.skill_rank(id)], "", "info")
+				_refresh_panel())
+			b.disabled = cost < 0 or st.gen_exp < cost
+			row2.add_child(b)
+			v.add_child(row2)
+		v.add_child(_button("닫기 (C)", close_panel)), 880)
+
+
 func _on_player_changed() -> void:
-	if _panel_kind in ["inventory", "loot", "storage"]:
+	if _panel_kind in ["inventory", "loot", "storage", "character"]:
 		_refresh_panel()
 
 
@@ -490,6 +544,8 @@ func _process(delta: float) -> void:
 	_set_bar("sp", st.sp, st.max_sp())
 	_set_bar("mp", st.mp, st.max_mp())
 	var lines := PackedStringArray()
+	lines.append("Lv %d · EXP %d / %d%s" % [st.level, st.gen_exp, st.exp_to_next(),
+		"  ▲ 레벨업 가능 (C)" if st.can_level_up() else ("  ● 능력치 포인트 %d (C)" % st.stat_points if st.stat_points > 0 else "")])
 	lines.append("%s %s · %d일차" % [Game.clock_text(), "밤" if Game.is_night() else "낮", Game.day])
 	var wl := "중량 %.1f / %.0f kg (한계 %.0f)" % [st.carried_weight(), st.carry_capacity(), st.carry_limit()]
 	if st.speed_factor() < 0.999:

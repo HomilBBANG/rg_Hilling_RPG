@@ -20,6 +20,7 @@
 | 실내 | 문 매트 `E` 밖으로, 오른쪽 아래 선반 `E` **창고**(개별/모두/소지품 전체 옮기기), 간이침대 `E` **수면**(1~12시간, HP 10%) |
 | 고양이 | 실내에 항상 있음: `E` 쓰다듬기, `R` 간식(소지품의 고양이 간식 1개 → 호감도 +10). 창고에 간식 6개가 있음 |
 | 사망/복귀 | 캠핑카 보유(단계 C) → 실내 간이침대 옆에서 기상. 미보유(A/B) → 가장 가까운 안전 체크포인트(캠프 모닥불·갈림길 돌무지·호숫가 쉼터). B에서는 고양이가 곁을 돌다 앉음. 가방의 일부는 고블린이 가져가고 나머지는 쓰러진 자리의 "짐 꾸러미"로 남음 |
+| 성장 (P2-1) | 몬스터 처치 시 일반 EXP. **자동 레벨업 없음**: `C` 능력치 창에서 직접 레벨업(능력치 포인트 +1) → 7종 능력치에 투자, 또는 EXP로 기본 스킬(명중 훈련·급소 노리기·짐 꾸리기 요령) 습득. HUD에 "레벨업 가능" 표시 |
 | 진행 단계 | `F9`: A 혼자 → B 고양이 동행 → C 캠핑카+고양이(시작). A에서는 길가의 고양이에게 다가가면 따라오기 시작(→B). `F8` 전체 회복 |
 
 > **비주얼 방향 수정(디오라마형 3D 픽셀풍)과 카메라 A/B/C/D 비교 결과:** [`notes/VISUAL_DIRECTION.md`](notes/VISUAL_DIRECTION.md)
@@ -64,6 +65,7 @@ git clone -b claude/gallant-edison-84bkyp https://github.com/HomilBBANG/rg_Hilli
 | 마우스 왼쪽 클릭 | 기본 공격 1회 (마우스 방향, 누르고 있어도 반복 안 함, SP 4) |
 | `E` / `R` | 조사·상호작용(시체·상자·짐 꾸러미·문·운전석·창고·침대·고양이) / 고양이 간식 |
 | `Tab` | 소지품 (열어도 게임은 멈추지 않음) |
+| `C` | 능력치 창: 일반 EXP로 레벨업(능력치 포인트 +1)·능력치 투자·기본 스킬 습득 (자동 레벨업 없음) |
 | `G` | 전투 로그 1 → 2 → 3단계 |
 | `F9` / `F8` / `F3` | 진행 단계 A/B/C / 전체 회복 / 디버그 정보(렌더 상태 등) |
 | `F` | 캠핑카 외부 라이트 ON/OFF (캠핑카 7.5m 이내에서만) |
@@ -79,7 +81,7 @@ git clone -b claude/gallant-edison-84bkyp https://github.com/HomilBBANG/rg_Hilli
 | `L` | 개인 등불(허리띠) ON/OFF |
 | `I` | 캠핑카 실내 ↔ 야외 씬 전환 (디버그 순간이동, 캠핑카 보유 시) |
 | `K` | 픽셀 스냅 카메라 ON/OFF (떨림 비교용) |
-| `C` | 직교 ↔ 원근 투영 비교 (카메라 **회전은 없음**) |
+| `F7` | 직교 ↔ 원근 투영 비교 (카메라 **회전은 없음**) |
 | `X` | 가림 보조: 실루엣 → 수관 디더 투명화 → 끔 |
 | `-` / `=` | 카메라 규모(화면 세로 9~22m) |
 | `F12` | 스크린샷 → `user://captures` (Windows: `%APPDATA%\Godot\app_userdata\Denial\captures`) |
@@ -134,6 +136,7 @@ captures/visual_direction/  카메라 A/B/C 비교 (디오라마 방향)
 captures/p0_baseline/       P0 테스트 장면 6종 + 렌더 모드 비교 + 이동 영상
 captures/sprite_pipeline/   구운 스프라이트 시트(sheets/) + 베이크 vs 실시간 3D 비교
 captures/p1/                P1 흐름 검증 캡처 19장 (--tour=p1)
+captures/p2/                P2-1 성장(레벨업·능력치·기본 스킬) 캡처 + 철검 스프라이트 시트 (--tour=p2)
 notes/             VISUAL_DIRECTION.md, VISUAL_COMPARISON.md, IMPLEMENTATION_ASSUMPTIONS.md
 docs/              GDD.md(v10.2), CAT_COMPANION_HANDOFF.md, GRAPHICS_PROTOTYPE.md, CLAUDE_CODE_HANDOFF.md
 ```

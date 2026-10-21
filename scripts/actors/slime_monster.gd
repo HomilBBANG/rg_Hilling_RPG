@@ -24,6 +24,7 @@ var join_radius := 8.0
 var leash := 14.0
 var max_hp := 9
 var hp := 9
+var exp_reward := 6  ## general EXP for the kill [미정]
 var profile := {"name": "슬라임", "hit_bonus": 2, "crit_chance": 5, "phys": "1d4", "str_mult": 1.0,
 	"ac": 9, "armor": 0}
 var height_func: Callable
@@ -270,7 +271,11 @@ func receive_attack(attacker_profile: Dictionary, from: Node3D) -> void:
 
 func _die() -> void:
 	state = State.DEAD
-	Game.combat_log.add("%s 처치" % display_name, "%s 처치 — 시체를 조사해 전리품을 얻을 수 있다" % display_name, "death")
+	Game.player_state.add_exp(exp_reward)
+	Game.combat_log.add("%s 처치 · EXP +%d" % [display_name, exp_reward], "%s 처치 — 일반 EXP +%d (보유 %d / 레벨업 %d) · 시체를 조사해 전리품을 얻을 수 있다" % [
+		display_name, exp_reward, Game.player_state.gen_exp, Game.player_state.exp_to_next()], "death")
+	if Game.hud:
+		Game.hud.float_text(global_position + Vector3(0, 1.4, 0), "EXP +%d" % exp_reward, Color(0.6, 0.85, 1.0))
 	if world and world.has_method("on_monster_killed"):
 		world.on_monster_killed(self)
 	queue_free()

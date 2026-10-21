@@ -10,8 +10,8 @@ const ITEMS := {
 	"firewood": {"name": "장작", "weight": 2.0, "desc": "잘 마른 장작."},
 	"iron_ore": {"name": "철광석", "weight": 4.0, "desc": "무거운 광석 덩어리."},
 	"canned_food": {"name": "통조림", "weight": 0.5, "desc": "현실에서 가져온 통조림."},
-	"rusty_sword": {"name": "낡은 철검", "weight": 3.0, "kind": "weapon", "phys": "1d4",
-		"desc": "물리 1d4. 기본 무기."},
+	"iron_sword": {"name": "철검", "weight": 3.0, "kind": "weapon", "phys": "1d4",
+		"desc": "물리 1d4 (GDD 6.2 예시 무기). 주인공이 손에 들고 있다."},
 }
 
 
