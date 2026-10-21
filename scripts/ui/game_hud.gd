@@ -1232,6 +1232,11 @@ func _process(delta: float) -> void:
 		text = ""
 	_prompt.text = text
 	_update_quickbar()
+	# the dialogue window takes the bottom of the screen: quickbar and log step aside meanwhile
+	var talking := dialogue.active()
+	_log_box.visible = not talking
+	for q: Dictionary in _quick_slots:
+		q["panel"].visible = not talking
 	_tracker_t -= delta
 	if _tracker_t <= 0.0:
 		_tracker_t = 0.25

@@ -478,6 +478,8 @@ func _parse_args() -> void:
 		_run_save_tour()
 	elif tour == "run":
 		_run_run_tour()
+	elif tour == "dialogue":
+		_run_dialogue_tour()
 	elif tour == "drive":
 		_run_drive_compare()
 	elif tour == "wind":
@@ -1883,6 +1885,52 @@ func _run_shop_tour() -> void:
 	Game.minute_of_day = 8.0 * 60.0 + 1.0
 	await _seconds(4.0)
 	print("[shop] 08:00 -> rosa %s, visible %s" % [Npc.Where.keys()[rosa.where], rosa.visible])
+	get_tree().quit()
+
+
+# ---------------------------------------------------------------- dialogue window portraits
+
+## Plays dialogues through every speaker combination and records which portrait is lit:
+## protagonist left, partner right, the one not speaking at 50% opacity, narration dims both.
+func _run_dialogue_tour() -> void:
+	Game.clock_running = false
+	Game.minute_of_day = 10.5 * 60.0
+	await wait_for_sprites()
+	var p: PrototypePlayer = world.player
+	var box: DialogueBox = game_hud.dialogue
+	var rosa_stall: Vector3 = VisualLab.TRADE_STALLS[0][0]
+	_place_player(rosa_stall + Vector3(0, 0, 1.5), 0.0)
+	await _frames(5)
+	var shots := {"dialogue.npc.rosa.main": ["line_offer", "choice_offer"],
+		"dialogue.demo.cat_first_appearance": ["line_01", "line_02", "choice_01", "line_03"],
+		"dialogue.demo.king_dragon_offer": ["line_01"]}
+	for id: String in shots:
+		if id == "dialogue.demo.cat_first_appearance":
+			_place_player(Vector3(-4.0, 0, 3.2), 0.0)
+			world.cat.global_position = p.global_position + Vector3(1.2, 0, 0.6)
+			await _frames(5)
+		game_hud.start_dialogue(id)
+		for i in 30:
+			if not box.active():
+				break
+			var ev: Dictionary = box.event
+			if ev.get("type", "") == "cutscene" or ev.is_empty():
+				box.advance()
+				await _frames(5)
+				continue
+			await _seconds(0.2)  # let the dim fade settle
+			print("[dialogue] %s %s %s '%s' | left %s a=%.2f | right %s a=%.2f" % [id.get_slice(".", 2), ev["node"], ev["type"],
+				ev.get("speaker", "-"), box._left.speaker, box._left.modulate.a, box._right.speaker, box._right.modulate.a])
+			if ev["node"] in shots[id]:
+				await _p1_shot("dialogue_%s_%s" % [id.get_slice(".", 2), ev["node"]], "dialogue portraits", true)
+			if ev["type"] == "choice":
+				box.choose_index(0)
+			else:
+				box.advance()
+			await _frames(3)
+		print("[dialogue] closed -> active %s, portraits cleared %s, controls %s" % [box.active(),
+			box._left.speaker == "" and box._right.speaker == "", p.controls_enabled])
+		await _frames(5)
 	get_tree().quit()
 
 
