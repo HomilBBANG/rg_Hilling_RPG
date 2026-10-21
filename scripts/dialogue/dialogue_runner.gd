@@ -5,7 +5,7 @@ extends RefCounted
 ## and the in-game dialogue box (GameDialogueContext). It is synchronous: start()/next()/choose()
 ## return the next thing to show, and Start / Condition / Action nodes are passed through.
 ##
-## Events: {"type": "line", "node", "speaker", "name", "text"}
+## Events: {"type": "line", "node", "speaker", "name", "text", "expression"}
 ##         {"type": "choice", "node", "options": [{"port", "text"}]}
 ##         {"type": "cutscene", "node", "cutscene_id"}   -> call next() once it has played
 ##         {"type": "end", "node", "error": ""}
@@ -68,7 +68,8 @@ func _run(id: String, from := "", port := "") -> Dictionary:
 				port = "next"
 			"line":
 				var sp := str(n.get("speaker_id", ""))
-				return {"type": "line", "node": id, "speaker": sp, "name": ctx.speaker_name(sp), "text": str(n.get("text", ""))}
+				return {"type": "line", "node": id, "speaker": sp, "name": ctx.speaker_name(sp), "text": str(n.get("text", "")),
+					"expression": str(n.get("expression", ""))}
 			"choice":
 				var opts := visible_options(n)
 				if opts.is_empty():

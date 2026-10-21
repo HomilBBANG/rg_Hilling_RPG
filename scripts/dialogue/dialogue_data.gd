@@ -8,7 +8,7 @@ extends RefCounted
 ##   "metadata": {"title": "", "tags": [], "notes": ""},
 ##   "start_node_id": "start",
 ##   "nodes": [ {"id": "start", "type": "start"},
-##              {"id": "line_01", "type": "line", "speaker_id": "rosa", "text": "..."},
+##              {"id": "line_01", "type": "line", "speaker_id": "rosa", "text": "...", "expression": ""},
 ##              {"id": "choice_01", "type": "choice", "options": [{"port": "yes", "text": "...", "condition": {...}}]},
 ##              {"id": "cond_01", "type": "condition", "check": {"kind": "quest", "quest_id": "...", "state": "ready"}},
 ##              {"id": "act_01", "type": "action", "action": "quest_accept", "args": {"quest_id": "..."}},
@@ -194,6 +194,11 @@ static func speakers() -> Dictionary:
 
 static func speaker_name(id: String) -> String:
 	return str(speakers().get(id, {}).get("name", id))
+
+
+## Portrait expressions a speaker has besides the default ({id: label}, speakers.json "expressions").
+static func speaker_expressions(id: String) -> Dictionary:
+	return speakers().get(id, {}).get("expressions", {})
 
 
 ## Dialogue an NPC opens when talked to (data, so writers re-point it without code).
@@ -454,6 +459,9 @@ static func _validate_node(n: Dictionary, cat: Dictionary, err: Callable, warn: 
 			var sp := str(n.get("speaker_id", ""))
 			if not cat["speakers"].has(sp):
 				err.call(id, "등록되지 않은 화자 '%s' (data/speakers.json)" % sp)
+			var ex := str(n.get("expression", ""))
+			if ex != "" and cat["speakers"].has(sp) and not (cat["speakers"][sp].get("expressions", {}) as Dictionary).has(ex):
+				warn.call(id, "화자 '%s'에 없는 표정 '%s' — 기본 초상화로 표시" % [sp, ex])
 		"choice":
 			var opts: Array = n.get("options", [])
 			if opts.is_empty():

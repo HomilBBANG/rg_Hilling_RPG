@@ -1023,7 +1023,18 @@ func _show_inspector() -> void:
 			_inspector.add_child(_options_widget(_speaker_options(), str(n.get("speaker_id", "")), func(v: String) -> void:
 				n["speaker_id"] = v
 				_last_speaker = v
-				_node_edited("speaker")))
+				_node_edited("speaker", false, true)))
+			_field_label("표정 (초상화 그림)")
+			var ex_opts := [["", "기본"]]
+			var exs: Dictionary = (_catalog.get("speakers", {}) as Dictionary).get(str(n.get("speaker_id", "")), {}).get("expressions", {})
+			for ex: String in exs:
+				ex_opts.append([ex, "%s (%s)" % [exs[ex], ex]])
+			_inspector.add_child(_options_widget(ex_opts, str(n.get("expression", "")), func(v: String) -> void:
+				if v == "":
+					n.erase("expression")
+				else:
+					n["expression"] = v
+				_node_edited("expression")))
 			_field_label("대사 (줄바꿈 가능, 긴 대사는 게임에서 자동 줄바꿈)")
 			var te := TextEdit.new()
 			te.text = str(n.get("text", ""))

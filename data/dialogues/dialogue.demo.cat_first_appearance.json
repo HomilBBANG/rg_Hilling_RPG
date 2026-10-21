@@ -51,7 +51,8 @@
       "id": "line_03",
       "type": "line",
       "speaker_id": "player",
-      "text": "…따라오는 거야?"
+      "text": "…따라오는 거야?",
+      "expression": "surprised"
     },
     {
       "id": "end",

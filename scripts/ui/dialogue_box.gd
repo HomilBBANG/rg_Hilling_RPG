@@ -4,6 +4,7 @@ extends Control
 ## context; CutsceneCall nodes hand over to the CutsceneRunner and resume.
 ## The protagonist's portrait stands on the left and the conversation partner's on the right
 ## (DialoguePortrait); whoever is not speaking is dimmed to 50% opacity. Narration dims both.
+## A line's "expression" picks that speaker's portrait variant (e.g. the protagonist's surprise).
 ## E / Space / Enter / click = next line, 1-9 or click = pick a choice. Layout is a [미정] HUD
 ## placeholder (GDD 17). Player control is locked while it is open; the camera is not touched.
 
@@ -12,7 +13,7 @@ signal closed(dialogue_id: String)
 const BOX_LEFT := 430.0
 const BOX_WIDTH := 1060.0
 const BOTTOM := 1030.0
-const PORTRAIT_Y := 600.0
+const PORTRAIT_OVERLAP := 70.0  # portraits tuck behind the window's ends
 
 var runner: DialogueRunner
 var cutscenes: CutsceneRunner
@@ -50,6 +51,14 @@ func _ready() -> void:
 	_shade.size = Vector2(1920, 520)
 	_shade.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(_shade)
+	# portraits behind the window's ends, standing on the bottom of the screen:
+	# protagonist left, partner right
+	_left = DialoguePortrait.new(-1)
+	add_child(_left)
+	_left.position = Vector2(BOX_LEFT + PORTRAIT_OVERLAP - DialoguePortrait.SIZE.x, 1080.0 - DialoguePortrait.SIZE.y)
+	_right = DialoguePortrait.new(1)
+	add_child(_right)
+	_right.position = Vector2(BOX_LEFT + BOX_WIDTH - PORTRAIT_OVERLAP, 1080.0 - DialoguePortrait.SIZE.y)
 	_box = PanelContainer.new()
 	_box.mouse_filter = Control.MOUSE_FILTER_STOP
 	_box.gui_input.connect(_box_input)
@@ -84,13 +93,6 @@ func _ready() -> void:
 	_hint.add_theme_color_override("font_color", Color(0.65, 0.68, 0.72))
 	_hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	v.add_child(_hint)
-	# portraits in front of the window's ends: protagonist left, partner right
-	_left = DialoguePortrait.new(-1)
-	add_child(_left)
-	_left.position = Vector2(BOX_LEFT - _left.size.x + 50, PORTRAIT_Y)
-	_right = DialoguePortrait.new(1)
-	add_child(_right)
-	_right.position = Vector2(BOX_LEFT + BOX_WIDTH - 50, PORTRAIT_Y)
 
 
 func active() -> bool:
@@ -121,10 +123,13 @@ static func _partner(doc: Dictionary) -> String:
 	return ""
 
 
-## Lights up whoever is talking; another partner taking a line moves onto the right side.
-func _spotlight(sp: String) -> void:
-	if sp not in ["", "player", "narrator"]:
-		_right.set_speaker(sp)
+## Lights up whoever is talking (with the line's expression); another partner taking a line
+## moves onto the right side.
+func _spotlight(sp: String, expr := "") -> void:
+	if sp == "player":
+		_left.set_speaker("player", expr)
+	elif sp not in ["", "narrator"]:
+		_right.set_speaker(sp, expr)
 	_left.set_active(sp == "player")
 	_right.set_active(sp not in ["", "player", "narrator"])
 
@@ -143,7 +148,7 @@ func _show(ev: Dictionary) -> void:
 	match ev.get("type", ""):
 		"line":
 			visible = true
-			_spotlight(ev["speaker"])
+			_spotlight(ev["speaker"], ev.get("expression", ""))
 			_text.text = ev["text"]
 			_hint.text = "E / Space — 다음"
 		"choice":

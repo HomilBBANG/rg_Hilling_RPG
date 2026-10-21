@@ -1919,8 +1919,9 @@ func _run_dialogue_tour() -> void:
 				await _frames(5)
 				continue
 			await _seconds(0.2)  # let the dim fade settle
-			print("[dialogue] %s %s %s '%s' | left %s a=%.2f | right %s a=%.2f" % [id.get_slice(".", 2), ev["node"], ev["type"],
-				ev.get("speaker", "-"), box._left.speaker, box._left.modulate.a, box._right.speaker, box._right.modulate.a])
+			print("[dialogue] %s %s %s '%s' | left %s%s a=%.2f image %s | right %s a=%.2f image %s" % [id.get_slice(".", 2), ev["node"], ev["type"],
+				ev.get("speaker", "-"), box._left.speaker, "/" + box._left.expression if box._left.expression != "" else "", box._left.modulate.a,
+				box._left.has_image(), box._right.speaker, box._right.modulate.a, box._right.has_image()])
 			if ev["node"] in shots[id]:
 				await _p1_shot("dialogue_%s_%s" % [id.get_slice(".", 2), ev["node"]], "dialogue portraits", true)
 			if ev["type"] == "choice":
