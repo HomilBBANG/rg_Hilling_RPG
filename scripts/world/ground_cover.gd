@@ -112,6 +112,7 @@ static func build(parent: Node3D, area: Rect2, count: int, height_func: Callable
 	StylizedMaterials.register(grass_mat)
 	var g := _multimesh(_tuft_mesh(), tuft_t, tuft_c, grass_mat, false)
 	g.name = "GrassTufts"
+	g.add_to_group("grass_tufts")
 	parent.add_child(g)
 	var f := _multimesh(_flower_mesh(), flower_t, flower_c, flower_mat, false)
 	f.name = "Flowers"

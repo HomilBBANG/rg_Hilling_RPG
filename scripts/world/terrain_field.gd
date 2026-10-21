@@ -1,13 +1,17 @@
 class_name TerrainField
 extends RefCounted
-## Height + ground-colour field for an outdoor region, and a flat-shaded vertex-coloured mesh.
-## Layout: grass, winding dirt paths, an optional pond with sand rim, mounds / hills, a forest
-## patch and raised edges that frame the play area. The constants are the starting meadow's
-## layout (the default); other regions pass their own layout (data/regions/*.json "terrain").
+## Height + ground-colour field for an outdoor region, and its vertex-coloured mesh (in chunks,
+## so the renderer culls what the fixed camera can't see). Layout: grass, winding dirt paths,
+## ponds / lakes with sand rims, mounds / hills, forest patches and raised edges that frame the
+## play area. The constants are the old starting meadow's layout (the default); regions pass their
+## own layout (data/regions/*.json "terrain").
 
 const MIN := Vector2(-44.0, -40.0)
 const MAX := Vector2(56.0, 44.0)
 const CELL := 0.5
+const CHUNK := 32.0          # metres per terrain mesh piece
+const PATH_BUCKET := 12.0    # path segments are looked up in buckets of this size
+const PATH_REACH := 10.0     # path_distance is exact up to this far; beyond, it only says "far"
 
 const POND_CENTER := Vector2(12.0, 19.0)
 const POND_RADIUS := 6.5
@@ -32,14 +36,20 @@ const FOREST_RADIUS := 15.0
 
 var bounds_min := MIN
 var bounds_max := MAX
-var pond_center := POND_CENTER
+var pond_center := POND_CENTER  ## the first pond (fishing spots, older code)
 var pond_radius := POND_RADIUS  ## 0 = no pond
+var ponds: Array = [[POND_CENTER, POND_RADIUS]]  ## [[center Vector2, radius], ...] ponds and lakes
 var camp_center := CAMP_CENTER  ## Vector2.INF = no flattened camp clearing
 var paths: Array[PackedVector2Array] = [PATH]
 var mounds: Array = MOUNDS
-var forest_center := FOREST_CENTER
+var forest_center := FOREST_CENTER  ## the first forest
 var forest_radius := FOREST_RADIUS
+var forests: Array = [[FOREST_CENTER, FOREST_RADIUS]]  ## [[center Vector2, radius], ...]
 var hill_noise := 0.45
+
+var _buckets := {}  # Vector2i bucket -> PackedInt32Array of segment ids
+var _seg_a := PackedVector2Array()
+var _seg_b := PackedVector2Array()
 
 var _noise := FastNoiseLite.new()
 var _tone := FastNoiseLite.new()
@@ -49,17 +59,22 @@ static func _v2(a: Variant, fallback: Vector2) -> Vector2:
 	return Vector2(float(a[0]), float(a[1])) if a is Array and (a as Array).size() >= 2 else fallback
 
 
-## layout keys (all optional): min, max, pond {center, radius} | null, camp_center | null,
-## paths [[[x, z], ...], ...], mounds [[[x, z], height, width], ...], forest {center, radius},
-## hill_noise, seed.
+## layout keys (all optional): min, max, pond {center, radius} | null, ponds [{center, radius}],
+## camp_center | null, paths [[[x, z], ...], ...], mounds [[[x, z], height, width], ...],
+## forest {center, radius}, forests [{center, radius}], hill_noise, seed.
 func _init(layout := {}) -> void:
 	if layout.has("min"):
 		bounds_min = _v2(layout["min"], MIN)
 		bounds_max = _v2(layout["max"], MAX)
-	if layout.has("pond"):
-		var pd: Variant = layout["pond"]
-		pond_radius = float(pd["radius"]) if pd is Dictionary else 0.0
-		pond_center = _v2(pd["center"], POND_CENTER) if pd is Dictionary else Vector2(1e6, 1e6)
+	if layout.has("pond") or layout.has("ponds"):
+		ponds = []
+		var pd: Variant = layout.get("pond", null)
+		if pd is Dictionary:
+			ponds.append([_v2(pd["center"], POND_CENTER), float(pd["radius"])])
+		for p: Dictionary in layout.get("ponds", []):
+			ponds.append([_v2(p["center"], Vector2.ZERO), float(p["radius"])])
+		pond_radius = float(ponds[0][1]) if not ponds.is_empty() else 0.0
+		pond_center = ponds[0][0] if not ponds.is_empty() else Vector2(1e6, 1e6)
 	if layout.has("camp_center"):
 		camp_center = _v2(layout["camp_center"], Vector2.INF) if layout["camp_center"] != null else Vector2.INF
 	if layout.has("paths"):
@@ -73,9 +88,16 @@ func _init(layout := {}) -> void:
 		mounds = []
 		for m: Array in layout["mounds"]:
 			mounds.append([_v2(m[0], Vector2.ZERO), float(m[1]), float(m[2])])
-	if layout.has("forest"):
-		forest_center = _v2(layout["forest"]["center"], FOREST_CENTER)
-		forest_radius = float(layout["forest"]["radius"])
+	if layout.has("forest") or layout.has("forests"):
+		forests = []
+		var fo: Variant = layout.get("forest", null)
+		if fo is Dictionary:
+			forests.append([_v2(fo["center"], FOREST_CENTER), float(fo["radius"])])
+		for f: Dictionary in layout.get("forests", []):
+			forests.append([_v2(f["center"], Vector2.ZERO), float(f["radius"])])
+		if not forests.is_empty():
+			forest_center = forests[0][0]
+			forest_radius = forests[0][1]
 	hill_noise = float(layout.get("hill_noise", hill_noise))
 	_noise.seed = int(layout.get("seed", 11))
 	_noise.noise_type = FastNoiseLite.TYPE_SIMPLEX_SMOOTH
@@ -83,30 +105,66 @@ func _init(layout := {}) -> void:
 	_tone.seed = 5
 	_tone.noise_type = FastNoiseLite.TYPE_SIMPLEX_SMOOTH
 	_tone.frequency = 0.09
+	_index_paths()
 
 
-func path_distance(x: float, z: float) -> float:
-	var p := Vector2(x, z)
-	var best := INF
+## Buckets every path segment by area, so a distance query only looks at nearby segments
+## (big regions have long roads and the height / colour / grass code asks millions of times).
+func _index_paths() -> void:
 	for line in paths:
 		for i in line.size() - 1:
-			var a := line[i]
-			var b := line[i + 1]
-			var ab := b - a
-			var t := clampf((p - a).dot(ab) / ab.length_squared(), 0.0, 1.0)
-			best = minf(best, p.distance_to(a + ab * t))
+			var id := _seg_a.size()
+			_seg_a.append(line[i])
+			_seg_b.append(line[i + 1])
+			var lo := line[i].min(line[i + 1]) - Vector2.ONE * PATH_REACH
+			var hi := line[i].max(line[i + 1]) + Vector2.ONE * PATH_REACH
+			for bx in range(floori(lo.x / PATH_BUCKET), floori(hi.x / PATH_BUCKET) + 1):
+				for bz in range(floori(lo.y / PATH_BUCKET), floori(hi.y / PATH_BUCKET) + 1):
+					var key := Vector2i(bx, bz)
+					var ids: PackedInt32Array = _buckets.get(key, PackedInt32Array())
+					ids.append(id)
+					_buckets[key] = ids  # packed arrays are copied: store the grown one back
+
+
+## Distance to the nearest path centre line; exact within PATH_REACH, otherwise some value
+## beyond it (callers only test short distances).
+func path_distance(x: float, z: float) -> float:
+	var ids: Variant = _buckets.get(Vector2i(floori(x / PATH_BUCKET), floori(z / PATH_BUCKET)), null)
+	if ids == null:
+		return PATH_REACH * 2.0
+	var p := Vector2(x, z)
+	var best := PATH_REACH * 2.0
+	for id in (ids as PackedInt32Array):
+		var a := _seg_a[id]
+		var ab := _seg_b[id] - a
+		var t := clampf((p - a).dot(ab) / ab.length_squared(), 0.0, 1.0)
+		best = minf(best, p.distance_to(a + ab * t))
 	return best
 
 
+## Signed distance to the nearest pond / lake rim (negative = in the water).
 func pond_distance(x: float, z: float) -> float:
-	# Slightly irregular rim
-	if pond_radius <= 0.0:
-		return 1e6
-	var p := Vector2(x, z) - pond_center
-	var wobble := sin(p.angle() * 3.0) * 0.6 + sin(p.angle() * 5.0 + 1.0) * 0.3
-	# distance to the rim (the radius was missing before P3-4: the pond showed only ~2 m of water
-	# inside a 6.5 m collider, with its reeds and lily pads buried under the grass)
-	return p.length() - pond_radius - wobble
+	var best := 1e6
+	for i in ponds.size():
+		var c: Vector2 = ponds[i][0]
+		var r: float = ponds[i][1]
+		var p := Vector2(x, z) - c
+		if p.length() - r > 8.0:
+			best = minf(best, p.length() - r)
+			continue
+		# slightly irregular rim, a different wobble per pond
+		var wobble := (sin(p.angle() * 3.0 + i) * 0.6 + sin(p.angle() * 5.0 + 1.0 + i * 2.0) * 0.3) * minf(1.0, r / 6.5)
+		best = minf(best, p.length() - r - wobble)
+	return best
+
+
+## 0..1 how deep inside a forest patch the point is (1 = well inside).
+func forest_mask(x: float, z: float) -> float:
+	var m := 0.0
+	for f: Array in forests:
+		var fd := Vector2(x, z).distance_to(f[0])
+		m = maxf(m, 1.0 - smoothstep(float(f[1]) - 6.0, float(f[1]) + 3.0, fd))
+	return m
 
 
 func height(x: float, z: float) -> float:
@@ -157,9 +215,7 @@ func ground_color(x: float, z: float, rng: RandomNumberGenerator) -> Color:
 		c = c.darkened(0.05)
 	elif jitter > 0.88:
 		c = c.lightened(0.04)
-	var fd := Vector2(x, z).distance_to(forest_center)
-	if fd < forest_radius + 3.0:
-		c = c.lerp(Color(0.26, 0.44, 0.2), (1.0 - smoothstep(forest_radius - 6.0, forest_radius + 3.0, fd)) * 0.7)
+	c = c.lerp(Color(0.26, 0.44, 0.2), forest_mask(x, z) * 0.7)
 	if pd < 2.0 + edge_noise:
 		c = c.lerp(Color(0.55, 0.5, 0.3), 0.35)
 	return c
@@ -169,16 +225,17 @@ func ground_color(x: float, z: float, rng: RandomNumberGenerator) -> Color:
 func masks(x: float, z: float) -> Color:
 	var pd := path_distance(x, z)
 	var wd := pond_distance(x, z)
-	var fd := Vector2(x, z).distance_to(forest_center)
 	var cd := Vector2(x, z).distance_to(camp_center) if camp_center != Vector2.INF else 1e6
 	return Color(
 		1.0 - smoothstep(0.4, 2.4, pd),
 		1.0 - smoothstep(-0.6, 2.2, wd),
-		1.0 - smoothstep(forest_radius - 6.0, forest_radius + 3.0, fd),
+		forest_mask(x, z),
 		1.0 - smoothstep(2.0, 7.0, cd))
 
 
-func build_mesh(stylized_material: Material = null) -> ArrayMesh:
+## The whole terrain as pieces of CHUNK metres (seamless: they share the height grid and its
+## smooth normals). Returns [ArrayMesh, ...].
+func build_chunks(stylized_material: Material = null) -> Array[ArrayMesh]:
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 3
 	var nx := int((bounds_max.x - bounds_min.x) / CELL)
@@ -186,37 +243,52 @@ func build_mesh(stylized_material: Material = null) -> ArrayMesh:
 	var row := nx + 1
 	var heights := PackedFloat32Array()
 	heights.resize(row * (nz + 1))
-	for iz in nz + 1:
-		for ix in row:
-			heights[iz * row + ix] = height(bounds_min.x + ix * CELL, bounds_min.y + iz * CELL)
-	var verts := PackedVector3Array()
-	var normals := PackedVector3Array()
 	var colors := PackedColorArray()
-	verts.resize(row * (nz + 1))
-	normals.resize(verts.size())
-	colors.resize(verts.size())
+	colors.resize(row * (nz + 1))
 	for iz in nz + 1:
 		for ix in row:
-			var i := iz * row + ix
 			var x := bounds_min.x + ix * CELL
 			var z := bounds_min.y + iz * CELL
-			verts[i] = Vector3(x, heights[i], z)
+			heights[iz * row + ix] = height(x, z)
+			colors[iz * row + ix] = masks(x, z) if stylized_material else ground_color(x, z, rng)
+	var material: Material = stylized_material
+	if material == null:
+		var m := StandardMaterial3D.new()
+		m.vertex_color_use_as_albedo = true
+		m.vertex_color_is_srgb = true
+		m.roughness = 1.0
+		material = m
+	var step := int(CHUNK / CELL)
+	var out: Array[ArrayMesh] = []
+	for cz in range(0, nz, step):
+		for cx in range(0, nx, step):
+			out.append(_chunk_mesh(heights, colors, row, nx, nz, cx, cz, mini(cx + step, nx), mini(cz + step, nz), material))
+	return out
+
+
+func _chunk_mesh(heights: PackedFloat32Array, colors: PackedColorArray, row: int, nx: int, nz: int,
+		x0: int, z0: int, x1: int, z1: int, material: Material) -> ArrayMesh:
+	var w := x1 - x0 + 1
+	var verts := PackedVector3Array()
+	var normals := PackedVector3Array()
+	var cols := PackedColorArray()
+	for iz in range(z0, z1 + 1):
+		for ix in range(x0, x1 + 1):
+			var i := iz * row + ix
+			verts.append(Vector3(bounds_min.x + ix * CELL, heights[i], bounds_min.y + iz * CELL))
 			# Smooth normal from central differences (toon light stays clean on gentle slopes).
 			var hl := heights[iz * row + maxi(ix - 1, 0)]
 			var hr := heights[iz * row + mini(ix + 1, nx)]
 			var hd := heights[maxi(iz - 1, 0) * row + ix]
 			var hu := heights[mini(iz + 1, nz) * row + ix]
-			normals[i] = Vector3(hl - hr, 2.0 * CELL, hd - hu).normalized()
-			if stylized_material:
-				colors[i] = masks(x, z)
-			else:
-				colors[i] = ground_color(x, z, rng)
+			normals.append(Vector3(hl - hr, 2.0 * CELL, hd - hu).normalized())
+			cols.append(colors[i])
 	var indices := PackedInt32Array()
-	for iz in nz:
-		for ix in nx:
-			var i00 := iz * row + ix
+	for iz in z1 - z0:
+		for ix in x1 - x0:
+			var i00 := iz * w + ix
 			var i10 := i00 + 1
-			var i01 := i00 + row
+			var i01 := i00 + w
 			var i11 := i01 + 1
 			# Clockwise (seen from above) = front face in Godot.
 			indices.append_array([i00, i10, i11, i00, i11, i01])
@@ -224,16 +296,9 @@ func build_mesh(stylized_material: Material = null) -> ArrayMesh:
 	arrays.resize(Mesh.ARRAY_MAX)
 	arrays[Mesh.ARRAY_VERTEX] = verts
 	arrays[Mesh.ARRAY_NORMAL] = normals
-	arrays[Mesh.ARRAY_COLOR] = colors
+	arrays[Mesh.ARRAY_COLOR] = cols
 	arrays[Mesh.ARRAY_INDEX] = indices
 	var mesh := ArrayMesh.new()
 	mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
-	if stylized_material:
-		mesh.surface_set_material(0, stylized_material)
-	else:
-		var m := StandardMaterial3D.new()
-		m.vertex_color_use_as_albedo = true
-		m.vertex_color_is_srgb = true
-		m.roughness = 1.0
-		mesh.surface_set_material(0, m)
+	mesh.surface_set_material(0, material)
 	return mesh

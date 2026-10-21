@@ -80,8 +80,10 @@ func _ready() -> void:
 		exits.append(e)
 	_rng.seed = 2024 if region_id == RegionDB.START else hash(region_id)
 	StylizedMaterials.clear_registry()
+	var t0 := Time.get_ticks_msec()
 	_build_environment()
 	_build_ground()
+	var t_ground := Time.get_ticks_msec()
 	_build_camp()
 	_build_landmarks()
 	if is_dungeon():
@@ -91,8 +93,11 @@ func _ready() -> void:
 	else:
 		_scatter_nature()
 		_build_ground_cover()
+	var t_nature := Time.get_ticks_msec()
 	_spawn_actors()
 	_spawn_loot()
+	print("[world] built %s in %d ms (terrain %d, props/nature %d, actors %d)" % [region_id, Time.get_ticks_msec() - t0,
+		t_ground - t0, t_nature - t_ground, Time.get_ticks_msec() - t_nature])
 	Game.discovered["region:" + region_id] = true
 	Game.story_changed.connect(_on_story_changed)
 
@@ -144,15 +149,17 @@ func _build_environment() -> void:
 
 
 func _build_ground() -> void:
-	var mi := MeshInstance3D.new()
-	mi.name = "Terrain"
 	var tm := StylizedMaterials.terrain()
 	_apply_ground_colors(tm, "")
-	mi.mesh = terrain.build_mesh(tm)
-	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	add_child(mi)
-	if terrain.pond_radius > 0.0:
-		_build_pond()
+	for mesh in terrain.build_chunks(tm):
+		var mi := MeshInstance3D.new()
+		mi.name = "Terrain"
+		mi.mesh = mesh
+		mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		add_child(mi)
+	for pd: Array in terrain.ponds:
+		if float(pd[1]) > 0.0:
+			_build_pond(pd[0], float(pd[1]))
 
 
 ## Optional per-region ground palette (data/regions "ground"): terrain and grass tuft colours.
@@ -170,14 +177,14 @@ func _apply_ground_colors(mat: ShaderMaterial, prefix: String) -> void:
 				"grass_dark", "grass_mid": mat.set_shader_parameter(k, c)
 
 
-func _build_pond() -> void:
-	# Pond water: semi-transparent, slightly glossy disc with a light rim.
+func _build_pond(center: Vector2, radius: float) -> void:
+	# Pond / lake water: semi-transparent, slightly glossy disc with a light rim.
 	var water := MeshInstance3D.new()
 	var disc := CylinderMesh.new()
-	disc.top_radius = terrain.pond_radius + 0.2
-	disc.bottom_radius = terrain.pond_radius + 0.2
+	disc.top_radius = radius + 0.2
+	disc.bottom_radius = radius + 0.2
 	disc.height = 0.02
-	disc.radial_segments = 28
+	disc.radial_segments = clampi(roundi(radius * 4.0), 28, 96)
 	disc.rings = 1
 	water.mesh = disc
 	var wm := StandardMaterial3D.new()
@@ -189,25 +196,25 @@ func _build_pond() -> void:
 	wm.specular_mode = BaseMaterial3D.SPECULAR_TOON
 	water.material_override = wm
 	water.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	water.position = Vector3(terrain.pond_center.x, TerrainField.WATER_LEVEL, terrain.pond_center.y)
+	water.position = Vector3(center.x, TerrainField.WATER_LEVEL, center.y)
 	add_child(water)
-	ProtoMesh.static_cylinder_collider(self, terrain.pond_radius - 1.0, 6.0, water.position)
+	ProtoMesh.static_cylinder_collider(self, radius - 1.0, 6.0, water.position)
 	var pad := ProtoMesh.mat(Color(0.3, 0.56, 0.26))
 	var flower := ProtoMesh.mat(Color(0.98, 0.82, 0.88))
-	for i in 9:
+	for i in roundi(9 * maxf(1.0, radius / 6.5)):
 		var a := _rng.randf() * TAU
-		var r := _rng.randf_range(1.5, terrain.pond_radius - 1.2)
+		var r := _rng.randf_range(1.5, radius - 1.2)
 		var p := water.position + Vector3(cos(a) * r, 0.02, sin(a) * r)
 		ProtoMesh.cylinder(self, _rng.randf_range(0.25, 0.45), 0.02, p, pad, Vector3.ZERO, 8)
 		if i % 2 == 0:
 			ProtoMesh.sphere(self, 0.09, p + Vector3(0.08, 0.06, 0), flower, Vector3.ONE, 6, 3)
 	# Reeds around the shore
 	var reed := StylizedMaterials.foliage(Color(0.42, 0.6, 0.28), Color(0.7, 0.78, 0.38), Color(0.22, 0.4, 0.2))
-	for i in 26:
+	for i in roundi(26 * maxf(1.0, radius / 6.5)):
 		var a := _rng.randf() * TAU
-		var r := terrain.pond_radius + _rng.randf_range(-0.6, 0.6)
-		var x := terrain.pond_center.x + cos(a) * r
-		var z := terrain.pond_center.y + sin(a) * r
+		var r := radius + _rng.randf_range(-0.6, 0.6)
+		var x := center.x + cos(a) * r
+		var z := center.y + sin(a) * r
 		var c := ProtoMesh.cylinder(self, 0.03, _rng.randf_range(0.6, 1.0), Vector3(x, ground_height(x, z) + 0.35, z), reed, Vector3(_rng.randf_range(-10, 10), 0, _rng.randf_range(-10, 10)), 4, 0.01)
 		c.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		if i % 3 == 0:
@@ -419,18 +426,25 @@ func _scatter_nature() -> void:
 	var sc: Dictionary = region.get("scatter", {})
 	var pine_share := float(sc.get("forest_pine", 0.55))
 	var broad_share := float(sc.get("forest_broadleaf", 0.3))
-	# Forest patch
+	# Forest patches: "forest_trees" is the total, shared by area
+	var forest_area := 0.0
+	for f: Array in terrain.forests:
+		forest_area += float(f[1]) * float(f[1])
 	var placed := 0
 	var tries := 0
-	while placed < int(sc.get("forest_trees", 46)) and tries < 2000:
-		tries += 1
-		var p := _random_point(terrain.forest_center, terrain.forest_radius)
-		var roll := _rng.randf()
-		var kind := NatureProps.TreeKind.PINE if roll < pine_share else (NatureProps.TreeKind.BROADLEAF if roll < pine_share + broad_share else NatureProps.TreeKind.BIRCH)
-		var s := _rng.randf_range(0.85, 1.3)
-		if _is_free(p.x, p.y, 1.1 * s, 1.6):
-			_place_tree(kind, p.x, p.y, s)
-			placed += 1
+	for f: Array in terrain.forests:
+		var want := roundi(int(sc.get("forest_trees", 46)) * float(f[1]) * float(f[1]) / maxf(forest_area, 1.0))
+		placed = 0
+		tries = 0
+		while placed < want and tries < want * 40:
+			tries += 1
+			var p := _random_point(f[0], float(f[1]))
+			var roll := _rng.randf()
+			var kind := NatureProps.TreeKind.PINE if roll < pine_share else (NatureProps.TreeKind.BROADLEAF if roll < pine_share + broad_share else NatureProps.TreeKind.BIRCH)
+			var s := _rng.randf_range(0.85, 1.3)
+			if _is_free(p.x, p.y, 1.1 * s, 1.6):
+				_place_tree(kind, p.x, p.y, s)
+				placed += 1
 	# Scattered meadow trees (kept away from the camp clearing)
 	placed = 0
 	tries = 0
@@ -451,8 +465,8 @@ func _scatter_nature() -> void:
 		if _is_free(p.x, p.y, 2.0 * s, 2.5):
 			_place_tree(kind, p.x, p.y, s)
 			placed += 1
-	# Bushes, rocks, small details
-	for i in 900:
+	# Bushes, rocks, small details (900 tries per the old meadow's 8 400 m²)
+	for i in roundi(900.0 * area.get_area() / 8400.0):
 		var p := Vector2(_rng.randf_range(area.position.x, area.end.x), _rng.randf_range(area.position.y, area.end.y))
 		var roll := _rng.randf()
 		if p.distance_to(camp_c) < 6.5:
@@ -506,17 +520,28 @@ func _grass_density(x: float, z: float) -> float:
 func _build_ground_cover() -> void:
 	var hf := Callable(self, "ground_height")
 	var area := Rect2(terrain.bounds_min + Vector2(3, 3), terrain.bounds_max - terrain.bounds_min - Vector2(6, 6))
-	var forest := func(x: float, z: float) -> float: return terrain.masks(x, z).b
-	GroundCover.build(self, area, roundi(3000 * area.get_area() / 7332.0), hf, Callable(self, "_grass_density"), _rng, forest)
+	var forest := func(x: float, z: float) -> float: return terrain.forest_mask(x, z)
+	# in tiles so the renderer can cull what is off screen (same density as before: 3000 / 7332 m²)
+	var tile := 48.0
+	var ty := area.position.y
+	while ty < area.end.y:
+		var tx := area.position.x
+		while tx < area.end.x:
+			var r := Rect2(tx, ty, minf(tile, area.end.x - tx), minf(tile, area.end.y - ty))
+			GroundCover.build(self, r, roundi(3000 * r.get_area() / 7332.0), hf, Callable(self, "_grass_density"), _rng, forest)
+			tx += tile
+		ty += tile
 	if has_feature("camp"):
 		# A little denser around the camp so the hero shot feels lush (still patchy, not a carpet)
 		GroundCover.build(self, Rect2(-18, -12, 26, 22), 700, hf, Callable(self, "_grass_density"), _rng, forest)
 	var edge := func(x: float, z: float) -> float:
 		var pd := terrain.path_distance(x, z)
 		return 0.9 if pd > 0.9 and pd < 2.0 else 0.02
-	GroundCover.pebbles(self, area, 250, hf, edge, _rng)
+	GroundCover.pebbles(self, area, roundi(250 * area.get_area() / 7332.0), hf, edge, _rng)
 	if region.has("ground"):
-		for n in find_children("GrassTufts", "GeometryInstance3D", false, false):
+		for n in get_children():
+			if not n.is_in_group("grass_tufts"):
+				continue
 			var gm: Variant = (n as GeometryInstance3D).material_override
 			if gm is ShaderMaterial:
 				_apply_ground_colors(gm, "tuft")
