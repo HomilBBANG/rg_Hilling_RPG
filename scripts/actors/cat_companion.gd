@@ -15,6 +15,12 @@ const WALK_SPEED := 2.2
 const MAX_SPEED := 7.5
 const FOLLOW_GAP := 1.5
 const WARP_DISTANCE := 14.0
+## Follow speed grows with the distance beyond the gap, so a walking player is trailed at a steady
+## pace (no stop-and-go). Velocity eases toward the target speed.
+const FOLLOW_GAIN := 2.4
+const ACCEL := 14.0
+## Stopped this long before sitting down (short pauses keep the walk pose).
+const SIT_DELAY := 0.4
 
 var mode := Mode.FOLLOW
 var player: PrototypePlayer
@@ -28,6 +34,10 @@ var _meshes: Array[MeshInstance3D] = []
 var _yaw := 0.0
 var _phase := 0.0
 var _speed_now := 0.0
+var _still_t := 0.0
+var _trailing := false
+var _dir_idx := 0
+var _stuck_t := 0.0
 var _happy_t := -1.0
 var _rescue_t := 0.0
 var _rescue_center := Vector3.ZERO
@@ -78,6 +88,7 @@ func use_sprite_sheet(sheet: SpriteSheet) -> void:
 	else:
 		if sprite == null:
 			sprite = BakedSprite.new()
+			sprite.snap_reference = player
 			sprite.anchor = self
 			sprite.set_silhouette_color(Color(1.0, 0.85, 0.4, 0.45), 1.0)
 			add_child(sprite)
@@ -149,6 +160,8 @@ func _physics_process(delta: float) -> void:
 		return
 	var goal := global_position
 	var speed := 0.0
+	var follow_vel := Vector3.ZERO
+	var use_follow := false
 	var to_p := _flat(player.global_position - global_position)
 	var dist := to_p.length()
 	if _happy_t >= 0.0:
@@ -171,9 +184,14 @@ func _physics_process(delta: float) -> void:
 			if dist > WARP_DISTANCE:
 				_warp_behind()
 				return
-			if dist > FOLLOW_GAP + 0.6:
-				goal = player.global_position - to_p.normalized() * FOLLOW_GAP
-				speed = clampf(dist * 1.6, WALK_SPEED, MAX_SPEED)
+			use_follow = true
+			# Hysteresis: start when clearly left behind, stop once back at the gap (no creeping).
+			if not _trailing and dist > FOLLOW_GAP + 0.8:
+				_trailing = true
+			elif _trailing and dist < FOLLOW_GAP + 0.15:
+				_trailing = false
+			if _trailing:
+				follow_vel = to_p.normalized() * clampf((dist - FOLLOW_GAP) * FOLLOW_GAIN, 1.4, MAX_SPEED)
 		Mode.RESCUE:
 			_rescue_t += delta
 			if _rescue_t < 3.0:
@@ -193,30 +211,43 @@ func _physics_process(delta: float) -> void:
 					_spot_wait = _rng.randf_range(7.0, 13.0)
 				goal = _spot
 				speed = WALK_SPEED * 0.6
-	var d := _flat(goal - global_position)
-	if speed > 0.0 and d.length() > 0.12 and _happy_t < 0.0:
-		var v := d.normalized() * minf(speed, d.length() / maxf(delta, 0.001))
-		velocity = v
-		_yaw = lerp_angle(_yaw, atan2(-v.x, -v.z), 1.0 - exp(-10.0 * delta))
-	else:
-		velocity = Vector3.ZERO
-		if mode == Mode.RESCUE and _rescue_t >= 3.0:
-			_yaw = lerp_angle(_yaw, atan2(-to_p.x, -to_p.z), 1.0 - exp(-6.0 * delta))
+	var desired := follow_vel
+	if not use_follow:
+		var d := _flat(goal - global_position)
+		if speed > 0.0 and d.length() > 0.12:
+			desired = d.normalized() * minf(speed, d.length() * 3.0)  # slow down on arrival
+	if _happy_t >= 0.0:
+		desired = Vector3.ZERO
+	velocity = _flat(velocity).move_toward(desired, ACCEL * delta)
+	if velocity.length() > 0.3:
+		_yaw = lerp_angle(_yaw, atan2(-velocity.x, -velocity.z), 1.0 - exp(-10.0 * delta))
+	elif mode == Mode.RESCUE and _rescue_t >= 3.0:
+		_yaw = lerp_angle(_yaw, atan2(-to_p.x, -to_p.z), 1.0 - exp(-6.0 * delta))
 	move_and_slide()
 	if height_func.is_valid():
 		global_position.y = height_func.call(global_position.x, global_position.z)
 	_speed_now = _flat(get_real_velocity()).length()
+	# Caught on a prop (campfire, table, camper) while trailing: rejoin the player instead.
+	if use_follow and desired.length() > 1.0 and _speed_now < 0.4:
+		_stuck_t += delta
+		if _stuck_t > 1.2:
+			_stuck_t = 0.0
+			_warp_behind()
+	else:
+		_stuck_t = 0.0
 
 
 func _warp_behind() -> void:
 	var p := player.global_position + Vector3(0.9, 0, 0.9)
+	velocity = Vector3.ZERO
 	global_position = Vector3(p.x, height_func.call(p.x, p.z) if height_func.is_valid() else 0.0, p.z)
 
 
 func _process(delta: float) -> void:
-	var moving := _speed_now > 0.15
-	if moving:
-		_phase += delta * (6.0 + _speed_now * 2.2)
+	_still_t = 0.0 if _speed_now > 0.25 else _still_t + delta
+	var moving := _still_t < SIT_DELAY
+	if _speed_now > 0.05:
+		_phase += delta * (4.0 + _speed_now * 2.6)
 	_rig.rotation.y = _yaw
 	var col: int
 	if _happy_t >= 0.0:
@@ -232,4 +263,13 @@ func _process(delta: float) -> void:
 		_rig.pose_sit(false)
 		col = CatRig.column_for("sit", 0)
 	if sprite:
-		sprite.set_frame(col, CatRig.direction_index(_yaw))
+		sprite.set_frame(col, _facing_index())
+
+
+## 8-direction sprite row with hysteresis: switch only when clearly past the boundary, so a path
+## running near a 22.5 deg boundary doesn't flip the facing every few frames.
+func _facing_index() -> int:
+	var step := TAU / CatRig.DIRECTIONS
+	if absf(angle_difference(_dir_idx * step, _yaw)) > step * 0.5 + deg_to_rad(8.0):
+		_dir_idx = CatRig.direction_index(_yaw)
+	return _dir_idx

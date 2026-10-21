@@ -2,7 +2,7 @@ class_name CamperExterior
 extends Node3D
 ## Stylized modern Class-C motorhome. Front faces local +X, door side is local +Z (camera side).
 ## Body = extruded rounded side profile with bevelled edges + painted livery shader,
-## rounded windows, awning with string lights, roof cargo box, spare wheel cover.
+## rounded windows, roof cargo box, spare wheel cover (no awning).
 
 const LENGTH := 7.4
 const WIDTH := 2.4
@@ -25,7 +25,6 @@ var sprite_dir := 0
 func _ready() -> void:
 	_build_body()
 	_build_details()
-	_build_awning()
 	if with_collider:
 		ProtoMesh.static_box_collider(self, Vector3(LENGTH, 6.0, WIDTH), Vector3(0, 2.0, 0))
 	lights = PrototypeCamperLights.new()
@@ -72,7 +71,7 @@ func use_sprite_sheet(sheet: SpriteSheet) -> void:
 		sprite.name = "Sprite"
 		sprite.anchor = self
 		sprite.silhouette_enabled = false
-		sprite.set_inner_lines(true)  # pixel-art inner lines: panel edges, awning, windows
+		sprite.set_inner_lines(true)  # pixel-art inner lines: panel edges, windows
 		add_child(sprite)
 	elif sheet == null and sprite:
 		sprite.queue_free()
@@ -234,38 +233,3 @@ func _build_details() -> void:
 	cargo.material_override = mustard
 	add_child(cargo)
 	ProtoMesh.box(self, Vector3(0.5, 0.06, 0.5), Vector3(0.75, 3.15, 0), ProtoMesh.mat(Color(0.55, 0.7, 0.85), 0.2))
-
-
-func _build_awning() -> void:
-	## Extended striped awning over the door, poles, valance and string lights.
-	var x0 := -2.8
-	var x1 := 0.8
-	var z_in := WIDTH * 0.5 + 0.05
-	var z_out := WIDTH * 0.5 + 2.1
-	var y_in := 2.88
-	var y_out := 2.42
-	var stripes := 8
-	var col_a := ProtoMesh.mat(Color(0.97, 0.94, 0.86), 0.8)
-	var col_b := ProtoMesh.mat(Color(0.93, 0.5, 0.4), 0.8)
-	var slope := rad_to_deg(atan2(y_in - y_out, z_out - z_in))
-	var depth := Vector2(z_out - z_in, y_in - y_out).length()
-	var w := (x1 - x0) / stripes
-	for i in stripes:
-		var cx := x0 + w * (i + 0.5)
-		ProtoMesh.box(self, Vector3(w, 0.03, depth), Vector3(cx, (y_in + y_out) * 0.5, (z_in + z_out) * 0.5), col_a if i % 2 == 0 else col_b, Vector3(slope, 0, 0))
-		# scalloped valance
-		ProtoMesh.box(self, Vector3(w, 0.14, 0.03), Vector3(cx, y_out - 0.07, z_out), col_b if i % 2 == 0 else col_a)
-	var trim := ProtoMesh.mat(Color(0.55, 0.57, 0.6), 0.5)
-	ProtoMesh.cylinder(self, 0.08, x1 - x0 + 0.1, Vector3((x0 + x1) * 0.5, y_in + 0.02, z_in), trim, Vector3(0, 0, 90), 8)
-	for px in [x0 + 0.05, x1 - 0.05]:
-		ProtoMesh.cylinder(self, 0.03, y_out, Vector3(px, y_out * 0.5, z_out - 0.05), trim, Vector3.ZERO, 6)
-	# String lights (subtle by day; glow at night via emission)
-	var bulb_cols := [Color(1.0, 0.85, 0.45), Color(0.98, 0.55, 0.45), Color(0.5, 0.85, 0.8), Color(1.0, 0.95, 0.85)]
-	var n := 11
-	for i in n:
-		var t := float(i) / (n - 1)
-		var x := lerpf(x0 + 0.1, x1 - 0.1, t)
-		var sag := sin(t * PI * 3.0) * 0.06
-		var c: Color = bulb_cols[i % bulb_cols.size()]
-		var b := ProtoMesh.sphere(self, 0.05, Vector3(x, y_out - 0.2 - absf(sag), z_out + 0.02), ProtoMesh.mat(c, 0.4, c, 1.1), Vector3.ONE, 6, 3)
-		b.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF

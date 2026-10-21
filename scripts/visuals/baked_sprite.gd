@@ -9,6 +9,10 @@ var anchor: Node3D
 var emission_variant := "default"
 var emission_energy := 1.0
 var silhouette_enabled := true
+## Optional: snap relative to this node's snapped position instead of the world grid. For actors
+## that move together with the camera target (the cat trailing the player): two separately
+## rounded moving positions make their 1-texel gap flicker back and forth while walking.
+var snap_reference: Node3D
 
 var _mat: ShaderMaterial
 var _sil: ShaderMaterial
@@ -95,6 +99,11 @@ func _process(_delta: float) -> void:
 	var local := basis.inverse() * anchor.global_position
 	var t := sheet.texel
 	# Snap in the camera plane (cell parity matches the screen, see SpriteBaker); keep depth.
-	local.x = roundf(local.x / t) * t
-	local.y = roundf(local.y / t) * t
+	if snap_reference and is_instance_valid(snap_reference) and snap_reference.is_visible_in_tree():
+		var ref := basis.inverse() * snap_reference.global_position
+		local.x = roundf(ref.x / t) * t + roundf((local.x - ref.x) / t) * t
+		local.y = roundf(ref.y / t) * t + roundf((local.y - ref.y) / t) * t
+	else:
+		local.x = roundf(local.x / t) * t
+		local.y = roundf(local.y / t) * t
 	global_transform = Transform3D(basis, basis * local)

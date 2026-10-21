@@ -175,7 +175,7 @@ func _build_camp() -> void:
 	_block(CAMPER_POS.x, CAMPER_POS.z, 4.2)
 	_block(CAMPER_POS.x - 2.0, CAMPER_POS.z, 2.0)
 	_block(CAMPER_POS.x + 2.5, CAMPER_POS.z, 2.0)
-	# Under the awning (door side faces the camera): rug, chairs, table, cooler, plants
+	# In front of the door (door side faces the camera): rug, chairs, table, cooler, plants
 	var door := CAMP_XF * CamperExterior.DOOR_LOCAL
 	var rug := _on_ground(CampProps.picnic_rug(Vector2(2.2, 1.5)), door.x + 1.6, door.z + 1.6)
 	rug.rotation_degrees.y = CAMPER_YAW_DEG

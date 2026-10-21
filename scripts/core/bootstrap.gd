@@ -245,6 +245,8 @@ func _parse_args() -> void:
 		_run_walk_tour()
 	elif tour == "p1":
 		_run_p1_tour()
+	elif tour == "catfollow":
+		_run_cat_follow_check()
 	elif tour == "p1input":
 		_run_p1_input_tour()
 
@@ -1009,4 +1011,62 @@ func _run_p1_input_tour() -> void:
 	print("[input] ESC -> paused %s" % get_tree().paused)
 	await _key(KEY_ESCAPE)
 	print("[input] ESC -> paused %s" % get_tree().paused)
+	get_tree().quit()
+
+
+## Cat follow smoothness: walk / pause / walk / run with the cat trailing; prints speed jitter and
+## how often the pose flips between walking and sitting.
+func _run_cat_follow_check() -> void:
+	_touring = true
+	Game.clock_running = false
+	Game.minute_of_day = 10.5 * 60.0
+	await wait_for_sprites()
+	var p: PrototypePlayer = world.player
+	_place_player(Vector3(-1.0, 0, 5.6), 0.0)
+	var cat: CatCompanion = world.cat
+	cat.global_position = p.global_position + Vector3(-1.5, 0, 0)
+	await _frames(10)
+	var plan := [[Vector2(1, 0), false, 3.0], [Vector2.ZERO, false, 1.5], [Vector2(1, -0.3), false, 3.0], [Vector2(1, -0.6), true, 2.0], [Vector2.ZERO, false, 1.5]]
+	var speeds: Array[float] = []
+	var rels: Array[Vector2] = []
+	var flips := 0
+	var last_walk := false
+	var frames := 0
+	for step: Array in plan:
+		p.scripted_move = step[0]
+		p.scripted_running = step[1]
+		var t := 0.0
+		while t < step[2]:
+			await get_tree().physics_frame
+			t += get_physics_process_delta_time()
+			frames += 1
+			speeds.append(cat._speed_now)
+			if cat.sprite and p.sprite:
+				var b := Basis.from_euler(Vector3(deg_to_rad(-cat.sprite.sheet.pitch), 0, 0)).inverse()
+				var rel := (b * cat.sprite.global_position - b * p.sprite.global_position) / cat.sprite.sheet.texel
+				rels.append(Vector2(roundf(rel.x), roundf(rel.y)))
+			var still: Variant = cat.get("_still_t")
+			var walk: bool = (still as float) < 0.4 if still != null else cat._speed_now > 0.15
+			if walk != last_walk:
+				flips += 1
+			last_walk = walk
+	p.scripted_move = Vector2.ZERO
+	var f := FileAccess.open(_capture_dir.path_join("cat_speeds.txt"), FileAccess.WRITE)
+	if f:
+		for v in speeds:
+			f.store_line("%.3f" % v)
+	var jerk := 0.0
+	for i in range(1, speeds.size()):
+		jerk += absf(speeds[i] - speeds[i - 1])
+	# Steady walk (first segment after catching up): how often does the cat's on-screen offset
+	# from the player change, and how often does it step back to the previous value (jitter)?
+	var changes := 0
+	var backsteps := 0
+	for i in range(60, mini(175, rels.size())):
+		if rels[i] != rels[i - 1]:
+			changes += 1
+			if i >= 2 and rels[i] == rels[i - 2]:
+				backsteps += 1
+	print("[cat] steady walk: offset changes %d, back-and-forth %d (frames 60-175)" % [changes, backsteps])
+	print("[cat] frames %d, walk/sit flips %d, mean |dv| per frame %.3f m/s, final gap %.2f m" % [frames, flips, jerk / speeds.size(), cat.global_position.distance_to(p.global_position)])
 	get_tree().quit()
