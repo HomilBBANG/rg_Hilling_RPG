@@ -378,9 +378,10 @@ func _grass_density(x: float, z: float) -> float:
 func _build_ground_cover() -> void:
 	var hf := Callable(self, "ground_height")
 	var area := Rect2(TerrainField.MIN + Vector2(3, 3), TerrainField.MAX - TerrainField.MIN - Vector2(6, 6))
-	GroundCover.build(self, area, 3000, hf, Callable(self, "_grass_density"), _rng)
+	var forest := func(x: float, z: float) -> float: return terrain.masks(x, z).b
+	GroundCover.build(self, area, 3000, hf, Callable(self, "_grass_density"), _rng, forest)
 	# A little denser around the camp so the hero shot feels lush (still patchy, not a carpet)
-	GroundCover.build(self, Rect2(-18, -12, 26, 22), 700, hf, Callable(self, "_grass_density"), _rng)
+	GroundCover.build(self, Rect2(-18, -12, 26, 22), 700, hf, Callable(self, "_grass_density"), _rng, forest)
 	var edge := func(x: float, z: float) -> float:
 		var pd := terrain.path_distance(x, z)
 		return 0.9 if pd > 0.9 and pd < 2.0 else 0.02
@@ -419,6 +420,7 @@ func _spawn_actors() -> void:
 	_motes = AmbientParticles.motes(player)
 	_motes.emitting = false
 	_motes.visible = false
+	add_child(AmbientParticles.leaves(player))
 
 
 ## Objects drawn as pre-rendered pixel sprites: [node, bake spec, name] (same name = same sheet).
@@ -553,7 +555,11 @@ func _build_checkpoint_marker(p: Vector3) -> void:
 	ProtoMesh.sphere(root, 0.3, Vector3(0.03, 0.42, 0), stone, Vector3(1.0, 0.5, 0.9), 8, 4)
 	ProtoMesh.sphere(root, 0.18, Vector3(-0.02, 0.62, 0.02), stone_d, Vector3(1.0, 0.6, 1.0), 6, 3)
 	ProtoMesh.cylinder(root, 0.05, 1.5, Vector3(0.5, 0.75, 0.1), wood, Vector3.ZERO, 6)
-	ProtoMesh.box(root, Vector3(0.42, 0.26, 0.03), Vector3(0.72, 1.3, 0.1), cloth, Vector3(0, 0, -8))
+	var flag := WindSway.new()
+	flag.mode = WindSway.Mode.FLAG
+	flag.position = Vector3(0.5, 1.42, 0.1)
+	root.add_child(flag)
+	ProtoMesh.box(flag, Vector3(0.42, 0.26, 0.03), Vector3(0.23, -0.12, 0), cloth)
 	ProtoMesh.static_cylinder_collider(root, 0.45, 2.0, Vector3(0, 0.5, 0))
 
 

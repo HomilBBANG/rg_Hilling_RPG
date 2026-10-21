@@ -68,7 +68,8 @@ static func _multimesh(mesh: Mesh, transforms: Array[Transform3D], colors: Array
 
 
 ## accept(x, z) -> float density 0..1 at that point (0 = never place).
-static func build(parent: Node3D, area: Rect2, count: int, height_func: Callable, accept: Callable, rng: RandomNumberGenerator) -> void:
+## forest(x, z) -> 0..1 forest-floor mask (tufts there match the darker forest ground).
+static func build(parent: Node3D, area: Rect2, count: int, height_func: Callable, accept: Callable, rng: RandomNumberGenerator, forest := Callable()) -> void:
 	var tuft_t: Array[Transform3D] = []
 	var tuft_c: Array[Color] = []
 	var flower_t: Array[Transform3D] = []
@@ -91,7 +92,8 @@ static func build(parent: Node3D, area: Rect2, count: int, height_func: Callable
 		var basis := Basis(Vector3.UP, rng.randf() * TAU).scaled(Vector3(s, s * rng.randf_range(0.8, 1.2), s))
 		tuft_t.append(Transform3D(basis, Vector3(x, y, z)))
 		var v := rng.randf_range(0.85, 1.12)
-		tuft_c.append(Color(v * rng.randf_range(0.95, 1.05), v, v * rng.randf_range(0.9, 1.0)))
+		var fm: float = forest.call(x, z) if forest.is_valid() else 0.0
+		tuft_c.append(Color(v * rng.randf_range(0.95, 1.05), v, v * rng.randf_range(0.9, 1.0), fm))
 		# Flowers cluster in noise patches
 		if patch > 0.62 and rng.randf() < 0.22:
 			var fs := rng.randf_range(0.8, 1.2)
@@ -101,11 +103,12 @@ static func build(parent: Node3D, area: Rect2, count: int, height_func: Callable
 			flower_c.append(petal_colors[pick])
 	var grass_mat := ShaderMaterial.new()
 	grass_mat.shader = preload("res://shaders/grass_blades.gdshader")
+	grass_mat.set_shader_parameter("noise_large", StylizedMaterials.noise_large())
 	var flower_mat := ShaderMaterial.new()
 	flower_mat.shader = preload("res://shaders/grass_blades.gdshader")
 	flower_mat.set_shader_parameter("is_flower", true)
 	flower_mat.set_shader_parameter("root_color", Color(0.3, 0.52, 0.24))
-	flower_mat.set_shader_parameter("wind_strength", 0.03)
+	flower_mat.set_shader_parameter("wind_strength", 0.06)
 	StylizedMaterials.register(grass_mat)
 	var g := _multimesh(_tuft_mesh(), tuft_t, tuft_c, grass_mat, false)
 	g.name = "GrassTufts"

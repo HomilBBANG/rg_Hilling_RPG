@@ -166,6 +166,10 @@ static func clothesline(a: Vector3, b: Vector3) -> Node3D:
 	var cloth_cols := [Color(0.95, 0.85, 0.45), Color(0.45, 0.65, 0.85), Color(0.95, 0.95, 0.92), Color(0.9, 0.5, 0.45)]
 	for i in 4:
 		var t := 0.2 + i * 0.2
-		var p := a.lerp(b, t) + Vector3(0, 1.45, 0)
-		ProtoMesh.box(root, Vector3(0.38, 0.45, 0.02), p, ProtoMesh.mat(cloth_cols[i]), Vector3(0, yaw, randf_range(-4, 4)))
+		# Pegged at the top on the line; the cloth swings with the wind (WindSway).
+		var peg := WindSway.new()
+		peg.position = a.lerp(b, t) + Vector3(0, 1.68, 0)
+		peg.strength = 0.32
+		root.add_child(peg)
+		ProtoMesh.box(peg, Vector3(0.38, 0.45, 0.02), Vector3(0, -0.23, 0), ProtoMesh.mat(cloth_cols[i]), Vector3(0, yaw, randf_range(-4, 4)))
 	return root

@@ -16,8 +16,8 @@ uniform float hue_shift = 0.0;
 uniform float fade : hint_range(0.0, 1.0) = 1.0;
 uniform float stylized = 1.0;
 uniform float detail = 1.0;
-// Canopy sway in metres at the top of a leaf blob (trees ~1.5 texels, bushes less).
-uniform float wind_strength = 0.045;
+// Canopy sway in metres at the top of a leaf blob (trees ~3 texels, bushes less).
+uniform float wind_strength = 0.085;
 
 varying vec3 wpos;
 varying vec3 wnormal;

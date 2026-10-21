@@ -8,13 +8,18 @@ render_mode specular_disabled, cull_disabled;
 
 uniform vec3 root_color : source_color = vec3(0.34, 0.56, 0.26);
 uniform vec3 tip_color : source_color = vec3(0.58, 0.76, 0.33);
-uniform float wind_strength = 0.045;  // tip offset in metres (~1.5 texels at the default zoom)
+uniform float wind_strength = 0.09;  // tip offset in metres (~3 texels at the default zoom)
 uniform bool is_flower = false;
 uniform float detail = 1.0;
-// Flat look: tufts in one colour just a bit darker than the grass ground.
-uniform vec3 line_color : source_color = vec3(0.33, 0.53, 0.23);  // ~12% darker than the grass ground
+// Flat look: each tuft is drawn a fixed amount darker than the ground under it (same two-tone
+// grass + forest shade as terrain_stylized), so it shows on light and dark grass alike.
+uniform sampler2D noise_large : filter_linear, repeat_enable;
+uniform vec3 grass_dark : source_color = vec3(0.24, 0.45, 0.24);
+uniform vec3 grass_mid : source_color = vec3(0.39, 0.61, 0.27);
+uniform float tuft_darken = 0.7;
 
 varying float tint;
+varying vec3 ground;
 
 void vertex() {
 	vec3 world = (MODEL_MATRIX * vec4(0.0, 0.0, 0.0, 1.0)).xyz;
@@ -24,6 +29,9 @@ void vertex() {
 	VERTEX += (inverse(mat3(MODEL_MATRIX)) * vec3(w.x, 0.0, w.y));
 	NORMAL = vec3(0.0, 1.0, 0.0);
 	tint = UV.y;
+	float n = textureLod(noise_large, world.xz * 0.011, 0.0).r;
+	ground = mix(grass_mid, grass_dark, step(0.62, n) * 0.55);
+	ground = mix(ground, grass_dark * 0.92, step(0.5, COLOR.a));  // instance alpha = forest mask
 }
 
 void fragment() {
@@ -36,7 +44,7 @@ void fragment() {
 	} else {
 		col = mix(root_color, tip_color, smoothstep(0.0, 1.0, tint)) * COLOR.rgb;
 		if (detail < 0.5) {
-			col = line_color;
+			col = ground * tuft_darken;
 		}
 	}
 	ALBEDO = col;
