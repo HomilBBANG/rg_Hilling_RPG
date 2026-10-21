@@ -1,9 +1,10 @@
 class_name CamperVehicle
 extends CharacterBody3D
 ## Drivable camper (GDD 9.1 [확정]; driving feel per CAMPERVAN_DRIVING_HANDOFF / GDD 9.7).
-## Arcade top-down control (default): WASD = direction to drive toward ON SCREEN, the camper turns
-## toward it and drives forward; Space = brake (priority), hold R = slow straight reverse (A/D
-## nudge the heading while reversing). Velocity always points along the body: no sideways slip.
+## Arcade top-down control (default), WASD only: WASD = direction to drive toward ON SCREEN, the
+## camper turns toward it and drives forward; let go to stop. When the body can't turn because it
+## is wedged against something, it backs off (or creeps forward) by itself while turning, so no
+## reverse key is needed. Velocity always points along the body: no sideways slip.
 ## The legacy car-style controller (W/S throttle, A/D steer) is kept for side-by-side comparison.
 ## The physics body turns smoothly; the visible model (baked 16-direction sprite + its shadow-only
 ## 3D source) snaps to the nearest baked direction. All tuning values are temporary.
@@ -15,12 +16,11 @@ enum DriveMode { ARCADE, LEGACY }
 @export var max_speed := 6.0          ## m/s
 @export var acceleration := 14.0      ## m/s^2
 @export var coast_decel := 20.0       ## m/s^2, no input
-@export var brake_decel := 35.0       ## m/s^2, Space
 @export var max_turn_deg := 480.0     ## deg/s at standstill / low speed
 @export var high_speed_turn_deg := 240.0  ## deg/s at max speed (wider arc when fast)
-@export var reverse_speed := 3.0      ## m/s, hold R
-@export var reverse_turn_deg := 70.0  ## deg/s, A/D while reversing
 @export var sharp_turn_slowdown := 0.35  ## speed factor while facing away from the target
+@export var unstick_speed := 3.0      ## m/s, automatic back-off when wedged
+@export var unstick_time := 0.6       ## s of back-off per attempt
 @export_group("")
 
 const EXIT_SPEED := 0.6
@@ -39,12 +39,15 @@ var height_func: Callable
 var walk_bounds := Rect2(-1000, -1000, 2000, 2000)
 var driving := false
 var speed := 0.0
-## Tours: arcade -> {"dir": Vector2 screen dir, "brake": bool, "reverse": bool};
+## Tours: arcade -> {"dir": Vector2 screen dir};
 ## legacy -> {"steer": float, "throttle": float}. Empty = read the keyboard.
 var scripted := {}
 
 var _steer := 0.0
 var _shape: BoxShape3D
+var _blocked_t := 0.0
+var _unstick_t := 0.0
+var _unstick_dir := -1.0  # -1 back off, +1 creep forward
 
 
 func _ready() -> void:
@@ -82,8 +85,12 @@ func _physics_process(delta: float) -> void:
 	velocity = forward() * speed
 	move_and_slide()
 	if get_slide_collision_count() > 0:
-		# Bumped into something: lose most speed but keep control (turn away / reverse out).
-		speed *= 0.3 if control == DriveMode.ARCADE else 0.4
+		if control == DriveMode.LEGACY:
+			speed *= 0.4
+		elif _head_on(get_last_slide_collision().get_normal(), signf(speed)):
+			# Hit something head-on: lose most speed but keep control (turn away / back off).
+			# Grazing a wall while sliding along it keeps speed.
+			speed *= 0.3
 	global_position.x = clampf(global_position.x, walk_bounds.position.x, walk_bounds.end.x)
 	global_position.z = clampf(global_position.z, walk_bounds.position.y, walk_bounds.end.y)
 	if height_func.is_valid():
@@ -94,11 +101,7 @@ func _physics_process(delta: float) -> void:
 func _arcade_input() -> Dictionary:
 	if not scripted.is_empty():
 		return scripted
-	return {
-		"dir": Input.get_vector("move_left", "move_right", "move_up", "move_down"),
-		"brake": Input.is_action_pressed("brake"),
-		"reverse": Input.is_action_pressed("reverse"),
-	}
+	return {"dir": Input.get_vector("move_left", "move_right", "move_up", "move_down")}
 
 
 ## Screen direction (x right, y down) -> heading yaw. The camera never rotates, so screen up = -Z.
@@ -107,33 +110,42 @@ static func dir_to_yaw(dir: Vector2) -> float:
 
 
 func _drive_arcade(delta: float) -> void:
-	var inp := _arcade_input()
-	var dir: Vector2 = inp.get("dir", Vector2.ZERO)
-	# Priority: Space brake > R reverse > WASD target direction.
-	if inp.get("brake", false):
-		speed = move_toward(speed, 0.0, brake_decel * delta)
-		return
-	if inp.get("reverse", false):
-		if speed > 0.0:
-			speed = move_toward(speed, 0.0, brake_decel * delta)
-		else:
-			speed = move_toward(speed, -reverse_speed, acceleration * delta)
-		# A/D: slow heading nudge (counter-clockwise / clockwise seen from above).
-		if absf(dir.x) > 0.1:
-			_try_rotate(-signf(dir.x) * deg_to_rad(reverse_turn_deg) * delta)
-		return
+	var dir: Vector2 = _arcade_input().get("dir", Vector2.ZERO)
 	if dir.length() < 0.1:
-		var decel := brake_decel if speed < 0.0 else coast_decel
-		speed = move_toward(speed, 0.0, decel * delta)
+		_unstick_t = 0.0
+		_blocked_t = 0.0
+		speed = move_toward(speed, 0.0, coast_decel * delta)
 		return
-	if speed < 0.0:  # was reversing: stop first
-		speed = move_toward(speed, 0.0, brake_decel * delta)
 	var target := dir_to_yaw(dir)
 	var diff := angle_difference(rotation.y, target)
 	# Tight turns when slow, a wider arc at full speed.
 	var t := clampf(absf(speed) / max_speed, 0.0, 1.0)
 	var rate := deg_to_rad(lerpf(max_turn_deg, high_speed_turn_deg, t))
-	_try_rotate(clampf(diff, -rate * delta, rate * delta))
+	var turned := _try_rotate(clampf(diff, -rate * delta, rate * delta))
+	if _unstick_t > 0.0:
+		# Wedged: move straight back (or forward) a little while still turning toward the target.
+		_unstick_t -= delta
+		if absf(angle_difference(rotation.y, target)) < deg_to_rad(10.0):
+			_unstick_t = 0.0  # facing where the player wants to go: drive on
+		elif _unstick_t <= 0.0 and not turned and absf(diff) > deg_to_rad(15.0):
+			_unstick_t = unstick_time  # still no room to turn: keep going without a pause
+			if _blocked_toward(_unstick_dir):
+				_unstick_dir = -_unstick_dir
+		speed = move_toward(speed, unstick_speed * _unstick_dir, acceleration * delta)
+		return
+	# Can't turn toward where the player wants to go (body wedged against a wall / tree):
+	# back off by itself, or creep forward if the way back is blocked too.
+	if not turned and absf(diff) > deg_to_rad(15.0):
+		_blocked_t += delta
+		if _blocked_t > 0.12:
+			_blocked_t = 0.0
+			_unstick_t = unstick_time
+			_unstick_dir = 1.0 if _blocked_toward(-1.0) and not _blocked_toward(1.0) else -1.0
+			return
+	else:
+		_blocked_t = 0.0
+	if speed < 0.0:
+		speed = move_toward(speed, 0.0, coast_decel * delta)
 	# Facing well away from the target (U-turn, sharp corner): ease off while turning.
 	var align := cos(absf(angle_difference(rotation.y, target)))
 	var target_speed := max_speed * dir.limit_length(1.0).length()
@@ -145,12 +157,25 @@ func _drive_arcade(delta: float) -> void:
 		speed = move_toward(speed, target_speed, coast_decel * delta)
 
 
+## True when a collision normal faces straight against the motion (head-on, not grazing).
+func _head_on(normal: Vector3, dir_sign: float) -> bool:
+	return Vector3(normal.x, 0.0, normal.z).normalized().dot(forward() * dir_sign) < -0.7
+
+
+## Would moving 0.4 m forward (+1) / backward (-1) run head-on into something?
+func _blocked_toward(dir_sign: float) -> bool:
+	var col := KinematicCollision3D.new()
+	if not test_move(global_transform, forward() * dir_sign * 0.4, col):
+		return false
+	return _head_on(col.get_normal(), dir_sign)
+
+
 ## Rotates unless the turned body would sink deep into an obstacle (a long camper pivoting into a
 ## tree got stuck); then try half the turn. Shallow overlap is allowed: move_and_slide pushes the
 ## body back out, so a camper that is merely touching a prop can still turn away from it.
-func _try_rotate(amount: float) -> void:
+func _try_rotate(amount: float) -> bool:
 	if absf(amount) < 0.00001:
-		return
+		return true
 	for f in [1.0, 0.5]:
 		var xf := global_transform
 		xf.basis = Basis(Vector3.UP, rotation.y + amount * f)
@@ -162,7 +187,8 @@ func _try_rotate(amount: float) -> void:
 		params.margin = -0.08
 		if get_world_3d().direct_space_state.intersect_shape(params, 1).is_empty():
 			rotation.y += amount * f
-			return
+			return true
+	return false
 
 
 func _drive_legacy(delta: float) -> void:

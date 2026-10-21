@@ -914,7 +914,7 @@ func _run_p1_tour() -> void:
 	await _p1_shot("14_driving", "driving yaw %.0f dir %d" % [rad_to_deg(v.rotation.y), v.sprite_direction()], true)
 	v.scripted = {"dir": Vector2(1, 0)}
 	await _seconds(1.5)
-	v.scripted = {"brake": true}
+	v.scripted = {"dir": Vector2.ZERO}  # let go = stop
 	while v.speed > 0.2:
 		await get_tree().physics_frame
 	v.scripted = {}
@@ -1002,10 +1002,12 @@ func _run_p1_input_tour() -> void:
 	veh.collision_mask = 0  # open-ground key test, the camp is cluttered
 	await _hold(KEY_S, 40)
 	print("[input] hold S -> heading %.0f deg (screen down = -90), speed %.1f" % [rad_to_deg(veh.rotation.y), veh.speed])
-	await _hold_with(KEY_S, KEY_SPACE, 15)
-	print("[input] S + Space -> speed %.2f (brake wins)" % veh.speed)
-	await _hold(KEY_R, 40)
-	print("[input] hold R -> speed %.1f (reverse)" % veh.speed)
+	await _frames(20)
+	print("[input] let go -> speed %.2f" % veh.speed)
+	await _hold(KEY_R, 30)
+	print("[input] hold R while driving -> speed %.2f (no reverse key any more)" % veh.speed)
+	await _hold(KEY_A, 40)
+	print("[input] hold A -> heading %.0f deg (screen left = 180), speed %.1f" % [rad_to_deg(veh.rotation.y), veh.speed])
 	await _frames(30)
 	veh.collision_mask = 1
 	await _key(KEY_E)
@@ -1182,21 +1184,45 @@ func _run_drive_compare() -> void:
 		# 4. brake from 6 m/s, 5. let go from 6 m/s
 		await _drive_reset(v, open_pos, 0.0, 0)
 		await _drive_phases(v, [[6.0, go, cruise]])
-		var brake: Dictionary = {"brake": true} if arcade else {"throttle": -1.0, "steer": 0.0}
+		var brake: Dictionary = {"dir": Vector2.ZERO} if arcade else {"throttle": -1.0, "steer": 0.0}
 		tests["brake"] = await _drive_phases(v, [[6.0, brake, func() -> bool: return v.speed <= 0.05]])
 		await _drive_reset(v, open_pos, 0.0, 0)
 		await _drive_phases(v, [[6.0, go, cruise]])
 		tests["release"] = await _drive_phases(v, [[8.0, {"dir": Vector2.ZERO} if arcade else {"throttle": 0.0, "steer": 0.0}, func() -> bool: return absf(v.speed) <= 0.05]])
-		# 6. hit a single trunk-sized pillar in open ground, then reverse and turn away
-		var pillar := ProtoMesh.static_cylinder_collider(world, 0.35, 6.0, open_pos + Vector3(9.0, 0.0, 0.6))
-		await _drive_reset(v, open_pos, 0.0, 1)
+		# 6. drive head-on into a wall in open ground, then get away to the north
+		#    (arcade: just press W - it backs off by itself; legacy: S to reverse, then steer)
+		var pillar := ProtoMesh.static_box_collider(world, Vector3(0.6, 4.0, 14.0), open_pos + Vector3(9.0, 1.0, 0.0))
+		pillar.collision_layer = 1 << 5  # own layer: only this wall counts (the field has trees)
+		await _drive_reset(v, open_pos, 0.0, 1 << 5)
 		await _drive_phases(v, [[2.5, go]])
 		var hit := v.global_position
-		var back: Dictionary = {"reverse": true} if arcade else {"throttle": -1.0, "steer": 0.0}
+		var back: Dictionary = {"dir": Vector2(0, -1)} if arcade else {"throttle": -1.0, "steer": 0.0}
 		var away: Dictionary = {"dir": Vector2(0, -1)} if arcade else {"throttle": 1.0, "steer": 1.0}
 		tests["escape"] = await _drive_phases(v, [[1.0, back], [2.5, away]])
+		var lc := v.get_last_slide_collision()
+		if lc:
+			print("[drive] %s pressed against %s at %s (normal %s)" % [cname, (lc.get_collider() as Node).name, lc.get_position(), lc.get_normal()])
 		var escaped := v.global_position.distance_to(hit)
+		# 7. nose against the wall, press the opposite direction (180 deg pivot sweeps into it)
+		await _drive_reset(v, open_pos, 0.0, 1 << 5)
+		await _drive_phases(v, [[2.5, go]])
+		var hit2 := v.global_position
+		var opposite: Dictionary = {"dir": Vector2(-1, 0)} if arcade else {"throttle": -1.0, "steer": 0.0}
+		tests["escape_back"] = await _drive_phases(v, [[3.0, opposite]])
+		print("[drive] %s nose-on-wall + opposite key: moved %.1f m, heading %.0f deg" % [cname, v.global_position.distance_to(hit2), rad_to_deg(v.rotation.y)])
 		pillar.queue_free()
+		# 8. inside a narrow dead-end corridor (no room to turn), press W (north)
+		var walls := []
+		for spec in [[Vector3(0.0, 1.0, -1.75), Vector3(12.0, 4.0, 0.4)], [Vector3(0.0, 1.0, 1.75), Vector3(12.0, 4.0, 0.4)], [Vector3(6.2, 1.0, 0.0), Vector3(0.4, 4.0, 3.9)]]:
+			var w := ProtoMesh.static_box_collider(world, spec[1], open_pos + Vector3(2.0, 0.0, 0.0) + spec[0])
+			w.collision_layer = 1 << 5
+			walls.append(w)
+		await _drive_reset(v, open_pos + Vector3(3.5, 0.0, 0.0), 0.0, 1 << 5)
+		var north_key: Dictionary = {"dir": Vector2(0, -1)} if arcade else {"throttle": 1.0, "steer": 1.0}
+		tests["corridor"] = await _drive_phases(v, [[6.0, north_key]])
+		print("[drive] %s dead-end corridor + W: end pos %s heading %.0f deg (north = 90)" % [cname, v.global_position - open_pos, rad_to_deg(v.rotation.y)])
+		for w in walls:
+			w.queue_free()
 		print("[drive] %s escape: moved %.1f m from the collision point" % [cname, escaped])
 		for k: String in tests:
 			var f := FileAccess.open(_capture_dir.path_join("drive_%s_%s.txt" % [cname, k]), FileAccess.WRITE)
@@ -1206,7 +1232,7 @@ func _run_drive_compare() -> void:
 	v.control = CamperVehicle.DriveMode.ARCADE
 	await _drive_reset(v, Vector3(8.0, 0.0, 4.0), 0.0, 1)
 	await _drive_phases(v, [[1.2, {"dir": Vector2(1, 0)}], [0.35, {"dir": Vector2(-1, 0)}]])
-	v.scripted = {"brake": true}
+	v.scripted = {"dir": Vector2.ZERO}
 	await _frames(4)
 	print("[tour] saved ", save_screenshot("drive_uturn.png"))
 	get_tree().quit()
