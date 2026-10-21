@@ -154,6 +154,9 @@ func _unhandled_input(event: InputEvent) -> void:
 	if _busy and not event.is_action("pause"):
 		return
 	# Dialogue / cutscene own the keys while open (ESC still pauses).
+	if not event.is_action("pause") and game_hud.fishing.active:
+		game_hud.fishing.handle_key(event)
+		return
 	if not event.is_action("pause") and (game_hud.dialogue_active() or game_hud.cutscene.playing):
 		if game_hud.dialogue_active():
 			game_hud.dialogue.handle_key(event)
@@ -303,6 +306,8 @@ func _parse_args() -> void:
 		_run_dungeon_tour()
 	elif tour == "rift":
 		_run_rift_tour()
+	elif tour == "life":
+		_run_life_tour()
 	elif tour == "drive":
 		_run_drive_compare()
 	elif tour == "wind":
@@ -2260,4 +2265,143 @@ func _run_rift_tour() -> void:
 	await _frames(3)
 	await wait_for_sprites()
 	print("[rift]   stepped out -> %s; random dungeon on the map: %s" % [Game.region, WorldMap.known("rift", RegionDB.all()["rift"])])
+	get_tree().quit()
+
+
+# ---------------------------------------------------------------- P3-4 gathering / fishing
+
+func _gather_node(id: String) -> GatherNode:
+	for n: GatherNode in world.gather_nodes:
+		if n.node_id == id:
+			return n
+	return null
+
+
+func _wait_task() -> void:
+	var p: PrototypePlayer = world.player
+	await _frames(2)
+	while p.is_using():
+		await _frames(2)
+	await _frames(3)
+
+
+func _run_life_tour() -> void:
+	Dice.rng.seed = 55
+	seed(55)
+	Game.clock_running = false
+	Game.minute_of_day = 11.0 * 60.0
+	await wait_for_sprites()
+	var st := Game.player_state
+	var p: PrototypePlayer = world.player
+	# --- gathering
+	var herb := _gather_node("herb_1")
+	_place_player(herb.global_position + Vector3(0, 0, 1.1), 0.0)
+	await _frames(8)
+	print("[life] at the herb -> '%s'" % p.focus.prompt_text())
+	await _key(KEY_E)
+	await _seconds(0.5)
+	print("[life] E -> gathering motion %s ('%s')" % [p.is_using(), p.use_label()])
+	await _p1_shot("life_01_gathering", "short gathering motion", true)
+	await _wait_task()
+	print("[life] gathered: herb %d, life EXP %d, gathering mastery %d (Lv %d), spot regrowing %s" % [st.inventory.count("herb"), st.life_exp,
+		st.mastery["gathering"], st.mastery_level("gathering"), herb.depleted()])
+	# hit cancels a gathering motion, nothing gained
+	var berry := _gather_node("berry_1")
+	_place_player(berry.global_position + Vector3(0, 0, 1.1), 0.0)
+	await _frames(8)
+	await _key(KEY_E)
+	await _frames(5)
+	p.cancel_use("피격")
+	await _frames(3)
+	print("[life] hit while picking berries -> berries %d, spot still full %s" % [st.inventory.count("wild_berry"), not berry.depleted()])
+	await _key(KEY_E)
+	await _wait_task()
+	print("[life] picked berries -> %d (edible: %s)" % [st.inventory.count("wild_berry"), ItemDB.is_consumable("wild_berry")])
+	# moonflower: closed by day, opens at night (rare resource with a condition)
+	var moon := _gather_node("moon_1")
+	_place_player(moon.global_position + Vector3(0, 0, 1.1), 0.0)
+	await _frames(8)
+	print("[life] moonflower by day -> '%s'" % p.focus.prompt_text())
+	await _key(KEY_E)
+	await _frames(5)
+	print("[life]   E by day -> using %s, petals %d" % [p.is_using(), st.inventory.count("moon_petal")])
+	Game.minute_of_day = 22.0 * 60.0
+	await _seconds(1.2)
+	await _p1_shot("life_02_moonflower_night", "moonflower glowing at night", true)
+	await _key(KEY_E)
+	await _wait_task()
+	print("[life]   at night -> petals %d, life EXP %d" % [st.inventory.count("moon_petal"), st.life_exp])
+	Game.minute_of_day = 11.0 * 60.0
+	Game.advance_minutes(12.0 * 60.0 + 1.0)
+	await _seconds(1.2)
+	print("[life] +12h -> herb spot back %s" % [not herb.depleted()])
+	# --- fishing
+	st.inventory.add("fishing_rod", 1)
+	var spot: Dictionary = world.region["fishing_spots"][0]
+	_place_player(RegionDB.v3(spot["pos"]), 0.0)
+	await _frames(8)
+	print("[life] at the pier -> '%s'" % p.focus.prompt_text())
+	await _key(KEY_E)
+	await _seconds(0.8)
+	print("[life] E -> automatic fishing %s (%s)" % [game_hud.fishing.active, game_hud.fishing._phase])
+	await _p1_shot("life_03_fishing_wait", "automatic fishing, waiting for a bite", true)
+	var res := {"r": ""}
+	game_hud.fishing.finished.connect(func(r: String) -> void: res["r"] = r)
+	while game_hud.fishing.active and game_hud.fishing._phase != "result":
+		await _frames(2)
+	print("[life]   auto result: %s, life EXP %d, fishing mastery %d" % [res["r"], st.life_exp, st.mastery["fishing"]])
+	while game_hud.fishing.active:
+		await _frames(2)
+	# manual minigame: press when the marker is in the green zone
+	await _key(KEY_R)
+	while game_hud.fishing._phase == "wait":
+		await _frames(2)
+	await _frames(10)
+	await _p1_shot("life_04_minigame", "manual fishing minigame", true)
+	var guard := 0
+	while game_hud.fishing._phase == "game" and guard < 2000:
+		guard += 1
+		var fp := game_hud.fishing
+		var x := fp._marker.position.x / maxf(1.0, fp._bar.size.x - fp._marker.size.x)
+		if x > fp._zone.x + 0.02 and x < fp._zone.y - 0.02:
+			fp.press()  # pressed right on time (the key route itself is covered by E / R above)
+		await _frames(1)
+	print("[life]   manual result: %s, life EXP %d, fishing mastery %d" % [res["r"], st.life_exp, st.mastery["fishing"]])
+	while game_hud.fishing.active:
+		await _frames(2)
+	# hit while fishing
+	await _key(KEY_E)
+	await _seconds(0.5)
+	p.cancel_use("피격")
+	await _frames(3)
+	print("[life] hit while fishing -> %s (%s)" % [res["r"], game_hud.fishing._label.text])
+	while game_hud.fishing.active:
+		await _frames(2)
+	# auto vs manual odds (14.2: by hand is better)
+	var f := LifeDB.fishing()
+	var rare_w := 0.0
+	var all_w := 0.0
+	for e: Dictionary in f["fish"]:
+		all_w += float(e["w"])
+		rare_w += float(e["w"]) if e.get("rare", false) else 0.0
+	var rm := float(f["manual_rare_mult"])
+	print("[life] odds: auto success %.0f%% / manual = your timing; rare fish auto %.1f%% vs manual %.1f%%; manual life EXP x%.1f" % [
+		float(f["auto_success"]) * 100.0, rare_w / all_w * 100.0, rare_w * rm / (all_w - rare_w + rare_w * rm) * 100.0, float(f["manual_exp_mult"])])
+	# --- mastery and life skills
+	st.add_mastery("gathering", 20)
+	st.life_exp = maxi(st.life_exp, 20)
+	print("[life] gathering Lv %d, gather_knack block '%s' -> learn %s, life EXP left %d" % [st.mastery_level("gathering"), st.life_skill_block("gather_knack"),
+		st.learn_life_skill("gather_knack"), st.life_exp])
+	print("[life] angler_sense block: '%s'" % st.life_skill_block("angler_sense"))
+	await _seconds(2.8)  # let toasts fade
+	await _key(KEY_C)
+	await _p1_shot("life_05_character", "character panel: life EXP, mastery, life skills", true)
+	await _key(KEY_C)
+	# life-EXP-only quest reward (13.4)
+	Game.quests.accept("quest.board.herbs")
+	st.inventory.add("herb", 4)
+	await _frames(3)
+	var le := st.life_exp
+	var ge := st.gen_exp
+	print("[life] herb delivery: %s -> life EXP %d -> %d, general EXP %d -> %d" % [Game.quests.complete("quest.board.herbs"), le, st.life_exp, ge, st.gen_exp])
 	get_tree().quit()

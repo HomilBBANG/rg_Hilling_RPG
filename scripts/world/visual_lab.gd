@@ -301,6 +301,7 @@ func _build_landmarks() -> void:
 		_block(cpos.x, cpos.z, 2.0)
 	for ex: Dictionary in exits:
 		_build_exit_marker(ex)
+	_build_life_spots()
 	if has_feature("camp"):
 		_build_camp_framing()
 
@@ -552,6 +553,54 @@ func sprite_targets() -> Array:
 	for n in npcs:
 		out.append([n, Npc.sprite_bake_spec(n.look), "npc_" + n.look])
 	return out
+
+
+# ---------------------------------------------------------------- P3-4: gathering & fishing
+
+var gather_nodes: Array[GatherNode] = []
+
+
+func _build_life_spots() -> void:
+	for g: Dictionary in region.get("gather", []):
+		var n := GatherNode.new()
+		n.node_id = str(g["id"])
+		n.kind = str(g["kind"])
+		var p := RegionDB.v3(g["pos"])
+		n.position = Vector3(p.x, ground_height(p.x, p.z), p.z)
+		add_child(n)
+		gather_nodes.append(n)
+		_block(p.x, p.z, 1.0)
+	for fs: Dictionary in region.get("fishing_spots", []):
+		_build_fishing_spot(fs)
+
+
+## Small wooden pier into the water; E = automatic fishing, R = by hand (minigame).
+func _build_fishing_spot(fs: Dictionary) -> void:
+	var wood := ProtoMesh.mat(Color(0.56, 0.4, 0.26))
+	var dark := ProtoMesh.mat(Color(0.36, 0.25, 0.16))
+	var pp := RegionDB.v3(fs.get("pier", fs["pos"]))
+	var stand := RegionDB.v3(fs["pos"])
+	var root := Node3D.new()
+	root.position = Vector3(pp.x, maxf(TerrainField.WATER_LEVEL + 0.25, ground_height(stand.x, stand.z) + 0.06), pp.z)
+	add_child(root)
+	var length := stand.distance_to(pp) * 2.0 + 1.0
+	ProtoMesh.box(root, Vector3(1.4, 0.1, length), Vector3(0, 0, 0), wood)
+	for i in 4:
+		for x in [-0.6, 0.6]:
+			ProtoMesh.cylinder(root, 0.07, 1.2, Vector3(x, -0.5, -length * 0.5 + 0.3 + i * (length - 0.6) / 3.0), dark, Vector3.ZERO, 6)
+	_block(pp.x, pp.z, 1.6)
+	var ip := InteractPoint.make(self, stand, "E 자동 낚시 · R 직접 낚시(미니게임) — 연못", Callable(), 1.3)
+	ip.prompt_func = func() -> String:
+		if Game.player_state.inventory.count("fishing_rod") <= 0:
+			return "낚시 자리 — 낚싯대가 필요하다 (잡화점 / 캠핑카 창고)"
+		return "E 자동 낚시 · R 직접 낚시(미니게임) — 낚시 Lv %d" % Game.player_state.mastery_level("fishing")
+	ip.action = func(pl: Node) -> void:
+		(pl as PrototypePlayer).face_direction(float(fs.get("yaw", 0.0)))
+		Game.hud.start_fishing(false, ip)
+	ip.alt_prompt = "R 직접 낚시"
+	ip.alt_action = func(pl: Node) -> void:
+		(pl as PrototypePlayer).face_direction(float(fs.get("yaw", 0.0)))
+		Game.hud.start_fishing(true, ip)
 
 
 # ---------------------------------------------------------------- P3-2: fixed dungeon

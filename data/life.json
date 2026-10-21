@@ -1,0 +1,137 @@
+{
+  "version": 1,
+  "_comment": "Life activities (GDD 14.2/14.3, 5.2/5.4). Every number is a [미정] placeholder.",
+  "mastery_levels": [
+    0,
+    15,
+    40,
+    80,
+    140,
+    220,
+    320,
+    450
+  ],
+  "mastery_names": {
+    "gathering": "채집",
+    "fishing": "낚시"
+  },
+  "gather_kinds": {
+    "herb": {
+      "name": "약초 덤불",
+      "item": "herb",
+      "count": [
+        1,
+        2
+      ],
+      "time": 1.2,
+      "respawn_hours": 12,
+      "life_exp": 2,
+      "mastery": 3,
+      "model": "herb"
+    },
+    "berry": {
+      "name": "산딸기 덤불",
+      "item": "wild_berry",
+      "count": [
+        2,
+        4
+      ],
+      "time": 1.0,
+      "respawn_hours": 18,
+      "life_exp": 2,
+      "mastery": 3,
+      "model": "berry"
+    },
+    "mushroom": {
+      "name": "식용 버섯",
+      "item": "edible_mushroom",
+      "count": [
+        1,
+        3
+      ],
+      "time": 1.0,
+      "respawn_hours": 12,
+      "life_exp": 2,
+      "mastery": 3,
+      "model": "mushroom"
+    },
+    "ore": {
+      "name": "철광석 광맥",
+      "item": "iron_ore",
+      "count": [
+        1,
+        2
+      ],
+      "time": 2.2,
+      "respawn_hours": 24,
+      "life_exp": 3,
+      "mastery": 4,
+      "model": "ore"
+    },
+    "moonflower": {
+      "name": "달빛 꽃",
+      "item": "moon_petal",
+      "count": [
+        1,
+        1
+      ],
+      "time": 1.6,
+      "respawn_hours": 24,
+      "life_exp": 6,
+      "mastery": 8,
+      "model": "moonflower",
+      "night_only": true,
+      "rare": true
+    }
+  },
+  "fishing": {
+    "wait": [
+      3.0,
+      7.0
+    ],
+    "auto_success": 0.55,
+    "manual_zone": 0.2,
+    "manual_hits": 2,
+    "manual_rare_mult": 3.0,
+    "life_exp": [
+      3,
+      6
+    ],
+    "manual_exp_mult": 1.5,
+    "mastery": 4,
+    "mastery_miss": 1,
+    "fish": [
+      {
+        "item": "small_fish",
+        "w": 6
+      },
+      {
+        "item": "trout",
+        "w": 3
+      },
+      {
+        "item": "golden_carp",
+        "w": 0.35,
+        "rare": true
+      }
+    ]
+  },
+  "skills": {
+    "gather_knack": {
+      "name": "채집 요령",
+      "desc": "채집 시간 -30%, 추가 수확 확률 +15%",
+      "cost": 12,
+      "req": {
+        "gathering": 2
+      }
+    },
+    "angler_sense": {
+      "name": "낚시 감각",
+      "desc": "입질 빨라짐, 자동 성공 +10%, 직접 판정 구간 +5%",
+      "cost": 15,
+      "req": {
+        "fishing": 2
+      }
+    }
+  }
+}

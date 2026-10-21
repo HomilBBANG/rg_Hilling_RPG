@@ -17,6 +17,16 @@ const ITEMS := {
 	"cat_snack": {"name": "고양이 간식", "value": 4, "weight": 0.1, "desc": "검은 고양이가 좋아하는 간식."},
 	"firewood": {"name": "장작", "value": 3, "weight": 2.0, "desc": "잘 마른 장작."},
 	"iron_ore": {"name": "철광석", "value": 12, "weight": 4.0, "desc": "무거운 광석 덩어리."},
+	# --- gathering / fishing (P3-4, GDD 14.2/14.3): cooking / crafting ingredients
+	"herb": {"name": "약초", "value": 4, "weight": 0.1, "desc": "상처에 좋은 들풀. 물약 재료."},
+	"wild_berry": {"name": "산딸기", "value": 2, "weight": 0.05, "kind": "consumable", "use": "eat", "effect": {"hp": 3, "sp": 8},
+		"desc": "새콤한 산딸기. HP +3, SP +8."},
+	"edible_mushroom": {"name": "식용 버섯", "value": 3, "weight": 0.1, "desc": "익혀 먹는 버섯."},
+	"moon_petal": {"name": "달빛 꽃잎", "cat": "rare", "value": 28, "weight": 0.05, "desc": "밤에만 피는 꽃의 꽃잎. 희귀 재료."},
+	"small_fish": {"name": "붕어", "value": 5, "weight": 0.4, "desc": "연못에서 흔히 잡히는 물고기."},
+	"trout": {"name": "송어", "value": 9, "weight": 0.7, "desc": "살이 단단한 물고기."},
+	"golden_carp": {"name": "황금 잉어", "cat": "rare", "value": 60, "weight": 1.0, "desc": "보기 드문 황금빛 잉어."},
+	"fishing_rod": {"name": "낚싯대", "value": 30, "weight": 1.5, "kind": "tool", "desc": "연못가 나무 부두에서 낚시할 때 필요하다."},
 	# quest items: no merchant buys them, goblins don't take them
 	"lost_parcel": {"name": "흩어진 짐 꾸러미", "cat": "quest", "value": 0, "weight": 1.5, "desc": "대장간 표식이 찍힌 꾸러미."},
 	# --- consumables (GDD 6.4): effect applies when the use motion ends; a hit cancels it

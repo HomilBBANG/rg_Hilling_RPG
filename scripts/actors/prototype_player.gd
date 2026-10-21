@@ -494,13 +494,34 @@ func begin_cast(id: String) -> bool:
 	return true
 
 
+## Generic timed action for life activities (gathering, fishing): the same motion rules as using an
+## item (GDD 6.4 style) - a hit cancels it and nothing is gained. on_done runs when it completes.
+func begin_task(label: String, time: float, move: float, anim: String, on_done: Callable, on_cancel := Callable()) -> bool:
+	if not _can_start_action():
+		_toast("지금은 할 수 없다")
+		return false
+	_use = {"kind": "task", "t": 0.0, "time": time, "move": move, "anim": anim, "label": label,
+		"done": on_done, "cancel": on_cancel}
+	return true
+
+
+## Ends a long task without a message (the fishing session decides when it is over).
+func end_task() -> void:
+	if is_using() and _use["kind"] == "task":
+		_use = {}
+
+
 func cancel_use(reason: String) -> void:
 	if not is_using():
 		return
 	var label: String = _use["label"]
 	var item: bool = _use["kind"] == "item"
+	var task: bool = _use["kind"] == "task"
+	var on_cancel: Callable = _use.get("cancel", Callable())
 	_use = {}
-	var msg := "%s 중단(%s) — 효과 없음%s" % [label, reason, ", 아이템 유지" if item else ""]
+	if on_cancel.is_valid():
+		on_cancel.call(reason)
+	var msg := "%s 중단(%s) — %s%s" % [label, reason, "아무것도 얻지 못했다" if task else "효과 없음", ", 아이템 유지" if item else ""]
 	Game.combat_log.add(msg, "", "info")
 	if Game.boot:
 		Game.boot.hud.toast(msg)
@@ -511,6 +532,9 @@ func _finish_use() -> void:
 	var u := _use
 	_use = {}
 	var summary := ""
+	if u["kind"] == "task":
+		(u["done"] as Callable).call()
+		return
 	if u["kind"] == "item":
 		if st.inventory.remove(u["id"], 1) <= 0:
 			return

@@ -1,0 +1,27 @@
+{
+  "version": 1,
+  "quest_id": "quest.board.herbs",
+  "title": "약초 납품",
+  "desc": "교역소 게시판의 상시 의뢰. 약초 4개를 모아 게시판에 납품한다. (생활 EXP만 주는 의뢰)",
+  "giver": "board",
+  "source": "board",
+  "accept": "direct",
+  "repeatable": true,
+  "time_limit_hours": 0,
+  "objectives": [
+    {
+      "id": "herbs",
+      "type": "collect",
+      "item": "herb",
+      "count": 4,
+      "text": "약초"
+    }
+  ],
+  "consume_items": true,
+  "rewards": {
+    "gen_exp": 0,
+    "life_exp": 10,
+    "gold": 12,
+    "items": {}
+  }
+}

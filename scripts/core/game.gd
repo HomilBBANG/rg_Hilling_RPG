@@ -206,6 +206,7 @@ func _ready() -> void:
 	storage.add("leather_cap", 1)
 	storage.add("heal_potion", 3)
 	storage.add("bread", 2)
+	storage.add("fishing_rod", 1)  # P3-4 test tool (the general store also sells one)
 
 
 func _register_actions() -> void:

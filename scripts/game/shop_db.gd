@@ -13,7 +13,7 @@ const SHOPS := {
 			["heal_potion", 25, 5, "consumable"], ["stamina_potion", 20, 3, "consumable"],
 			["mana_potion", 30, 3, "consumable"], ["bread", 6, 8, "consumable"],
 			["canned_food", 10, 4, "consumable"], ["cat_snack", 5, 10, "consumable"],
-			["firewood", 4, 6, "material"],
+			["firewood", 4, 6, "material"], ["fishing_rod", 35, 2, "equip"],
 		],
 		# share of the item value paid when the player sells; 0 = doesn't buy
 		"buy_rates": {"common": 0.5, "rare": 0.0, "equip": 0.2},

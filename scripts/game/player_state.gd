@@ -67,12 +67,57 @@ var gold := 50
 
 var level := 1
 var gen_exp := 0    ## general EXP (combat, quests)
-var life_exp := 0   ## life EXP (life activities, quests) - no sources yet
+var life_exp := 0   ## life EXP (life activities, quests): spent on life skills (GDD 5.2 / 5.4)
+## Mastery points per life field (GDD 5.4: grows automatically by repeating the activity).
+var mastery := {"gathering": 0, "fishing": 0}
+var life_skills: Array[String] = []
 var stat_points := 0
 var skills := {}    ## id -> rank
 
 
 ## General EXP needed for the next level-up [미정 formula]: 20, 40, 60, ...
+func mastery_level(field: String) -> int:
+	return LifeDB.level_for(int(mastery.get(field, 0)))
+
+
+## Adds mastery points; returns the new level when it went up, else 0.
+func add_mastery(field: String, n: int) -> int:
+	var before := mastery_level(field)
+	mastery[field] = int(mastery.get(field, 0)) + n
+	var after := mastery_level(field)
+	changed.emit()
+	return after if after > before else 0
+
+
+func has_life_skill(id: String) -> bool:
+	return id in life_skills
+
+
+## "" = ok, else why not (cost in life EXP, minimum mastery).
+func life_skill_block(id: String) -> String:
+	var sk := LifeDB.skill(id)
+	if sk.is_empty():
+		return "없는 기술"
+	if has_life_skill(id):
+		return "이미 배움"
+	var req: Dictionary = sk.get("req", {})
+	for f: String in req:
+		if mastery_level(f) < int(req[f]):
+			return "%s 숙련도 Lv %d 필요" % [LifeDB.field_name(f), int(req[f])]
+	if life_exp < int(sk.get("cost", 0)):
+		return "생활 EXP %d 필요" % int(sk.get("cost", 0))
+	return ""
+
+
+func learn_life_skill(id: String) -> bool:
+	if life_skill_block(id) != "":
+		return false
+	life_exp -= int(LifeDB.skill(id).get("cost", 0))
+	life_skills.append(id)
+	changed.emit()
+	return true
+
+
 func exp_to_next() -> int:
 	return 20 * level
 

@@ -31,6 +31,7 @@ var _panel_refresh: Callable
 var _panel_kind := ""
 var _sleep_hours := 8
 var dialogue: DialogueBox
+var fishing: FishingPanel
 var cutscene: CutsceneRunner
 var _caption: Label
 var _tracker: Label
@@ -93,6 +94,8 @@ func _ready() -> void:
 	dialogue = DialogueBox.new()
 	dialogue.cutscenes = cutscene
 	add_child(dialogue)
+	fishing = FishingPanel.new()
+	add_child(fishing)
 	_caption = _label("", 28, Vector2(0, 760))
 	_caption.size = Vector2(1920, 50)
 	_caption.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -245,7 +248,7 @@ func _update_quickbar() -> void:
 	var p := _player()
 	var using_id := ""
 	if p and p.is_using():
-		using_id = p._use["id"]
+		using_id = p._use.get("id", "")  # tasks (gathering / fishing) have no item id
 	for i in _quick_slots.size():
 		var q: Dictionary = _quick_slots[i]
 		var l: Label = q["label"]
@@ -769,7 +772,26 @@ func toggle_character() -> void:
 		lv.disabled = not st.can_level_up()
 		h.add_child(lv)
 		v.add_child(h)
-		v.add_child(_row_label("생활 EXP %d (생활 활동·퀘스트로 획득 — 아직 획득처 없음) · 자동 레벨업 없음" % st.life_exp, 760, 18, Color(0.7, 0.75, 0.8)))
+		# life side (GDD 5.2 / 5.4): life EXP is spent on life skills; mastery grows by doing
+		var mparts := PackedStringArray()
+		for f: String in LifeDB.FIELDS:
+			var pts := int(st.mastery.get(f, 0))
+			var nxt := LifeDB.next_threshold(pts)
+			mparts.append("%s Lv %d (%s)" % [LifeDB.field_name(f), st.mastery_level(f), "%d/%d" % [pts, nxt] if nxt > 0 else "최대"])
+		v.add_child(_row_label("생활 EXP %d · 숙련도: %s" % [st.life_exp, ", ".join(mparts)], 760, 18, Color(0.75, 0.9, 0.75)))
+		for sid: String in LifeDB.data().get("skills", {}):
+			var sk := LifeDB.skill(sid)
+			var srow := HBoxContainer.new()
+			srow.add_child(_row_label("  %s — %s" % [sk.get("name", sid), sk.get("desc", "")], 560, 17))
+			var block := st.life_skill_block(sid)
+			var sb := _button("배움" if st.has_life_skill(sid) else ("배우기 (생활 EXP %d)" % int(sk.get("cost", 0))), func() -> void:
+				if st.learn_life_skill(sid):
+					boot.hud.toast("생활 기술 습득: " + str(sk.get("name", sid)))
+				_refresh_panel(), 190)
+			sb.disabled = block != ""
+			sb.tooltip_text = block
+			srow.add_child(sb)
+			v.add_child(srow)
 		v.add_child(_row_label("능력치 포인트 %d" % st.stat_points, 400, 22, Color(0.6, 0.85, 1.0) if st.stat_points > 0 else Color(0.8, 0.82, 0.85)))
 		for key: String in PlayerState.STAT_KEYS:
 			var row := HBoxContainer.new()
@@ -827,6 +849,11 @@ func start_dialogue(dialogue_id: String) -> bool:
 		return false
 	close_panel()
 	return dialogue.play(dialogue_id)
+
+
+func start_fishing(manual: bool, spot: Node3D) -> bool:
+	close_panel()
+	return fishing.start(manual, spot)
 
 
 func dialogue_active() -> bool:
@@ -1068,7 +1095,7 @@ func _process(delta: float) -> void:
 	if pl and pl.is_using():
 		var n := int(pl.use_progress() * 10.0)
 		text = "%s  %s%s  (맞으면 중단)" % [pl.use_label(), "▮".repeat(n), "▯".repeat(10 - n)]
-	if dialogue.active() or cutscene.playing:
+	if dialogue.active() or cutscene.playing or fishing.active:
 		text = ""
 	_prompt.text = text
 	_update_quickbar()

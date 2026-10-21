@@ -104,7 +104,9 @@ func pond_distance(x: float, z: float) -> float:
 		return 1e6
 	var p := Vector2(x, z) - pond_center
 	var wobble := sin(p.angle() * 3.0) * 0.6 + sin(p.angle() * 5.0 + 1.0) * 0.3
-	return p.length() - wobble - (pond_radius - POND_RADIUS)
+	# distance to the rim (the radius was missing before P3-4: the pond showed only ~2 m of water
+	# inside a 6.5 m collider, with its reeds and lily pads buried under the grass)
+	return p.length() - pond_radius - wobble
 
 
 func height(x: float, z: float) -> float:
