@@ -46,6 +46,7 @@ var forest_center := FOREST_CENTER  ## the first forest
 var forest_radius := FOREST_RADIUS
 var forests: Array = [[FOREST_CENTER, FOREST_RADIUS]]  ## [[center Vector2, radius], ...]
 var hill_noise := 0.45
+var clearings: Array = []  ## [[center Vector2, radius], ...] flattened ground (towns)
 
 var _buckets := {}  # Vector2i bucket -> PackedInt32Array of segment ids
 var _seg_a := PackedVector2Array()
@@ -61,7 +62,8 @@ static func _v2(a: Variant, fallback: Vector2) -> Vector2:
 
 ## layout keys (all optional): min, max, pond {center, radius} | null, ponds [{center, radius}],
 ## camp_center | null, paths [[[x, z], ...], ...], mounds [[[x, z], height, width], ...],
-## forest {center, radius}, forests [{center, radius}], hill_noise, seed.
+## forest {center, radius}, forests [{center, radius}], clearings [{center, radius}] (flattened
+## for towns), hill_noise, seed.
 func _init(layout := {}) -> void:
 	if layout.has("min"):
 		bounds_min = _v2(layout["min"], MIN)
@@ -98,6 +100,8 @@ func _init(layout := {}) -> void:
 		if not forests.is_empty():
 			forest_center = forests[0][0]
 			forest_radius = forests[0][1]
+	for c: Dictionary in layout.get("clearings", []):
+		clearings.append([_v2(c["center"], Vector2.ZERO), float(c["radius"])])
 	hill_noise = float(layout.get("hill_noise", hill_noise))
 	_noise.seed = int(layout.get("seed", 11))
 	_noise.noise_type = FastNoiseLite.TYPE_SIMPLEX_SMOOTH
@@ -181,6 +185,8 @@ func height(x: float, z: float) -> float:
 	if camp_center != Vector2.INF:
 		var cd := Vector2(x, z).distance_to(camp_center)
 		h = lerpf(0.0, h, smoothstep(5.0, 9.0, cd))
+	for c: Array in clearings:
+		h = lerpf(0.0, h, smoothstep(float(c[1]), float(c[1]) + 8.0, Vector2(x, z).distance_to(c[0])))
 	# Pond basin
 	var wd := pond_distance(x, z)
 	h = lerpf(-1.3, h, smoothstep(-2.5, 1.8, wd))

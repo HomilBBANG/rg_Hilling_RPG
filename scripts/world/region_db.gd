@@ -155,3 +155,38 @@ static func v3(a: Variant) -> Vector3:
 
 static func entry(region_id: String, entry_id: String) -> Dictionary:
 	return info(region_id).get("entries", {}).get(entry_id, {})
+
+
+# ---------------------------------------------------------------- world map space / towns
+
+## A point of a region in world-map metres (regions sit side by side by their "map.origin").
+static func map_pos(region_id: String, p: Variant) -> Vector2:
+	var reg: Dictionary = all().get(region_id, {})
+	var t: Dictionary = reg.get("terrain", {})
+	var mn := TerrainField._v2(t.get("min", null), TerrainField.MIN)
+	var o := TerrainField._v2(reg.get("map", {}).get("origin", null), Vector2.ZERO)
+	var q: Vector2 = p if p is Vector2 else TerrainField._v2(p, Vector2.ZERO)
+	return o + q - mn
+
+
+## Region rectangle in world-map metres.
+static func map_rect(region_id: String) -> Rect2:
+	var t: Dictionary = all().get(region_id, {}).get("terrain", {})
+	var mn := TerrainField._v2(t.get("min", null), TerrainField.MIN)
+	var mx := TerrainField._v2(t.get("max", null), TerrainField.MAX)
+	return Rect2(map_pos(region_id, mn), mx - mn)
+
+
+## Every town in every region ("cities"): id -> {id, name, kind, region, center (Vector2, region
+## metres), rect (Rect2, region metres), map (Vector2, map metres), arrival, parking}. Major towns
+## are on the map from the start (GDD 11.3); fast travel needs a visit first (GDD 11.4).
+static func cities() -> Dictionary:
+	var out := {}
+	for rid: String in all():
+		for ct: Dictionary in all()[rid].get("cities", []):
+			var c := TerrainField._v2(ct["center"], Vector2.ZERO)
+			var sz := TerrainField._v2(ct.get("size", null), Vector2(40, 36))
+			out[ct["id"]] = {"id": ct["id"], "name": ct["name"], "kind": ct.get("kind", "village"), "region": rid,
+				"center": c, "rect": Rect2(c - sz * 0.5, sz), "map": map_pos(rid, c),
+				"arrival": ct.get("arrival", {}), "parking": ct.get("parking", {})}
+	return out

@@ -520,6 +520,8 @@ func _parse_args() -> void:
 		_run_dialogue_tour()
 	elif tour == "cutscene":
 		_run_cutscene_tour()
+	elif tour == "world":
+		_run_world_tour()
 	elif tour == "drive":
 		_run_drive_compare()
 	elif tour == "wind":
@@ -862,6 +864,93 @@ func travel(to_region: String, entry_id: String, driving: bool) -> void:
 	hud.toast(arrive)
 	_busy = false
 	_autosave()
+
+
+# ---------------------------------------------------------------- fast travel (GDD 11.4)
+
+## Pace of fast travel ([미정] distance → time / fare formulas, IMPLEMENTATION_ASSUMPTIONS.md).
+const FAST_MIN_PER_M := 0.6         # by paid carriage: game minutes per map metre
+const FAST_CAMPER_MIN_PER_M := 0.3  # driving the camper
+const FAST_FARE_BASE := 10
+const FAST_FARE_PER_M := 0.08
+
+
+## The town the player is standing in (and has visited), or "".
+func current_city() -> String:
+	if not (world is VisualLab) or world.is_dungeon():
+		return ""
+	var at: Vector3 = world.vehicle.global_position if world.vehicle.driving else world.player.global_position
+	for ct: Dictionary in world.cities:
+		if (ct["rect"] as Rect2).grow(4.0).has_point(Vector2(at.x, at.z)) and Game.discovered.has("city:" + str(ct["id"])):
+			return str(ct["id"])
+	return ""
+
+
+## Whether / how the player can fast-travel to a town right now: {ok, why, from, from_name,
+## distance (map m), minutes, gold, with_camper}. Only between visited major towns; with the camper
+## when it is owned and parked in this region (free), otherwise by paid carriage.
+func fast_travel_quote(city_id: String) -> Dictionary:
+	var cities := RegionDB.cities()
+	if not cities.has(city_id):
+		return {"ok": false, "why": "그런 도시는 없다"}
+	if not Game.discovered.has("city:" + city_id):
+		return {"ok": false, "why": "아직 가 보지 않은 도시다"}
+	if Game.in_run() or (world is VisualLab and world.is_dungeon()):
+		return {"ok": false, "why": "던전 안에서는 빠른 이동을 할 수 없다"}
+	if not (world is VisualLab):
+		return {"ok": false, "why": "밖에서만 빠른 이동을 할 수 있다"}
+	var from := current_city()
+	if from == "":
+		return {"ok": false, "why": "가 본 도시 안에서만 출발할 수 있다 (도시끼리만 빠른 이동)"}
+	if from == city_id:
+		return {"ok": false, "why": "지금 이 도시에 있다"}
+	if world.vehicle.driving:
+		return {"ok": false, "why": "캠핑카에서 내려서 지도를 다시 열자"}
+	var dist: float = (cities[from]["map"] as Vector2).distance_to(cities[city_id]["map"])
+	var camper := Game.has_camper and str(Game.camper.get("region", "")) == Game.region
+	var q := {"ok": true, "why": "", "from": from, "from_name": cities[from]["name"], "distance": dist, "with_camper": camper,
+		"minutes": dist * (FAST_CAMPER_MIN_PER_M if camper else FAST_MIN_PER_M), "gold": 0 if camper else FAST_FARE_BASE + roundi(dist * FAST_FARE_PER_M)}
+	if not camper and Game.player_state.gold < int(q["gold"]):
+		q["ok"] = false
+		q["why"] = "마차 삯 %d 골드가 모자란다" % int(q["gold"])
+	return q
+
+
+## Skips the trip (GDD 11.4 [확정]: real travel left out, game time passes by distance). With the
+## camper both arrive and it is parked at the town's arrival parking spot.
+func fast_travel(city_id: String) -> String:
+	var q := fast_travel_quote(city_id)
+	if not q.get("ok", false) or _busy:
+		return str(q.get("why", "지금은 이동할 수 없다"))
+	_busy = true
+	var ct: Dictionary = RegionDB.cities()[city_id]
+	game_hud.close_panel()
+	var hours := WorldMap._hours(float(q["minutes"]))
+	await game_hud.fade_to(1.0, 0.6, "%s(으)로 이동 중…
+%s
+
+%s" % [ct["name"], hours, "캠핑카와 함께" if q["with_camper"] else "마차 삯 %d 골드" % int(q["gold"])])
+	if not q["with_camper"]:
+		Game.player_state.gold -= int(q["gold"])
+	Game.advance_minutes(float(q["minutes"]))
+	var arr: Dictionary = ct["arrival"]
+	if q["with_camper"]:
+		var pk: Dictionary = ct["parking"]
+		Game.camper = {"region": ct["region"], "pos": RegionDB.v3(pk.get("pos", arr.get("pos", [0, 0]))), "yaw": float(pk.get("yaw", 0.0))}
+	Game.spawn_override = {"kind": "fast_travel", "pos": RegionDB.v3(arr.get("pos", [0, 0])), "yaw": float(arr.get("yaw", 0.0))}
+	var from_name := RegionDB.region_name(Game.region)
+	Game.region = str(ct["region"])
+	Game.request_world(Game.WORLD_EXTERIOR)
+	await _frames(3)
+	await wait_for_sprites()
+	await _frames(8)
+	Game.combat_log.add("빠른 이동 → %s" % ct["name"], "빠른 이동: %s → %s (%s, %s)" % [from_name, ct["name"], hours,
+		"캠핑카와 함께" if q["with_camper"] else "마차 삯 %d 골드" % int(q["gold"])], "info")
+	await game_hud.fade_to(0.0, 0.6)
+	hud.toast("%s 도착 — %s 지났다" % [ct["name"], hours])
+	_busy = false
+	_autosave()
+	return ""
 
 
 ## Player HP reached 0 (GDD 2.4 / 12.3 [확정]): field loot is split (goblins take part, the rest
@@ -1925,6 +2014,94 @@ func _run_shop_tour() -> void:
 	Game.minute_of_day = 8.0 * 60.0 + 1.0
 	await _seconds(4.0)
 	print("[shop] 08:00 -> rosa %s, visible %s" % [Npc.Where.keys()[rosa.where], rosa.visible])
+	get_tree().quit()
+
+
+# ---------------------------------------------------------------- larger world, towns, map
+
+## Walks the enlarged world: meadow corners, the road north to the capital (walls, plaza, castle),
+## the highland and its village; then the world map (see the map part below). Prints sizes.
+func _run_world_tour() -> void:
+	Game.clock_running = false
+	Game.minute_of_day = 11.0 * 60.0
+	await wait_for_sprites()
+	for rid: String in ["meadow", "highland", "capital"]:
+		var t: Dictionary = RegionDB.info(rid).get("terrain", {})
+		var mn := TerrainField._v2(t.get("min", null), Vector2.ZERO)
+		var mx := TerrainField._v2(t.get("max", null), Vector2.ZERO)
+		print("[world] %s %dx%d m (%d m²)" % [rid, mx.x - mn.x, mx.y - mn.y, (mx.x - mn.x) * (mx.y - mn.y)])
+	var shots := [["meadow", Vector3(56, 0, 40), 0.0, "meadow_silver_lake"], ["meadow", Vector3(-62, 0, 30), 0.0, "meadow_west_forest"],
+		["meadow", Vector3(-21, 0, -72), PI, "meadow_north_road"]]
+	for sh: Array in shots:
+		_place_player(sh[1], sh[2])
+		await _seconds(1.2)
+		await _p1_shot("world_" + sh[3], sh[3], true)
+	# walk into the north road exit -> capital
+	_place_player(Vector3(-20, 0, -84), PI)
+	await _seconds(0.5)
+	_place_player(Vector3(-20, 0, -86.5), PI)
+	await _seconds(0.8)
+	await _wait_travel()
+	print("[world] north road -> %s (%s), player (%.1f, %.1f)" % [Game.region, world.world_title(), world.player.global_position.x, world.player.global_position.z])
+	await _seconds(1.0)
+	await _p1_shot("world_capital_road", "capital road", true)
+	for sh: Array in [[Vector3(0, 0, 27), 0.0, "capital_gate"], [Vector3(0, 0, -2), 0.0, "capital_plaza"], [Vector3(0, 0, -35), 0.0, "capital_castle"],
+			[Vector3(-26, 0, -20), 0.0, "capital_houses"], [Vector3(36, 0, 14), 0.0, "capital_wall_corner"]]:
+		_place_player(sh[0], sh[1])
+		await _seconds(1.2)
+		await _p1_shot("world_" + sh[2], sh[2], true)
+	print("[world] capital visited %s, safe at plaza %s" % [Game.discovered.has("city:capital"), world.is_safe(Vector3(0, 0, -6))])
+	# highland village (direct travel for the test)
+	travel("highland", "west_road", false)
+	await _wait_travel()
+	_place_player(Vector3(50, 0, 14), 0.0)
+	await _seconds(1.2)
+	await _p1_shot("world_village_gate", "village gate", true)
+	_place_player(Vector3(50, 0, 32), 0.0)
+	await _seconds(1.2)
+	await _p1_shot("world_village", "village", true)
+	print("[world] village visited %s" % Game.discovered.has("city:pinecone"))
+	# --- world map (GDD 11.3): towns from the start, found places, pins with memos
+	game_hud.toggle_map()
+	await _frames(4)
+	var mv: WorldMap = game_hud.map_view
+	print("[map] open %s, regions on the map %s, towns %s" % [game_hud._panel_kind == "map", ", ".join(PackedStringArray(mv._known_regions())),
+		", ".join(PackedStringArray(RegionDB.cities().keys()))])
+	await _p1_shot("map_01_overview", "world map", true)
+	var pin := mv.add_pin(RegionDB.map_pos("meadow", Vector2(72, 62)))
+	Game.map_pins[pin]["text"] = "달빛 꽃 (밤)"
+	mv.close_card()
+	mv.center_on_player()
+	await _frames(3)
+	await _p1_shot("map_02_zoom_village", "map zoomed on the player", true)
+	# --- fast travel (GDD 11.4): village -> capital by carriage (the camper is parked in the meadow)
+	mv.fit_all()
+	mv.open_city("capital")
+	await _frames(3)
+	var gold0 := Game.player_state.gold
+	var t0 := Game.total_minutes()
+	var q := fast_travel_quote("capital")
+	print("[map] quote village -> capital: ok %s, from %s, %d m, %.0f min, gold %d, with camper %s" % [q["ok"], q.get("from", ""), int(q.get("distance", 0)),
+		float(q.get("minutes", 0)), int(q.get("gold", 0)), q.get("with_camper", false)])
+	await _p1_shot("map_03_city_card", "town card with fast travel", true)
+	var why := await fast_travel("capital")
+	print("[map] fast travel -> '%s': now %s at (%.1f, %.1f), +%.0f min, gold %d -> %d, camper still in %s" % [why, Game.region,
+		world.player.global_position.x, world.player.global_position.z, Game.total_minutes() - t0, gold0, Game.player_state.gold, Game.camper.get("region", "")])
+	await _seconds(0.8)
+	await _p1_shot("map_04_arrived_capital", "arrived at the capital by fast travel", true)
+	# refused outside a town; with the camper when it is parked here
+	_place_player(Vector3(0, 0, 50), 0.0)
+	await _frames(3)
+	print("[map] outside the walls -> '%s'" % fast_travel_quote("pinecone").get("why", ""))
+	Game.camper = {"region": "capital", "pos": Vector3(7, 0, 44), "yaw": 0.0}
+	_place_player(Vector3(0, 0, -6), 0.0)
+	await _frames(3)
+	var q2 := fast_travel_quote("pinecone")
+	print("[map] capital -> village with the camper parked here: ok %s, with camper %s, gold %d, %.0f min" % [q2["ok"], q2["with_camper"], int(q2["gold"]), float(q2["minutes"])])
+	await fast_travel("pinecone")
+	print("[map]   arrived %s, camper now in %s at %s, pin kept %s" % [Game.region, Game.camper.get("region", ""), Game.camper.get("pos", ""), Game.map_pins.size() == 1])
+	await _seconds(0.8)
+	await _p1_shot("map_05_arrived_village_camper", "arrived at the village with the camper", true)
 	get_tree().quit()
 
 

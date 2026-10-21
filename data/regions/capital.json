@@ -1,0 +1,310 @@
+{
+  "version": 1,
+  "region_id": "capital",
+  "name": "왕도 루미나",
+  "danger": 1,
+  "desc": "(임시 이름) 왕이 사는 성벽 도시. 몬스터가 없는 안전한 곳이며, 처음부터 지도에 보이는 주요 도시다.",
+  "features": [],
+  "map": {
+    "origin": [
+      20,
+      -160
+    ],
+    "color": [
+      0.62,
+      0.6,
+      0.5
+    ]
+  },
+  "ground": {
+    "grass_dark": [
+      0.33,
+      0.5,
+      0.27
+    ],
+    "grass_mid": [
+      0.42,
+      0.6,
+      0.3
+    ],
+    "grass_light": [
+      0.55,
+      0.7,
+      0.36
+    ],
+    "grass_warm": [
+      0.62,
+      0.66,
+      0.38
+    ],
+    "grass_cool": [
+      0.3,
+      0.5,
+      0.36
+    ],
+    "dirt_dark": [
+      0.46,
+      0.44,
+      0.42
+    ],
+    "dirt_mid": [
+      0.58,
+      0.56,
+      0.53
+    ],
+    "dirt_light": [
+      0.68,
+      0.66,
+      0.62
+    ]
+  },
+  "terrain": {
+    "min": [
+      -70,
+      -80
+    ],
+    "max": [
+      70,
+      60
+    ],
+    "seed": 41,
+    "hill_noise": 0.3,
+    "pond": null,
+    "camp_center": null,
+    "clearings": [
+      {
+        "center": [
+          0,
+          -18
+        ],
+        "radius": 52
+      }
+    ],
+    "paths": [
+      [
+        [
+          0,
+          60
+        ],
+        [
+          0,
+          40
+        ],
+        [
+          0,
+          22
+        ],
+        [
+          0,
+          0
+        ],
+        [
+          0,
+          -30
+        ]
+      ],
+      [
+        [
+          -38,
+          -12
+        ],
+        [
+          38,
+          -12
+        ]
+      ],
+      [
+        [
+          -24,
+          -12
+        ],
+        [
+          -24,
+          -40
+        ]
+      ],
+      [
+        [
+          24,
+          -12
+        ],
+        [
+          24,
+          -40
+        ]
+      ]
+    ],
+    "mounds": [
+      [
+        [
+          -58,
+          40
+        ],
+        1.8,
+        9.0
+      ],
+      [
+        [
+          56,
+          44
+        ],
+        1.6,
+        8.0
+      ],
+      [
+        [
+          -60,
+          -66
+        ],
+        2.6,
+        12.0
+      ],
+      [
+        [
+          60,
+          -66
+        ],
+        2.6,
+        12.0
+      ]
+    ],
+    "forests": [
+      {
+        "center": [
+          -54,
+          34
+        ],
+        "radius": 11
+      },
+      {
+        "center": [
+          54,
+          38
+        ],
+        "radius": 11
+      }
+    ]
+  },
+  "scatter": {
+    "forest_trees": 46,
+    "forest_pine": 0.3,
+    "forest_broadleaf": 0.5,
+    "field_trees": 26,
+    "field_mix": [
+      0.5,
+      0.2,
+      0.1,
+      0.2
+    ],
+    "bush": 0.06,
+    "big_rock": 0.02,
+    "small_rock": 0.05
+  },
+  "cities": [
+    {
+      "id": "capital",
+      "name": "왕도 루미나",
+      "kind": "capital",
+      "center": [
+        0,
+        -18
+      ],
+      "size": [
+        84,
+        76
+      ],
+      "gate": "south",
+      "houses": 24,
+      "seed": 5,
+      "castle": [
+        0,
+        -44
+      ],
+      "plaza": {
+        "center": [
+          0,
+          -12
+        ],
+        "radius": 9
+      },
+      "market": true,
+      "arrival": {
+        "pos": [
+          0,
+          40
+        ],
+        "yaw": 0.0
+      },
+      "parking": {
+        "pos": [
+          7,
+          44
+        ],
+        "yaw": 0.0
+      }
+    }
+  ],
+  "default_spawn": {
+    "pos": [
+      0,
+      48
+    ],
+    "yaw": 0.0
+  },
+  "monsters": [],
+  "checkpoints": [
+    {
+      "id": "plaza",
+      "name": "왕도 광장",
+      "pos": [
+        0,
+        -6
+      ],
+      "radius": 12.0,
+      "marker": false
+    },
+    {
+      "id": "gate",
+      "name": "왕도 남문",
+      "pos": [
+        0,
+        30
+      ],
+      "radius": 8.0,
+      "marker": false
+    }
+  ],
+  "exits": [
+    {
+      "id": "south_road",
+      "name": "초원으로 가는 길",
+      "pos": [
+        0,
+        56
+      ],
+      "radius": 2.6,
+      "to_region": "meadow",
+      "to_entry": "north_road"
+    }
+  ],
+  "entries": {
+    "south_road": {
+      "pos": [
+        0,
+        48
+      ],
+      "yaw": 0.0,
+      "camper_pos": [
+        5.5,
+        50
+      ],
+      "camper_yaw": 0.0
+    }
+  },
+  "tips": [
+    "왕도는 몬스터가 없는 안전한 도시다.",
+    "가 본 주요 도시(왕도·솔방울 마을)끼리는 지도(M)에서 빠른 이동을 할 수 있다.",
+    "캠핑카가 없으면 빠른 이동은 마차 삯(골드)을 낸다."
+  ],
+  "gather": []
+}

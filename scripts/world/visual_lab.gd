@@ -43,6 +43,8 @@ var region := {}
 var checkpoints: Array[Dictionary] = []
 var exits: Array[Dictionary] = []
 var terrain: TerrainField
+## Towns in this region (data "cities"): {"id", "name", "rect": Rect2 (x, z), "plaza": Vector3(x, z, r), "data"}
+var cities: Array[Dictionary] = []
 var player: PrototypePlayer
 var camera: TopdownCamera
 var camper: CamperExterior
@@ -78,6 +80,13 @@ func _ready() -> void:
 		var e := ex.duplicate()
 		e["pos"] = RegionDB.v3(ex["pos"])
 		exits.append(e)
+	for ct: Dictionary in region.get("cities", []):
+		var cc := TerrainField._v2(ct["center"], Vector2.ZERO)
+		var sz := TerrainField._v2(ct.get("size", null), Vector2(40, 36))
+		var pl: Dictionary = ct.get("plaza", {})
+		var pc := TerrainField._v2(pl.get("center", null), cc)
+		cities.append({"id": ct["id"], "name": ct["name"], "rect": Rect2(cc - sz * 0.5, sz),
+			"plaza": Vector3(pc.x, pc.y, float(pl.get("radius", 6.0))), "data": ct})
 	_rng.seed = 2024 if region_id == RegionDB.START else hash(region_id)
 	StylizedMaterials.clear_registry()
 	var t0 := Time.get_ticks_msec()
@@ -318,6 +327,8 @@ func _build_camp_props() -> void:
 
 
 func _build_landmarks() -> void:
+	for ct in cities:
+		CityBuilder.build(self, ct["data"])
 	if has_feature("farm"):
 		_build_farm()
 	if has_feature("trade_post"):
@@ -502,6 +513,12 @@ func _grass_density(x: float, z: float) -> float:
 		return 0.0
 	if terrain.pond_distance(x, z) < 1.3:
 		return 0.0
+	for ct in cities:
+		var pz: Vector3 = ct["plaza"]
+		if Vector2(x - pz.x, z - pz.y).length() < pz.z + 0.5:
+			return 0.0
+		if (ct["rect"] as Rect2).grow(1.0).has_point(Vector2(x, z)):
+			return 0.25 * smoothstep(1.5, 3.0, pd)  # trodden town ground
 	var d := 1.0
 	if not has_feature("camp"):
 		return d * lerpf(0.35, 1.0, smoothstep(1.5, 3.0, pd))
@@ -1224,6 +1241,11 @@ func _exit_near(pos: Vector3, margin: float) -> Dictionary:
 
 ## Visiting a checkpoint or road exit marks it on the world map (GDD 11.3).
 func _discover(pos: Vector3) -> void:
+	for ct in cities:
+		var ck := "city:" + str(ct["id"])
+		if not Game.discovered.has(ck) and (ct["rect"] as Rect2).grow(4.0).has_point(Vector2(pos.x, pos.z)):
+			Game.discovered[ck] = true
+			Game.boot.hud.toast("%s — 처음 방문. 이제 지도(M)에서 빠른 이동 목적지로 고를 수 있다" % ct["name"])
 	for cp in checkpoints:
 		var c: Vector3 = cp["pos"]
 		var key := "%s:%s" % [region_id, cp["id"]]

@@ -82,7 +82,7 @@ static func capture_state() -> Dictionary:
 		"lantern_on": Game.lantern_on, "camper_lights_on": Game.camper_lights_on,
 		"has_camper": Game.has_camper, "cat_joined": Game.cat_joined, "cat_affection": Game.cat_affection,
 		"region": Game.region, "fields": _pack(Game.fields), "camper": Game.camper.duplicate(true),
-		"discovered": Game.discovered.duplicate(true), "shops": Game.shops.duplicate(true),
+		"discovered": Game.discovered.duplicate(true), "map_pins": Game.map_pins.duplicate(true), "shops": Game.shops.duplicate(true),
 		"flags": Game.narrative.flags.duplicate(true), "quests": Game.quests.entries.duplicate(true),
 		"storage": Game.storage.duplicate_items(),
 		"item_instances": ItemDB.instances.duplicate(true), "item_next": ItemDB._next_instance,
@@ -122,6 +122,7 @@ static func apply_state(saved: Dictionary) -> void:
 	Game.fields = _unpack(s["fields"])
 	Game.camper = s["camper"]
 	Game.discovered = s["discovered"]
+	Game.map_pins = s.get("map_pins", [])
 	Game.shops = s["shops"]
 	Game.narrative.flags = s["flags"]
 	Game.quests.entries = s["quests"]

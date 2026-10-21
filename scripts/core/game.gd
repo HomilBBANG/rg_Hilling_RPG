@@ -130,6 +130,8 @@ func end_run(keep: bool) -> Dictionary:
 
 ## Places found by visiting them ("region:checkpoint_id" / "region:exit_id"), shown on the map (GDD 11.3).
 var discovered := {}
+## Player's own map pins (GDD 11.3 [미정] pin / memo UI): [{"pos": [map x, map y], "text": ""}]
+var map_pins: Array = []
 ## Shop stock / restock times by shop id (ShopDB), kept across scene reloads.
 var shops := {}
 ## Story flags / completed events set by dialogues (P2-5) and quest progress.

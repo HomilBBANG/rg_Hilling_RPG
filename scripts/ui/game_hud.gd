@@ -1150,21 +1150,27 @@ func _crafted(rid: String, facility: String) -> void:
 	_refresh_panel()
 
 
-## World map (GDD 11.3 [확정]): regions and roads are known from the start; checkpoints and
-## other places appear once visited. Pin UI / fog / notes are [미정] - this is a plain overview.
+## World map (GDD 11.3 / 11.4, scripts/ui/world_map.gd): terrain and major towns from the start,
+## places once found, my pins with memos, fast travel between visited towns.
+var map_view: WorldMap
+
+
 func toggle_map() -> void:
 	if _panel_kind == "map":
 		close_panel()
 		return
 	_open("map", null, 0.0, func(v: VBoxContainer) -> void:
-		v.add_child(_row_label("월드맵", 400, 26, Color(1.0, 0.9, 0.6)))
-		var m := WorldMap.new()
-		m.font = font
-		m.custom_minimum_size = Vector2(1100, 560)
-		v.add_child(m)
+		var head := HBoxContainer.new()
+		head.add_child(_row_label("지도", 300, 26, Color(1.0, 0.9, 0.6)))
 		var cam_text := "캠핑카: %s" % RegionDB.region_name(str(Game.camper.get("region", ""))) if Game.has_camper else "캠핑카: 아직 없음"
-		v.add_child(_row_label("● 현재 위치   ▲ 체크포인트(방문한 곳)   ■ %s   — 길   ⇄ 지역 연결 도로" % cam_text, 1100, 18, Color(0.8, 0.82, 0.86)))
-		v.add_child(_button("닫기 (M)", close_panel)), 1160)
+		head.add_child(_row_label("%s · %s %s" % [RegionDB.region_name(Game.region), Game.clock_text(), cam_text], 1100, 18, Color(0.8, 0.82, 0.86)))
+		v.add_child(head)
+		map_view = WorldMap.new()
+		map_view.font = font
+		map_view.boot = boot
+		map_view.custom_minimum_size = Vector2(1800, 820)
+		v.add_child(map_view)
+		v.add_child(_button("닫기 (M)", close_panel)), 1840)
 
 
 ## Trade post notice board (GDD 13.1: board requests must be accepted directly).
