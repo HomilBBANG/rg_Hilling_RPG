@@ -20,12 +20,12 @@ static func all() -> Dictionary:
 		for p in DialogueData.list_files(DIR):
 			var d: Variant = DialogueData.read_json(p)
 			if d is Dictionary and d.has("region_id"):
-				_cache[d["region_id"]] = _expand_dungeon(d) if d.get("kind", "") == "dungeon" else d
+				_cache[d["region_id"]] = _expand_dungeon(d) if d.get("kind", "") == "dungeon" else d  # random: per run
 	return _cache
 
 
 static func is_dungeon(region_id: String) -> bool:
-	return info(region_id).get("kind", "") == "dungeon"
+	return all().get(region_id, {}).get("kind", "") in ["dungeon", "random_dungeon"]
 
 
 ## Fixed dungeon (GDD 12.1 [확정]: a hand-designed layout that never changes) drawn as a text
@@ -68,6 +68,8 @@ static func _expand_dungeon(src: Dictionary) -> Dictionary:
 					torches.append([w.x, w.y])
 				"C":
 					chests.append([w.x, w.y])
+				"X":
+					d["_floor_exit"] = [w.x, w.y]
 				"K":
 					var sr: Dictionary = d.get("safe_room", {})
 					checkpoints.append({"id": "safe_room", "name": sr.get("name", "쉼터"), "pos": [w.x, w.y],
@@ -106,7 +108,37 @@ static func grid_to_world(col: int, row: int, cols: int, rows: int, cell: float)
 
 
 static func info(region_id: String) -> Dictionary:
-	return all().get(region_id, all().get(START, {}))
+	var d: Dictionary = all().get(region_id, all().get(START, {}))
+	if d.get("kind", "") == "random_dungeon":
+		return _random_floor(d)
+	return d
+
+
+static var _floor_cache := {}
+
+
+## Random dungeon (GDD 12.2): the current run's seed + floor decide the layout; outside a run a
+## placeholder floor 1 is returned (never shown).
+static func _random_floor(base: Dictionary) -> Dictionary:
+	var run: Dictionary = Game.run if Game.run.get("dungeon", "") == base["region_id"] else {}
+	var seed_value := int(run.get("seed", 0))
+	var floor_n := int(run.get("floor", 1))
+	var key := "%s|%d|%d" % [base["region_id"], seed_value, floor_n]
+	if not _floor_cache.has(key):
+		_floor_cache.clear()
+		var d := base.duplicate(true)
+		var gen := RiftGenerator.generate(seed_value, floor_n, d.get("generator", {}))
+		d["grid"] = gen["grid"]
+		d["spawn_kinds"] = gen["spawn_kinds"]
+		d["chests"] = gen["chests"]
+		d["entry_tiles"] = {"start": {"tile": "S", "yaw": PI}}
+		d["floor"] = floor_n
+		_floor_cache[key] = _expand_dungeon(d)
+	return _floor_cache[key]
+
+
+static func is_random_dungeon(region_id: String) -> bool:
+	return all().get(region_id, {}).get("kind", "") == "random_dungeon"
 
 
 static func region_name(region_id: String) -> String:

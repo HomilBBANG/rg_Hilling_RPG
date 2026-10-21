@@ -61,6 +61,73 @@ var field: Dictionary:
 		return fields[region]
 ## Where the camper is parked: it only moves between regions when driven (GDD 9.4 free parking).
 var camper := {"region": RegionDB.START}
+## Random dungeon run (GDD 12.2): {"dungeon", "floor", "seed", "before": {item: count owned at entry},
+## "from": region}. Dying loses everything gained since "before"; escaping keeps it.
+var run := {}
+
+
+func in_run() -> bool:
+	return not run.is_empty()
+
+
+## Items owned = bag + equipped pieces (a looted piece that was put on still counts as loot).
+func owned_counts() -> Dictionary:
+	var out := {}
+	for e in player_state.inventory.items:
+		out[e["id"]] = int(out.get(e["id"], 0)) + int(e["count"])
+	for slot: String in player_state.equipment:
+		var id: String = player_state.equipment[slot]
+		if id != "":
+			out[id] = int(out.get(id, 0)) + 1
+	return out
+
+
+func start_run(dungeon_id: String) -> void:
+	run = {"dungeon": dungeon_id, "floor": 1, "seed": randi(), "before": owned_counts(), "from": region}
+	fields.erase(dungeon_id)
+
+
+## What this run has added so far (counts above the entry snapshot).
+func run_gained() -> Dictionary:
+	var out := {}
+	if run.is_empty():
+		return out
+	var before: Dictionary = run["before"]
+	var now := owned_counts()
+	for id: String in now:
+		var d := int(now[id]) - int(before.get(id, 0))
+		if d > 0:
+			out[id] = d
+	return out
+
+
+func next_floor() -> void:
+	run["floor"] = int(run["floor"]) + 1
+	run["seed"] = randi()
+	fields.erase(str(run["dungeon"]))
+
+
+## Ends the run. keep = escaped through an exit. Otherwise (death) every item gained during the
+## run is removed - from the bag first, then from equipment. Returns what was lost.
+func end_run(keep: bool) -> Dictionary:
+	var lost := {}
+	if run.is_empty():
+		return lost
+	if not keep:
+		lost = run_gained()
+		for id: String in lost:
+			var left := int(lost[id]) - player_state.inventory.remove(id, int(lost[id]))
+			for slot: String in player_state.equipment:
+				if left > 0 and player_state.equipment[slot] == id:
+					player_state.equipment[slot] = ""
+					left -= 1
+		player_state.hp = minf(player_state.hp, player_state.max_hp())
+		player_state.changed.emit()
+	fields.erase(str(run["dungeon"]))
+	run = {}
+	return lost
+
+
 ## Places found by visiting them ("region:checkpoint_id" / "region:exit_id"), shown on the map (GDD 11.3).
 var discovered := {}
 ## Shop stock / restock times by shop id (ShopDB), kept across scene reloads.

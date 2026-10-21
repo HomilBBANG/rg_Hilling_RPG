@@ -300,6 +300,53 @@
           "option_chance": 0.0
         }
       ]
+    },
+    "rift_slime": {
+      "name": "미궁 슬라임",
+      "aggressive": true,
+      "hp": 26,
+      "exp": 24,
+      "profile": {
+        "hit_bonus": 5,
+        "crit_chance": 8,
+        "phys": "1d8+1",
+        "str_mult": 1.0,
+        "ac": 13,
+        "armor": 1
+      },
+      "colors": {
+        "body": [
+          0.22,
+          0.62,
+          0.6
+        ],
+        "light": [
+          0.5,
+          0.9,
+          0.85
+        ],
+        "core": [
+          0.1,
+          0.3,
+          0.34
+        ]
+      },
+      "scale": 1.15,
+      "loot": [
+        {
+          "item": "slime_jelly",
+          "chance": 1.0,
+          "dice": "1d3"
+        },
+        {
+          "item": "mana_shard",
+          "chance": 0.45
+        },
+        {
+          "item": "slime_core",
+          "chance": 0.45
+        }
+      ]
     }
   }
 }

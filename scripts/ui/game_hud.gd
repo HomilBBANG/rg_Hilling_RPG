@@ -912,6 +912,55 @@ func toggle_journal() -> void:
 		v.add_child(_button("닫기 (J)", close_panel)), 920)
 
 
+## Random dungeon gate: the GDD 12.2 warning before entering, then enter / leave it.
+func open_rift_gate(ex: Dictionary, source: Node3D) -> void:
+	var info: Dictionary = RegionDB.all().get(str(ex["to_region"]), {})
+	_open("rift_gate", source, 3.0, func(v: VBoxContainer) -> void:
+		v.add_child(_row_label("%s  (위험도 %s)" % [info.get("name", ""), RegionDB.danger_text(str(ex["to_region"]))], 700, 26, Color(0.85, 0.7, 1.0)))
+		var warn := _row_label("⚠ " + str(info.get("warning", "")), 700, 20, Color(1.0, 0.85, 0.6))
+		warn.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		warn.clip_text = false
+		v.add_child(warn)
+		var row := HBoxContainer.new()
+		row.add_child(_button("들어간다", func() -> void:
+			close_panel()
+			Game.start_run(str(ex["to_region"]))
+			boot.travel(str(ex["to_region"]), str(ex["to_entry"]), false), 220))
+		row.add_child(_button("그만둔다", close_panel, 220))
+		v.add_child(row), 760)
+
+
+## Random dungeon floor exit (GDD 12.2): leave safely with everything found so far, or go down.
+func open_floor_exit(source: Node3D) -> void:
+	if not Game.in_run():
+		return
+	_open("floor_exit", source, 3.0, func(v: VBoxContainer) -> void:
+		var did: String = Game.run["dungeon"]
+		var f := int(Game.run["floor"])
+		v.add_child(_row_label("%s %d층 출구" % [RegionDB.region_name(did), f], 700, 26, Color(0.85, 0.7, 1.0)))
+		var gained := Game.run_gained()
+		var names := PackedStringArray()
+		for id: String in gained:
+			names.append("%s ×%d" % [ItemDB.item_name(id), gained[id]])
+		var got := _row_label("이번 탐험에서 얻은 것: " + (", ".join(names) if not names.is_empty() else "아직 없음"), 700, 19)
+		got.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		got.clip_text = false
+		v.add_child(got)
+		v.add_child(_row_label("아래층은 상자가 더 풍성하고 몬스터가 더 강하다. 쓰러지면 위의 것을 모두 잃는다.", 700, 17, Color(0.75, 0.77, 0.8)))
+		var row := HBoxContainer.new()
+		row.add_child(_button("탈출 — 가지고 밖으로", func() -> void:
+			close_panel()
+			var ent: Dictionary = RegionDB.all()[did].get("entrance", {})
+			Game.end_run(true)
+			Game.combat_log.add("%s에서 탈출 (%d층)" % [RegionDB.region_name(did), f], "가지고 나온 것: %s" % (", ".join(names) if not names.is_empty() else "없음"), "info")
+			boot.travel(str(ent.get("region", RegionDB.START)), str(ent.get("entry", "")), false), 280))
+		row.add_child(_button("아래층으로 (%d층)" % (f + 1), func() -> void:
+			close_panel()
+			Game.next_floor()
+			boot.travel(did, "start", false), 240))
+		v.add_child(row), 760)
+
+
 ## World map (GDD 11.3 [확정]): regions and roads are known from the start; checkpoints and
 ## other places appear once visited. Pin UI / fog / notes are [미정] - this is a plain overview.
 func toggle_map() -> void:
@@ -994,7 +1043,14 @@ func _process(delta: float) -> void:
 	if st.speed_factor() < 0.999:
 		wl += " — %s, 이동 ×%.2f" % [st.weight_state(), st.speed_factor()]
 	lines.append(wl)
-	lines.append("지역 %s · 위험도 %s (M 지도)" % [RegionDB.region_name(Game.region), RegionDB.danger_text(Game.region)] if boot and boot.world is VisualLab else "캠핑카 실내")
+	if Game.in_run():
+		var gained := Game.run_gained()
+		var n := 0
+		for id: String in gained:
+			n += int(gained[id])
+		lines.append("%s %d층 · 이번 탐험 획득 %d개 (쓰러지면 모두 잃음)" % [RegionDB.region_name(str(Game.run["dungeon"])), int(Game.run["floor"]), n])
+	else:
+		lines.append("지역 %s · 위험도 %s (M 지도)" % [RegionDB.region_name(Game.region), RegionDB.danger_text(Game.region)] if boot and boot.world is VisualLab else "캠핑카 실내")
 	lines.append("진행 %s (F9)" % Game.STAGE_NAMES[Game.story_stage()])
 	if Game.cat_joined:
 		lines.append("고양이 호감도 %d / %d" % [Game.cat_affection, Game.CAT_AFFECTION_MAX])

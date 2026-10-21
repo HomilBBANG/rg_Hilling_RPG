@@ -9,6 +9,8 @@ var font: Font
 
 ## Hidden places (dungeons) appear only once found (GDD 11.3).
 static func known(id: String, reg: Dictionary) -> bool:
+	if reg.get("kind", "") == "random_dungeon":
+		return false  # its layout changes every visit: nothing to map
 	return not reg.get("hidden", false) or Game.discovered.has("region:" + id)
 
 

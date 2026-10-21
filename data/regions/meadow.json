@@ -300,6 +300,20 @@
       "radius": 2.3,
       "to_region": "highland",
       "to_entry": "west_road"
+    },
+    {
+      "id": "rift_gate",
+      "name": "변덕의 미궁 입구",
+      "pos": [
+        30.5,
+        24.0
+      ],
+      "radius": 1.6,
+      "to_region": "rift",
+      "to_entry": "start",
+      "no_vehicle": true,
+      "style": "rift",
+      "interact": true
     }
   ],
   "entries": {
@@ -314,6 +328,13 @@
         -1.0
       ],
       "camper_yaw": 3.1416
+    },
+    "rift_gate": {
+      "pos": [
+        30.5,
+        27.2
+      ],
+      "yaw": 0.0
     }
   },
   "tips": [

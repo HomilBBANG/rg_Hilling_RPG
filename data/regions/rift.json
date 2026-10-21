@@ -1,0 +1,195 @@
+{
+  "version": 1,
+  "region_id": "rift",
+  "kind": "random_dungeon",
+  "name": "변덕의 미궁",
+  "danger": 3,
+  "hidden": true,
+  "desc": "들어갈 때마다 구조가 바뀌는 랜덤/로그라이크 던전(GDD 12.2). 층마다 출구를 찾아 탈출하거나 더 깊이 내려간다. 쓰러지면 이번 탐험에서 얻은 전리품을 모두 잃는다.",
+  "warning": "이 던전은 들어갈 때마다 지도가 바뀝니다.\n층마다 출구를 찾아야 하며, 출구에서 탈출하거나 아래층으로 내려갈 수 있습니다.\n도중에 쓰러지면 이번 탐험에서 얻은 전리품을 모두 잃습니다 (들어오기 전 장비·성장은 유지).",
+  "entrance": {
+    "region": "meadow",
+    "entry": "rift_gate",
+    "return_checkpoint": "lake"
+  },
+  "map": {
+    "origin": [
+      0,
+      0
+    ],
+    "color": [
+      0.3,
+      0.26,
+      0.38
+    ]
+  },
+  "ground": {
+    "grass_dark": [
+      0.28,
+      0.25,
+      0.3
+    ],
+    "grass_mid": [
+      0.35,
+      0.32,
+      0.37
+    ],
+    "grass_light": [
+      0.42,
+      0.39,
+      0.44
+    ],
+    "grass_warm": [
+      0.4,
+      0.36,
+      0.38
+    ],
+    "grass_cool": [
+      0.3,
+      0.32,
+      0.38
+    ],
+    "dirt_dark": [
+      0.28,
+      0.25,
+      0.28
+    ],
+    "dirt_mid": [
+      0.34,
+      0.31,
+      0.34
+    ],
+    "dirt_light": [
+      0.42,
+      0.38,
+      0.41
+    ]
+  },
+  "cell": 2.0,
+  "wall_height": 1.5,
+  "generator": {
+    "width": 30,
+    "height": 22,
+    "rooms": 5,
+    "floors": [
+      {
+        "monsters": [
+          4,
+          5
+        ],
+        "kinds": {
+          "cave_slime": 3,
+          "moss_slime": 1
+        },
+        "chests": [
+          1,
+          2
+        ]
+      },
+      {
+        "monsters": [
+          5,
+          6
+        ],
+        "kinds": {
+          "cave_slime": 2,
+          "rock_slime": 2
+        },
+        "chests": [
+          2,
+          2
+        ]
+      },
+      {
+        "monsters": [
+          6,
+          7
+        ],
+        "kinds": {
+          "rock_slime": 2,
+          "rift_slime": 1
+        },
+        "chests": [
+          2,
+          3
+        ]
+      },
+      {
+        "monsters": [
+          7,
+          9
+        ],
+        "kinds": {
+          "rock_slime": 1,
+          "rift_slime": 2
+        },
+        "chests": [
+          2,
+          3
+        ]
+      }
+    ],
+    "chest_pool": [
+      {
+        "item": "heal_potion",
+        "w": 5
+      },
+      {
+        "item": "bread",
+        "w": 3
+      },
+      {
+        "item": "slime_core",
+        "w": 3
+      },
+      {
+        "item": "iron_ore",
+        "w": 2
+      },
+      {
+        "item": "mana_shard",
+        "w": 2
+      },
+      {
+        "item": "stamina_potion",
+        "w": 2
+      },
+      {
+        "equip": [
+          "leather_cap",
+          "leather_gloves",
+          "sturdy_boots",
+          "leather_armor",
+          "wooden_shield"
+        ],
+        "w": 2,
+        "min_floor": 2
+      },
+      {
+        "item": "spellbook_minor_heal",
+        "w": 1,
+        "min_floor": 2
+      },
+      {
+        "item": "strength_ring",
+        "w": 1,
+        "min_floor": 3
+      },
+      {
+        "item": "luck_necklace",
+        "w": 1,
+        "min_floor": 3
+      },
+      {
+        "item": "flame_longsword",
+        "w": 1,
+        "min_floor": 4
+      }
+    ]
+  },
+  "tips": [
+    "출구를 찾으면 탈출할지 더 내려갈지 고를 수 있다. 깊을수록 상자가 풍성하고 몬스터가 강하다.",
+    "쓰러지면 이번 탐험에서 주운 것은 모두 사라진다. 욕심과 안전 사이에서 고르자.",
+    "버튼 하나로 빠져나가는 방법은 없다 — 출구를 찾아야 한다."
+  ]
+}

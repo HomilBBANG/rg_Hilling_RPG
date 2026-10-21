@@ -221,6 +221,8 @@ func _unhandled_input(event: InputEvent) -> void:
 		hud.toast("개인 등불 " + ("ON" if Game.lantern_on else "OFF"))
 	elif event.is_action("camper_lights"):
 		hud.toast(world.try_toggle_camper_lights())
+	elif event.is_action("toggle_interior") and Game.in_run():
+		hud.toast("미궁에서는 출구를 찾아야 나갈 수 있다")
 	elif event.is_action("toggle_interior"):
 		if world is VisualLab and world.vehicle.driving:
 			return
@@ -299,6 +301,8 @@ func _parse_args() -> void:
 		_run_region_tour()
 	elif tour == "dungeon":
 		_run_dungeon_tour()
+	elif tour == "rift":
+		_run_rift_tour()
 	elif tour == "drive":
 		_run_drive_compare()
 	elif tour == "wind":
@@ -611,7 +615,10 @@ func travel(to_region: String, entry_id: String, driving: bool) -> void:
 	var info := RegionDB.info(to_region)
 	var tips: Array = info.get("tips", [])
 	var tip: String = str(tips[randi() % tips.size()]) if not tips.is_empty() else ""
-	await game_hud.fade_to(1.0, 0.6, "%s\n위험도 %s\n\n%s" % [info.get("name", to_region), RegionDB.danger_text(to_region), tip])
+	var title: String = info.get("name", to_region)
+	if RegionDB.is_random_dungeon(to_region) and Game.in_run():
+		title += " %d층" % int(Game.run["floor"])
+	await game_hud.fade_to(1.0, 0.6, "%s\n위험도 %s\n\n%s" % [title, RegionDB.danger_text(to_region), tip])
 	var e := RegionDB.entry(to_region, entry_id)
 	if driving and world is VisualLab:
 		world._leaving_with_camper = true
@@ -647,7 +654,18 @@ func on_player_died(death_pos: Vector3) -> void:
 	await game_hud.fade_to(1.0, 1.4, "쓰러졌다…")
 	var loss := {"taken": {}, "left": 0}
 	var cp := {}
-	if world is VisualLab:
+	var rift_lost := {}
+	var in_rift: bool = world is VisualLab and world.is_random_dungeon()
+	if in_rift:
+		# GDD 12.2: everything found during this run is lost; the return place follows 12.3
+		# (camper, or the checkpoint near the dungeon's entrance - the floors themselves vanish).
+		var ent: Dictionary = world.region.get("entrance", {})
+		rift_lost = Game.end_run(false)
+		Game.region = str(ent.get("region", RegionDB.START))
+		for c: Dictionary in RegionDB.info(Game.region).get("checkpoints", []):
+			if c["id"] == ent.get("return_checkpoint", ""):
+				cp = {"name": c["name"], "pos": RegionDB.v3(c["pos"])}
+	elif world is VisualLab:
 		loss = world.drop_death_loot(death_pos)
 		cp = world.nearest_checkpoint(death_pos)
 	Game.advance_minutes(60.0)
@@ -675,6 +693,11 @@ func on_player_died(death_pos: Vector3) -> void:
 		for id: String in taken:
 			names.append("%s ×%d" % [ItemDB.item_name(id), taken[id]])
 		detail = "고블린이 %s을(를) 가져갔다 · 나머지 %d개는 쓰러진 곳에 남아 있다" % [", ".join(names), loss["left"]]
+	if in_rift:
+		var lost_names := PackedStringArray()
+		for id: String in rift_lost:
+			lost_names.append("%s ×%d" % [ItemDB.item_name(id), rift_lost[id]])
+		detail = "미궁에서 쓰러져 이번 탐험의 전리품을 모두 잃었다%s" % (": " + ", ".join(lost_names) if not lost_names.is_empty() else " (얻은 것이 없었다)")
 	Game.combat_log.add(where, "%s — %s" % [where, detail], "info")
 	await game_hud.fade_to(0.0, 1.2)
 	hud.toast(where)
@@ -2086,4 +2109,155 @@ func _run_dungeon_tour() -> void:
 	await _seconds(0.5)
 	await _wait_travel()
 	print("[dungeon] left through the exit -> %s at (%.1f, %.1f)" % [Game.region, world.player.global_position.x, world.player.global_position.z])
+	get_tree().quit()
+
+
+# ---------------------------------------------------------------- P3-3 random dungeon
+
+func _take_all(lc: LootContainer) -> int:
+	var n := 0
+	for e in lc.inventory().duplicate_items():
+		Game.player_state.inventory.add(e["id"], e["count"])
+		n += int(e["count"])
+	lc.inventory().clear()
+	return n
+
+
+func _rift_chests() -> Array:
+	return world.find_children("*", "LootContainer", false, false).filter(func(lc: LootContainer) -> bool: return lc.data["kind"] == "chest")
+
+
+func _gained_text() -> String:
+	var g := Game.run_gained()
+	var parts := PackedStringArray()
+	for id: String in g:
+		parts.append("%s×%d" % [ItemDB.item_name(id), g[id]])
+	return ", ".join(parts) if not parts.is_empty() else "-"
+
+
+func _owned_text(d: Dictionary) -> String:
+	var parts := PackedStringArray()
+	for id: String in d:
+		parts.append("%s×%d" % [id, d[id]])
+	return ", ".join(parts)
+
+
+func _enter_rift() -> void:
+	Game.start_run("rift")
+	travel("rift", "start", false)
+	await _wait_travel()
+
+
+func _run_rift_tour() -> void:
+	Dice.rng.seed = 44
+	seed(44)
+	Game.clock_running = false
+	Game.minute_of_day = 12.0 * 60.0
+	await wait_for_sprites()
+	var st := Game.player_state
+	st.inventory.add("heal_potion", 2)  # brought from outside: never lost
+	var gate: Dictionary = {}
+	for ex: Dictionary in world.exits:
+		if ex.get("style", "") == "rift":
+			gate = ex
+	var gp: Vector3 = gate["pos"]
+	_place_player(gp + Vector3(0, 0, 3.0), 0.0)
+	await _frames(15)
+	await _p1_shot("rift_00_gate", "random dungeon gate in the meadow", true)
+	_place_player(gp + Vector3(0, 0, 2.1), 0.0)
+	await _frames(6)
+	await _key(KEY_E)
+	print("[rift] E at the gate -> panel %s (walking past does not enter: region %s)" % [game_hud._panel_kind, Game.region])
+	await _p1_shot("rift_01_warning", "warning before entering", true)
+	game_hud.close_panel()
+	# ---- run A: floor 1 -> 2, then escape with the loot
+	var before_a := Game.owned_counts()
+	await _enter_rift()
+	var grid_a1: Array = world.region["grid"]
+	print("[rift] run A floor %d: %dx%d grid, monsters %d, chests %d, exit at %s" % [Game.run["floor"], str(grid_a1[0]).length(), grid_a1.size(),
+		world.monsters.size(), _rift_chests().size(), world.region.get("_floor_exit")])
+	await _seconds(2.6)
+	await _p1_shot("rift_02_floor1", "floor 1", true)
+	for lc: LootContainer in _rift_chests():
+		_take_all(lc)
+	var m: SlimeMonster = world.monsters[0]
+	m._die()
+	await _frames(3)
+	for lc: LootContainer in world.find_children("*", "LootContainer", false, false):
+		if lc.data["kind"] == "corpse":
+			_take_all(lc)
+	print("[rift]   after chest + a kill: gained %s" % _gained_text())
+	var ex: Array = world.region["_floor_exit"]
+	_place_player(Vector3(float(ex[0]), 0, float(ex[1]) + 0.6), 0.0)
+	await _frames(8)
+	await _key(KEY_E)
+	print("[rift]   E at the floor exit -> panel %s" % game_hud._panel_kind)
+	await _p1_shot("rift_03_floor_exit", "floor exit: escape or go down", true)
+	game_hud.close_panel()
+	Game.next_floor()
+	travel("rift", "start", false)
+	await _wait_travel()
+	var grid_a2: Array = world.region["grid"]
+	print("[rift] run A floor %d: %dx%d grid (bigger), monsters %d, kinds %s" % [Game.run["floor"], str(grid_a2[0]).length(), grid_a2.size(),
+		world.monsters.size(), world.region["spawn_kinds"]])
+	await _seconds(2.6)
+	await _p1_shot("rift_04_floor2", "floor 2", true)
+	for lc: LootContainer in _rift_chests():
+		_take_all(lc)
+	var gained_a := Game.run_gained()
+	print("[rift]   floor 2 chest -> gained %s" % _gained_text())
+	# escape through the exit (same code path as the panel button)
+	var did := "rift"
+	var ent: Dictionary = RegionDB.all()[did]["entrance"]
+	Game.end_run(true)
+	travel(ent["region"], ent["entry"], false)
+	await _wait_travel()
+	var after_a := Game.owned_counts()
+	var kept_all := true
+	for id: String in gained_a:
+		kept_all = kept_all and int(after_a.get(id, 0)) >= int(before_a.get(id, 0)) + int(gained_a[id])
+	print("[rift] escaped -> %s, run active %s, kept everything found %s" % [Game.region, Game.in_run(), kept_all])
+	# ---- run B: new layout; equip a found piece; die without a camper -> lose only the run's loot
+	Game.set_story_stage(1)
+	await _frames(5)
+	await _seconds(VisualLab.EXIT_GRACE)
+	var before_b := Game.owned_counts()
+	var exp_b := st.gen_exp
+	await _enter_rift()
+	var grid_b1: Array = world.region["grid"]
+	print("[rift] run B floor 1 layout differs from run A floor 1: %s" % (grid_b1 != grid_a1))
+	for lc: LootContainer in _rift_chests():
+		_take_all(lc)
+	st.inventory.add("leather_cap", 1)  # stands in for a looted piece
+	st.equip("leather_cap")
+	m = world.monsters[0]
+	m._die()
+	await _frames(3)
+	print("[rift]   run B gained %s (cap worn: %s), EXP %d -> %d" % [_gained_text(), st.equipment["head"], exp_b, st.gen_exp])
+	await _key(KEY_I)
+	print("[rift]   I (debug interior) during the run -> still %s" % Game.region)
+	var exp_before_death := st.gen_exp
+	on_player_died(world.player.global_position)
+	while _busy:
+		await _frames(2)
+	var after_b := Game.owned_counts()
+	print("[rift] died -> woke in %s at (%.1f, %.1f), run active %s, head slot '%s'" % [Game.region, world.player.global_position.x,
+		world.player.global_position.z, Game.in_run(), st.equipment["head"]])
+	print("[rift]   owned before run B: %s" % _owned_text(before_b))
+	print("[rift]   owned after death : %s" % _owned_text(after_b))
+	print("[rift]   same as before the run: %s; EXP kept %s (%d)" % [after_b == before_b, st.gen_exp == exp_before_death, st.gen_exp])
+	await _p1_shot("rift_05_after_death", "woke at the lake checkpoint, run loot gone", true)
+	# ---- run C with the camper: rescued into the camper
+	Game.set_story_stage(2)
+	await _frames(5)
+	await _seconds(VisualLab.EXIT_GRACE)
+	await _enter_rift()
+	on_player_died(world.player.global_position)
+	while _busy:
+		await _frames(2)
+	print("[rift] run C death with the camper -> %s, run active %s" % ["interior" if world is CamperInteriorLab else Game.region, Game.in_run()])
+	Game.request_world(Game.WORLD_EXTERIOR)
+	await _frames(3)
+	await wait_for_sprites()
+	print("[rift]   stepped out -> %s; random dungeon on the map: %s" % [Game.region, WorldMap.known("rift", RegionDB.all()["rift"])])
 	get_tree().quit()

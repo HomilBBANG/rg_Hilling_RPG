@@ -85,6 +85,8 @@ func _ready() -> void:
 	_build_landmarks()
 	if is_dungeon():
 		_build_dungeon()
+		if region.has("_floor_exit"):
+			_build_floor_exit(region["_floor_exit"])
 	else:
 		_scatter_nature()
 		_build_ground_cover()
@@ -95,7 +97,11 @@ func _ready() -> void:
 
 
 func is_dungeon() -> bool:
-	return region.get("kind", "") == "dungeon"
+	return region.get("kind", "") in ["dungeon", "random_dungeon"]
+
+
+func is_random_dungeon() -> bool:
+	return region.get("kind", "") == "random_dungeon"
 
 
 func has_feature(f: String) -> bool:
@@ -637,6 +643,48 @@ func _build_cave_mouth(c: Vector3) -> void:
 	_block(c.x, c.z, 4.0)
 
 
+## Random dungeon gate (meadow): a ring of standing stones around a violet glow. E asks first
+## (GDD 12.2: warn that the map keeps changing before entering).
+func _build_rift_gate(ex: Dictionary) -> void:
+	var c: Vector3 = ex["pos"]
+	var stone := ProtoMesh.mat(Color(0.42, 0.4, 0.46))
+	var glow := ProtoMesh.mat(Color(0.62, 0.45, 0.95), 0.4, Color(0.6, 0.4, 1.0), 1.5)
+	var root := _on_ground(Node3D.new(), c.x, c.z)
+	for i in 6:
+		var a := TAU * i / 6.0
+		ProtoMesh.box(root, Vector3(0.38, 1.4 + 0.25 * (i % 2), 0.3), Vector3(cos(a) * 1.5, 0.7, sin(a) * 1.5), stone, Vector3(0, -rad_to_deg(a), 0))
+	var disc := ProtoMesh.cylinder(root, 1.0, 0.05, Vector3(0, 0.05, 0), glow, Vector3.ZERO, 16)
+	disc.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	var light := OmniLight3D.new()
+	light.position = Vector3(0, 1.0, 0)
+	light.light_color = Color(0.7, 0.5, 1.0)
+	light.light_energy = 1.4
+	light.omni_range = 5.0
+	root.add_child(light)
+	ProtoMesh.static_cylinder_collider(self, 0.6, 2.0, root.position)
+	_block(c.x, c.z, 2.6)
+	var ip := InteractPoint.make(self, c + Vector3(0, 0, 1.9), "E %s — 들어가기 전에 안내" % ex.get("name", "미궁 입구"), Callable(), 1.6)
+	ip.action = func(_pl: Node) -> void: Game.hud.open_rift_gate(ex, ip)
+
+
+## Random dungeon floor exit: a stair hole with a cold light; E = escape or go deeper.
+func _build_floor_exit(p: Array) -> void:
+	var c := Vector3(float(p[0]), 0.0, float(p[1]))
+	var ring := ProtoMesh.mat(Color(0.5, 0.48, 0.52))
+	var hole := ProtoMesh.mat(Color(0.02, 0.02, 0.03))
+	var root := _on_ground(Node3D.new(), c.x, c.z)
+	ProtoMesh.cylinder(root, 0.95, 0.12, Vector3(0, 0.06, 0), ring, Vector3.ZERO, 14)
+	ProtoMesh.cylinder(root, 0.72, 0.13, Vector3(0, 0.07, 0), hole, Vector3.ZERO, 14)
+	var light := OmniLight3D.new()
+	light.position = Vector3(0, 1.8, 0)
+	light.light_color = Color(0.65, 0.8, 1.0)
+	light.light_energy = 1.3
+	light.omni_range = 5.0
+	root.add_child(light)
+	var ip := InteractPoint.make(self, c, "E 출구 — 탈출하거나 아래층으로", Callable(), 1.6)
+	ip.action = func(_pl: Node) -> void: Game.hud.open_floor_exit(ip)
+
+
 ## Way out of the dungeon: pale light falling on a stone slab.
 func _build_dungeon_exit(c: Vector3) -> void:
 	var slab := ProtoMesh.mat(Color(0.42, 0.43, 0.45), 0.8, Color(0.5, 0.6, 0.75), 0.25)
@@ -733,6 +781,8 @@ func _spawn_loot() -> void:
 
 
 func _respawn_check() -> void:
+	if is_random_dungeon():
+		return  # a floor only exists for this visit
 	var now := Game.total_minutes()
 	for spec: Dictionary in region.get("monsters", []):
 		var dead_at: float = Game.field["dead"].get(spec["id"], -1.0)
@@ -1100,6 +1150,9 @@ func _build_exit_marker(ex: Dictionary) -> void:
 	if ex.get("style", "") == "cave":
 		_build_cave_mouth(c)
 		return
+	if ex.get("style", "") == "rift":
+		_build_rift_gate(ex)
+		return
 	var stone := ProtoMesh.mat(Color(0.58, 0.57, 0.54))
 	var cloth := ProtoMesh.mat(Color(0.86, 0.72, 0.36))
 	# posts either side of the road, across the direction toward the region edge
@@ -1141,7 +1194,7 @@ func _process(delta: float) -> void:
 	if _age > EXIT_GRACE and Game.boot and not Game.boot.is_busy():
 		var at := vehicle.global_position if vehicle.driving else player.global_position
 		var ex := _exit_near(at, 0.0)
-		if not ex.is_empty() and (vehicle.driving or player.visible):
+		if not ex.is_empty() and not ex.get("interact", false) and (vehicle.driving or player.visible):
 			if vehicle.driving and ex.get("no_vehicle", false):
 				if _age > _no_vehicle_toast_at:
 					_no_vehicle_toast_at = _age + 3.0
@@ -1212,8 +1265,16 @@ func try_toggle_camper_lights() -> String:
 func context_hint() -> String:
 	if vehicle.driving:
 		return "운전 중 — W 전진 · S 후진 · A/D 머리 좌/우 · E 내리기(정지 시) · F 라이트"
+	if is_random_dungeon() and Game.in_run():
+		var n := 0
+		var gained := Game.run_gained()
+		for id: String in gained:
+			n += int(gained[id])
+		return "%s %d층 — 출구를 찾아라 · 이번 탐험에서 얻은 것 %d개 (쓰러지면 모두 잃음)" % [region.get("name", ""), int(Game.run.get("floor", 1)), n]
 	var ex := _exit_near(player.global_position, 7.0)
 	if not ex.is_empty():
+		if ex.get("style", "") == "rift":
+			return ""
 		if is_dungeon():
 			return "%s → %s" % [ex.get("name", "출구"), RegionDB.region_name(ex["to_region"])]
 		if ex.get("style", "") == "cave":

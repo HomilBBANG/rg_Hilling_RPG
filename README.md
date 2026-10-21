@@ -25,6 +25,7 @@
 | 사망/복귀 | 캠핑카 보유(단계 C) → 실내 간이침대 옆에서 기상. 미보유(A/B) → 가장 가까운 안전 체크포인트(캠프 모닥불·갈림길 돌무지·호숫가 쉼터). B에서는 고양이가 곁을 돌다 앉음. 가방의 일부는 고블린이 가져가고 나머지는 쓰러진 자리의 "짐 꾸러미"로 남음 |
 | 지역 이동 (P3-1) | 지역 2곳: **바람결 초원**(시작, 위험도 ★)과 **솔바람 고원**(위험도 ★★, 바위 슬라임·이끼 슬라임). 초원 갈림길에서 동쪽으로 난 길 끝(돌기둥 두 개)으로 걸어가거나 **캠핑카로 달려 들어가면** 로딩 화면 후 다른 지역. 걸어가면 캠핑카는 세워 둔 곳에 남고, 운전해서 가면 차도 함께 감. 지역마다 몬스터 강함 고정(레벨 연동 없음), 쓰러진 몬스터·시체·짐 꾸러미는 지역별로 기억. `M` **월드맵**: 두 지역·길·연결 도로·현재 위치·캠핑카 위치, 방문한 체크포인트 표시 |
 | 고정 던전 (P3-2) | 고원 북쪽 길 끝 바위 사이의 **이끼 동굴** 입구로 걸어 들어가기(캠핑카로는 못 들어감). 어두운 동굴을 횃불이 비춤(등불 허리띠가 있으면 `L`). 동굴 슬라임·바위 슬라임, 깊은 홀의 **슬라임 왕**(한 번만 등장), **한 번만 열리는 보물 상자** 2개, 입구 **쉼터**(안전 체크포인트). 던전에서 쓰러져도 필드와 같은 규칙: 고블린이 일부를 가져가고 나머지는 그 자리에 남음 → 캠핑카가 있으면 캠핑카 안, 없으면 동굴 입구 쉼터에서 깨어남. 동굴은 발견한 뒤에 지도에 나타남 |
+| 랜덤 던전 (P3-3) | 초원 **호숫가 쉼터 동쪽의 보라색 돌 고리**(변덕의 미궁, 위험도 ★★★)에서 `E` → "지도가 계속 바뀐다·쓰러지면 이번 탐험 전리품을 모두 잃는다" **안내 후 입장**. 들어갈 때마다 **방·복도 구조가 새로 생성**. 층마다 **출구**(돌 테두리 구멍)를 찾아 `E` → **탈출(가지고 나감)** 또는 **아래층으로**(더 크고, 몬스터가 강하고, 상자가 풍성). 몬스터를 다 잡을 필요 없음, 아무 때나 나가는 방법 없음. 쓰러지면 **이번 탐험에서 얻은 것만 전부 사라짐**(착용한 것 포함, 들어가기 전 짐·장비·EXP는 유지) → 캠핑카 또는 호숫가 쉼터에서 깨어남. HUD에 층·이번 탐험 획득 수 |
 | 퀘스트 (P2-5) | **NPC 의뢰**: 로사에게 `R`로 말을 걸어 대화에서 직접 수락(젤리 5개 → 보고하면 골드·EXP·빵). **게시판**(교역소 가운데) `E`: 반복 의뢰(풀밭 슬라임 3마리), 긴급 의뢰(숲 슬라임 3마리, **24시간 제한** — 실패해도 다시 받기). **현장 사건**: 갈림길 가는 길의 넘어진 짐수레에 다가가면 수락 없이 시작 → 꾸러미 3개를 주워 브론에게 → **해결 2가지**(사례 없이 돌려줌 = 생활 EXP / 사례를 받음 = 골드+일반 EXP). `J` 퀘스트 기록, 오른쪽 위에 진행 목록 |
 | 대화 (P2-5) | 계산대 앞 `R` 대화(로사·브론). 대화창: `E`/`Space`/클릭 다음, `1`~`9` 선택. 대화 중에는 이동·공격 잠금, 카메라 그대로. 대사·분기는 모두 `data/dialogues/*.json` (대화 에디터로 편집) |
 | 상점·NPC (P2-4) | 캠프 서쪽 길가 **교역소**: 로사의 잡화점(08~20시)·브론의 대장간(09~18시). 계산대 앞 `E`로 거래 — 사기·팔기(상인마다 매입가가 다르고, 희귀 재료는 대장간만 삼). 재고는 1일/3일마다 다시 채워짐. 대장간에서 착용 장비 **강화**(100% 성공, 최대 +3). 문 닫는 시각이면 주인이 집으로 걸어 들어가고 거래 불가. 골드는 HUD에 표시(시작 50) |
@@ -155,7 +156,7 @@ captures/sprite_pipeline/   구운 스프라이트 시트(sheets/) + 베이크 v
 captures/p1/                P1 흐름 검증 캡처 19장 (--tour=p1)
 captures/p2/                P2 캡처: 성장(--tour=p2), 장비(--tour=gear), 소모품(--tour=items), 상점·NPC(--tour=shop), 퀘스트·대화(--tour=quest)
 captures/dialogue_editor/   실제 Godot 에디터 안의 대화 에디터 자동 점검 캡처
-captures/p3/                P3-1 지역 이동(region_*, --tour=region), P3-2 고정 던전(dungeon_*, --tour=dungeon)
+captures/p3/                P3-1 지역 이동(region_*), P3-2 고정 던전(dungeon_*), P3-3 랜덤 던전(rift_*, --tour=rift)
 notes/             VISUAL_DIRECTION.md, VISUAL_COMPARISON.md, IMPLEMENTATION_ASSUMPTIONS.md, DIALOGUE_EDITOR.md, DRIVING.md
 docs/              GDD.md(v10.2), CAT_COMPANION_HANDOFF.md, DIALOGUE_EDITOR_HANDOFF.md(v10.5), GRAPHICS_PROTOTYPE.md, CLAUDE_CODE_HANDOFF.md
 ```
@@ -180,6 +181,8 @@ Godot.exe --path C:/Game/denial -- --tour=quest --capture-dir=C:/Game/denial/cap
 Godot.exe --path C:/Game/denial -- --tour=region --capture-dir=C:/Game/denial/captures/p3
 :: P3-2 고정 던전: 캠핑카 진입 불가, 동굴 입장, 보물 상자, 보스 1회 등장, 던전 사망 규칙, 지도 표시, 출구
 Godot.exe --path C:/Game/denial -- --tour=dungeon --capture-dir=C:/Game/denial/captures/p3
+:: P3-3 랜덤 던전: 입장 안내, 층마다 새 구조, 출구 선택(탈출/아래층), 탈출 시 보존, 사망 시 이번 탐험 전리품만 손실
+Godot.exe --path C:/Game/denial -- --tour=rift --capture-dir=C:/Game/denial/captures/p3
 :: 대화 에디터 자동 점검 (실제 에디터 안에서 실행 후 자동 종료, 콘솔에 [editor] PASS/FAIL)
 set DIALOGUE_EDITOR_SELFTEST=C:/Game/denial/captures/dialogue_editor
 Godot.exe --path C:/Game/denial -e
