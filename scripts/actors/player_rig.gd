@@ -1,12 +1,14 @@
 class_name PlayerRig
 extends Node3D
-## The player's 3D model (procedural low-poly person) with poseable limbs.
-## Used two ways: as the source model that SpriteBaker renders into pixel sprite sheets,
-## and live (shadow-only) so the baked sprite still casts a correct animated shadow.
+## The player's 3D model: the Meshy AI character (assets/characters/player/player.glb, scaled,
+## decimated and skinned to a simple humanoid skeleton by tools/blender/player_meshy_prepare.py),
+## posed from code through its bones. Used two ways: as the source model that SpriteBaker renders
+## into pixel sprite sheets, and live (shadow-only) so the baked sprite still casts a correct
+## animated shadow. Held items (weapon, shield, potion, bread) ride on the hand / forearm bones and
+## the belt lantern on the hips bone.
 
+const MODEL := preload("res://assets/characters/player/player.glb")
 const ATTACK_TIME := 0.32
-## Chibi proportions: tiny stubby legs (hip height 0.42 m), big round head and belly.
-const HIP_HEIGHT := 0.42
 ## Sprite sheet columns: [animation, frame count]. Rows are 8 facing directions.
 ## drink / eat / cast: common use motions per consumable kind (GDD 6.4) and for spells.
 const ANIMS := [["idle", 2], ["walk", 8], ["attack", 5], ["drink", 2], ["eat", 2], ["cast", 2]]
@@ -14,14 +16,12 @@ const DIRECTIONS := 8
 ## Wrist tilt of the sword at rest (blade forward-down).
 const SWORD_REST_TILT := 1.05
 
-var hips: Node3D
 var lantern_anchor: Node3D
-var _leg_l: Node3D
-var _leg_r: Node3D
-var _arm_l: Node3D
-var _arm_r: Node3D
-var _elbow_l: Node3D
-var _elbow_r: Node3D
+var _skel: Skeleton3D
+var _bone := {}          # bone name -> index
+var _rest_rig := {}      # bone index -> rest orientation in rig axes (front -Z, right +X)
+var _skel_to_rig: Transform3D
+var _hips_rest := Vector3.ZERO
 var _sword: Node3D
 var _shield: Node3D
 var _bottle: Node3D
@@ -31,11 +31,22 @@ var gear := {"main": "iron_sword", "off": "", "lantern": true}
 var _lantern_glass: MeshInstance3D
 var _glass_on: Material
 var _glass_off: Material
+static var _body_mat: StandardMaterial3D
 
 
 func _init() -> void:
 	_build()
 	set_gear(gear)
+
+
+## Poses set before entering the tree (the sprite baker poses each copy first) never reach the skin:
+## Skeleton3D only schedules an update for changes made while inside. Nudge the root bone once
+## everything is in the tree so the whole skeleton recomputes with the stored pose.
+func _ready() -> void:
+	var i: int = _bone["hips"]
+	var p := _skel.get_bone_pose_position(i)
+	_skel.set_bone_pose_position(i, p + Vector3(0, 0.0001, 0))
+	_skel.set_bone_pose_position(i, p)
 
 
 static func column_count() -> int:
@@ -62,116 +73,93 @@ static func direction_yaw(index: int) -> float:
 	return index * TAU / DIRECTIONS
 
 
-## Protagonist (pixel concept art, simplified to chibi proportions): big round bald head,
-## bushy brows (no visible eyes) and a bushy brown moustache, round belly in a white tank top under an open red
-## plaid flannel, brown belt, tiny round olive legs and brown boots.
-## Flat colours only; shading comes from the cel lighting.
 func _build() -> void:
-	var skin := ProtoMesh.mat(Color(0.95, 0.68, 0.5))
-	var skin_shade := ProtoMesh.mat(Color(0.86, 0.56, 0.42))
-	var ear_inner := ProtoMesh.mat(Color(0.72, 0.42, 0.34))
-	var stache := ProtoMesh.mat(Color(0.36, 0.22, 0.14))
-	var dark := ProtoMesh.mat(Color(0.1, 0.08, 0.08))
-	var tank := ProtoMesh.mat(Color(0.97, 0.96, 0.93))
-	var flannel := _plaid_mat()
-	var flannel_dark := ProtoMesh.mat(Color(0.56, 0.12, 0.12))
-	var pants := ProtoMesh.mat(Color(0.47, 0.5, 0.26))
-	var pants_dark := ProtoMesh.mat(Color(0.38, 0.41, 0.2))
-	var belt := ProtoMesh.mat(Color(0.36, 0.22, 0.13))
-	var buckle := ProtoMesh.mat(Color(0.82, 0.82, 0.8))
-	var boot := ProtoMesh.mat(Color(0.55, 0.34, 0.18))
-	var boot_dark := ProtoMesh.mat(Color(0.32, 0.2, 0.11))
-
-	hips = Node3D.new()
-	hips.position.y = HIP_HEIGHT
-	add_child(hips)
-
-	# Tiny round legs: short olive pants, round brown boots
-	_leg_l = _limb(hips, Vector3(-0.14, 0.0, 0.0))
-	_leg_r = _limb(hips, Vector3(0.14, 0.0, 0.0))
-	for i in 2:
-		var leg: Node3D = [_leg_l, _leg_r][i]
-		ProtoMesh.sphere(leg, 0.15, Vector3(0, -0.1, 0), pants, Vector3(1.0, 1.25, 1.0), 10, 6)
-		ProtoMesh.sphere(leg, 0.13, Vector3(0, -0.25, 0), pants_dark, Vector3(1.0, 0.7, 1.0), 10, 6)
-		ProtoMesh.sphere(leg, 0.13, Vector3(0, -0.34, -0.04), boot, Vector3(1.0, 0.75, 1.3), 10, 6)
-		ProtoMesh.box(leg, Vector3(0.2, 0.03, 0.3), Vector3(0, -0.405, -0.04), boot_dark)
-
-	# Torso: closed round flannel body; the white tank top shows only as a front panel
-	# in the open shirt (it used to poke out at the sides/back).
-	ProtoMesh.sphere(hips, 0.36, Vector3(0, 0.38, 0.0), flannel, Vector3(1.05, 1.08, 0.95), 12, 8)
-	ProtoMesh.sphere(hips, 0.2, Vector3(0, 0.36, -0.27), tank, Vector3(1.05, 1.5, 0.5), 12, 8)
-	ProtoMesh.box(hips, Vector3(0.16, 0.08, 0.05), Vector3(0, 0.7, -0.2), skin)
-	ProtoMesh.cylinder(hips, 0.34, 0.08, Vector3(0, 0.06, 0.0), belt, Vector3.ZERO, 12)
-	ProtoMesh.box(hips, Vector3(0.1, 0.07, 0.04), Vector3(0, 0.06, -0.34), buckle)
-	for side in [-1.0, 1.0]:
-		# shirt front edges framing the tank, collar
-		ProtoMesh.box(hips, Vector3(0.06, 0.46, 0.05), Vector3(side * 0.23, 0.38, -0.3), flannel_dark, Vector3(0, side * 35.0, 0))
-		ProtoMesh.box(hips, Vector3(0.12, 0.06, 0.16), Vector3(side * 0.15, 0.73, -0.12), flannel_dark, Vector3(0, side * 25.0, side * -20.0))
-
-	# Head: big round bald head, simple face: bushy brows (no eyes), small nose, bushy moustache, shaded ears
-	ProtoMesh.cylinder(hips, 0.12, 0.08, Vector3(0, 0.74, 0), skin, Vector3.ZERO, 8)
-	ProtoMesh.sphere(hips, 0.31, Vector3(0, 1.0, 0), skin, Vector3(1.0, 0.97, 0.95), 12, 8)
-	# nose + moustache stick out in front so the profile reads in side views
-	ProtoMesh.sphere(hips, 0.08, Vector3(0, 0.97, -0.33), skin_shade, Vector3(1.0, 0.9, 1.25), 8, 5)
-	for side in [-1.0, 1.0]:
-		ProtoMesh.sphere(hips, 0.08, Vector3(side * 0.3, 0.98, 0.02), skin_shade, Vector3(0.55, 1.0, 0.85), 6, 4)
-		ProtoMesh.sphere(hips, 0.04, Vector3(side * 0.335, 0.98, 0.0), ear_inner, Vector3(0.6, 1.0, 0.8), 6, 4)
-		# eyes sit on the curve of the face so they also show in 3/4 and profile views
-		# No eyes: thick bushy brows painted flat over the eye area carry the expression.
-		# Each brow = two full-width rows plus a shorter top row on the inner side, so the
-		# outer end sits lower (soft, kind look) without tilting (tilts alias into a frown).
-		for piece in [[0.105, 0.05, 0.13, 0.04], [0.105, 0.085, 0.13, 0.04], [0.085, 0.12, 0.09, 0.04]]:
-			var brow := ProtoMesh.box(hips, Vector3(piece[2], piece[3], 0.004), Vector3.ZERO, stache)
-			brow.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-			var radii := Vector3(0.31, 0.31 * 0.97, 0.31 * 0.95)
-			var ux: float = piece[0] / radii.x
-			var uy: float = piece[1] / radii.y
-			var unit := Vector3(side * ux, uy, -sqrt(1.0 - ux * ux - uy * uy))
-			var surface := Vector3(0, 1.0, 0) + unit * radii
-			var normal := (unit / radii).normalized()
-			brow.transform = Transform3D(Basis.looking_at(-normal), surface + normal * 0.002)
-		ProtoMesh.box(hips, Vector3(0.2, 0.11, 0.22), Vector3(side * 0.1, 0.88, -0.31), stache, Vector3(0, 0, side * 18.0))
-
-	# Arms: flannel sleeves rolled to the elbow, bare forearms
-	_arm_l = _limb(hips, Vector3(-0.4, 0.58, 0.0))
-	_arm_r = _limb(hips, Vector3(0.4, 0.58, 0.0))
-	for i in 2:
-		var arm: Node3D = [_arm_l, _arm_r][i]
-		ProtoMesh.sphere(arm, 0.14, Vector3(0, -0.06, 0), flannel, Vector3(1.0, 1.3, 1.0), 10, 6)
-		ProtoMesh.cylinder(arm, 0.13, 0.06, Vector3(0, -0.2, 0), flannel_dark, Vector3.ZERO, 10)
-		var elbow := _limb(arm, Vector3(0, -0.22, 0))
-		ProtoMesh.capsule(elbow, 0.095, 0.22, Vector3(0, -0.08, 0), skin)
-		ProtoMesh.sphere(elbow, 0.11, Vector3(0, -0.2, 0), skin)
-		if i == 0:
-			_elbow_l = elbow
-		else:
-			_elbow_r = elbow
+	var model: Node3D = MODEL.instantiate()
+	model.rotation.y = PI  # the export faces +Z; every actor here faces -Z
+	add_child(model)
+	_skel = model.find_children("*", "Skeleton3D", true, false)[0]
+	# The sprite baker disables processing on its instances: the skeleton must still apply poses.
+	_skel.process_mode = Node.PROCESS_MODE_ALWAYS
+	_skel_to_rig = Transform3D.IDENTITY
+	var n: Node = _skel
+	while n != self:
+		_skel_to_rig = (n as Node3D).transform * _skel_to_rig
+		n = n.get_parent()
+	for i in _skel.get_bone_count():
+		_bone[_skel.get_bone_name(i)] = i
+		_rest_rig[i] = (_skel_to_rig.basis * _skel.get_bone_global_rest(i).basis).orthonormalized()
+	_hips_rest = _skel.get_bone_rest(_bone["hips"]).origin
+	for mi in model.find_children("*", "MeshInstance3D", true, false):
+		(mi as MeshInstance3D).material_override = _toon(mi as MeshInstance3D)
 
 	# Weapon wrist pivot in the right fist (blade along its -Y: forward-down at rest, in line with
-	# the arm during the swing) and the shield mount on the left forearm; filled by set_gear().
-	_sword = _limb(_elbow_r, Vector3(0, -0.21, -0.02))
-	_shield = _limb(_elbow_l, Vector3(-0.09, -0.12, 0.0))
-	# Props in the left hand, shown only during the use motions (potion bottle, bread roll).
-	_bottle = _limb(_elbow_l, Vector3(0, -0.24, -0.03))
+	# the arm during the swing), shield on the outside of the left forearm, props in the left fist.
+	_sword = _attach("hand_R", _bone_point("hand_R", 0.085) + Vector3(0, 0, -0.02))
+	_shield = _attach("forearm_L", _bone_point("forearm_L", 0.12) + Vector3(-0.1, 0, 0))
+	_bottle = _attach("hand_L", _bone_point("hand_L", 0.1) + Vector3(0, 0, -0.04))
 	# pale glass so it reads against the red flannel
 	ProtoMesh.cylinder(_bottle, 0.05, 0.11, Vector3.ZERO, ProtoMesh.mat(Color(0.62, 0.9, 0.98), 0.3), Vector3.ZERO, 8)
 	ProtoMesh.cylinder(_bottle, 0.02, 0.05, Vector3(0, -0.07, 0), ProtoMesh.mat(Color(0.8, 0.85, 0.9), 0.3), Vector3.ZERO, 6)
 	ProtoMesh.cylinder(_bottle, 0.022, 0.025, Vector3(0, -0.105, 0), ProtoMesh.mat(Color(0.55, 0.38, 0.22)), Vector3.ZERO, 6)
-	_bun = _limb(_elbow_l, Vector3(0, -0.25, -0.03))
+	_bun = _attach("hand_L", _bone_point("hand_L", 0.1) + Vector3(0, 0, -0.04))
 	ProtoMesh.sphere(_bun, 0.08, Vector3.ZERO, ProtoMesh.mat(Color(0.78, 0.55, 0.28)), Vector3(1.2, 0.8, 1.0), 8, 5)
 	_bottle.visible = false
 	_bun.visible = false
 
-	# Belt lantern on the left hip (GDD 10.3: 허리띠에 끼우는 등불)
-	lantern_anchor = Node3D.new()
-	lantern_anchor.position = Vector3(-0.36, 0.0, -0.04)
-	hips.add_child(lantern_anchor)
+	# Belt lantern on the left hip, a little behind the hanging arm (GDD 10.3: 허리띠에 끼우는 등불)
+	lantern_anchor = _attach("hips", Vector3(-0.29, 0.6, 0.1))
+	var dark := ProtoMesh.mat(Color(0.1, 0.08, 0.08))
 	ProtoMesh.box(lantern_anchor, Vector3(0.11, 0.03, 0.11), Vector3(0, 0.07, 0), dark)
 	ProtoMesh.box(lantern_anchor, Vector3(0.11, 0.03, 0.11), Vector3(0, -0.09, 0), dark)
 	_glass_off = ProtoMesh.mat(Color(0.62, 0.56, 0.4))
 	_glass_on = ProtoMesh.mat(Color(1.0, 0.85, 0.5), 0.4, Color(1.0, 0.7, 0.3), 3.0)
 	_lantern_glass = ProtoMesh.box(lantern_anchor, Vector3(0.09, 0.13, 0.09), Vector3(0, -0.01, 0), _glass_off)
 	_lantern_glass.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	pose(0.0, 0.0, -1.0)
+
+
+## Same flat cel look as the rest of the game (ProtoMesh toon), keeping the model's colour texture.
+static func _toon(mi: MeshInstance3D) -> StandardMaterial3D:
+	if _body_mat == null:
+		_body_mat = ProtoMesh.unique_mat(Color.WHITE)
+		_body_mat.albedo_texture = (mi.mesh.surface_get_material(0) as StandardMaterial3D).albedo_texture
+	return _body_mat
+
+
+## A point along a bone at rest (rig space), `along` metres from its head.
+func _bone_point(bone: String, along: float) -> Vector3:
+	var i: int = _bone[bone]
+	var rest := _skel_to_rig * _skel.get_bone_global_rest(i)
+	return rest.origin + (_rest_rig[i] as Basis).y.normalized() * along
+
+
+## Node riding on a bone whose axes match the rig's axes while the bone is at rest, placed at
+## `pivot` (rig space) - so props keep the offsets / rotations they had on the old procedural rig.
+func _attach(bone: String, pivot: Vector3) -> Node3D:
+	var ba := BoneAttachment3D.new()
+	ba.bone_name = bone
+	ba.process_mode = Node.PROCESS_MODE_ALWAYS
+	_skel.add_child(ba)
+	var frame := Node3D.new()
+	var rest := _skel_to_rig * _skel.get_bone_global_rest(_bone[bone])
+	frame.transform = rest.affine_inverse() * Transform3D(Basis.IDENTITY, pivot)
+	ba.add_child(frame)
+	var holder := Node3D.new()  # free to rotate (sword tilt) without losing the frame's alignment
+	frame.add_child(holder)
+	return holder
+
+
+## Rotates a bone by `euler` (YXZ, in rig axes, like Node3D.rotation on the old rig's limb pivots);
+## children follow, so a forearm turn is relative to its upper arm.
+func _rot(bone: String, euler: Vector3) -> void:
+	var i: int = _bone[bone]
+	var rg: Basis = _rest_rig[i]
+	var delta := rg.inverse() * Basis.from_euler(euler) * rg
+	_skel.set_bone_pose_rotation(i, (_skel.get_bone_rest(i).basis.orthonormalized() * delta).get_rotation_quaternion())
+
+
+func _hips_lift(dy: float) -> void:
+	_skel.set_bone_pose_position(_bone["hips"], _hips_rest + Vector3(0, dy, 0))
 
 
 ## Rebuilds the held weapon / shield and shows the belt lantern only with a lantern belt.
@@ -215,49 +203,25 @@ static func cell_width(g: Dictionary) -> float:
 	return 4.0 if g.get("main", "") == "flame_longsword" else 3.3
 
 
-## Simplified red/dark-red buffalo plaid (big checks so it survives pixelation).
-static func _plaid_mat() -> StandardMaterial3D:
-	var img := Image.create(4, 4, false, Image.FORMAT_RGB8)
-	var red := Color(0.85, 0.22, 0.18)
-	var mid := Color(0.66, 0.16, 0.15)
-	var dark := Color(0.42, 0.1, 0.12)
-	for y in 4:
-		for x in 4:
-			var a := x < 2
-			var b := y < 2
-			img.set_pixel(x, y, dark if a and b else (mid if a or b else red))
-	var m := ProtoMesh.unique_mat(Color.WHITE)
-	m.albedo_texture = ImageTexture.create_from_image(img)
-	m.texture_filter = BaseMaterial3D.TEXTURE_FILTER_NEAREST
-	m.uv1_triplanar = true
-	m.uv1_scale = Vector3.ONE * 2.2
-	m.roughness = 0.06
-	return m
-
-
-func _limb(parent: Node3D, pos: Vector3) -> Node3D:
-	var n := Node3D.new()
-	n.position = pos
-	parent.add_child(n)
-	return n
-
-
 func set_lantern(on: bool) -> void:
 	_lantern_glass.material_override = _glass_on if on else _glass_off
 
 
 ## walk_phase in radians; moving 0..1; attack_t seconds since swing start (< 0 = none).
-## Idle: both arms relaxed, left hand in the pocket.
+## Idle: arms hanging relaxed beside the belly, fists loose.
 func pose(walk_phase: float, moving: float, attack_t: float, breathe := 0.0) -> void:
 	var swing := sin(walk_phase) * 0.55 * moving
-	_leg_l.rotation = Vector3(swing, 0, 0)
-	_leg_r.rotation = Vector3(-swing, 0, 0)
-	_arm_l.rotation = Vector3(-swing * 0.8 - 0.1, 0, deg_to_rad(-12.0))
-	_elbow_l.rotation = Vector3(lerpf(0.5, 0.25, moving), 0, 0)
-	_arm_r.rotation = Vector3(swing * 0.8 - 0.05, 0, deg_to_rad(10.0))
-	_elbow_r.rotation = Vector3(lerpf(0.25, 0.3, moving), 0, 0)
-	hips.position.y = HIP_HEIGHT + absf(sin(walk_phase)) * 0.04 * moving + breathe
-	hips.rotation = Vector3(0, 0, sin(walk_phase) * 0.04 * moving)
+	_rot("thigh_L", Vector3(swing, 0, 0))
+	_rot("thigh_R", Vector3(-swing, 0, 0))
+	# the trailing leg bends at the knee
+	_rot("shin_L", Vector3(minf(0.0, swing) * 0.9, 0, 0))
+	_rot("shin_R", Vector3(minf(0.0, -swing) * 0.9, 0, 0))
+	_rot("upper_arm_L", Vector3(-swing * 0.8 - 0.05, 0, 0))
+	_rot("forearm_L", Vector3(lerpf(0.12, 0.3, moving), 0, 0))
+	_rot("upper_arm_R", Vector3(swing * 0.8 - 0.05, 0, 0))
+	_rot("forearm_R", Vector3(lerpf(0.2, 0.3, moving), 0, 0))
+	_rot("hips", Vector3(0, 0, sin(walk_phase) * 0.04 * moving))
+	_hips_lift(absf(sin(walk_phase)) * 0.04 * moving + breathe)
 	_sword.rotation = Vector3(SWORD_REST_TILT, 0, 0)
 	_bottle.visible = false
 	_bun.visible = false
@@ -265,10 +229,10 @@ func pose(walk_phase: float, moving: float, attack_t: float, breathe := 0.0) -> 
 		var t := clampf(attack_t / ATTACK_TIME, 0.0, 1.0)
 		var e := 1.0 - pow(1.0 - t, 3.0)
 		# Strike: right arm sweeps the sword forward right -> left.
-		_arm_r.rotation = Vector3(deg_to_rad(80.0), deg_to_rad(lerpf(75.0, -80.0, e)), 0.0)
-		_elbow_r.rotation = Vector3(0.2, 0, 0)
+		_rot("upper_arm_R", Vector3(deg_to_rad(80.0), deg_to_rad(lerpf(75.0, -80.0, e)), 0.0))
+		_rot("forearm_R", Vector3(0.2, 0, 0))
 		_sword.rotation = Vector3(lerpf(0.5, 0.1, e), 0, 0)  # blade lines up with the arm
-		hips.rotation.y = deg_to_rad(lerpf(20.0, -15.0, e))
+		_rot("hips", Vector3(0, deg_to_rad(lerpf(20.0, -15.0, e)), 0))
 
 
 ## Use motion on top of the standing pose: kind "drink" / "eat" (left hand to the mouth with a
@@ -276,18 +240,18 @@ func pose(walk_phase: float, moving: float, attack_t: float, breathe := 0.0) -> 
 func pose_action(kind: String, frame: int) -> void:
 	match kind:
 		"drink", "eat":
-			_arm_l.rotation = Vector3(1.35, -0.6, 0.0)
-			_elbow_l.rotation = Vector3(1.5 + 0.3 * frame, 0, 0)
+			_rot("upper_arm_L", Vector3(1.35, -0.6, 0.0))
+			_rot("forearm_L", Vector3(1.5 + 0.3 * frame, 0, 0))
 			_bottle.visible = kind == "drink"
 			_bun.visible = kind == "eat"
-			hips.rotation.x = -0.05 * frame if kind == "drink" else 0.0
+			_rot("hips", Vector3(-0.05 * frame if kind == "drink" else 0.0, 0, 0))
 			if kind == "eat":
-				hips.position.y += 0.015 * frame
+				_hips_lift(0.015 * frame)
 		"cast":
-			_arm_l.rotation = Vector3(1.45 + 0.15 * frame, 0.3, 0.0)
-			_arm_r.rotation = Vector3(1.45 + 0.15 * frame, -0.3, 0.0)
-			_elbow_l.rotation = Vector3(0.1, 0, 0)
-			_elbow_r.rotation = Vector3(0.1, 0, 0)
+			_rot("upper_arm_L", Vector3(1.45 + 0.15 * frame, 0.3, 0.0))
+			_rot("upper_arm_R", Vector3(1.45 + 0.15 * frame, -0.3, 0.0))
+			_rot("forearm_L", Vector3(0.1, 0, 0))
+			_rot("forearm_R", Vector3(0.1, 0, 0))
 			_sword.rotation = Vector3(0.4, 0, 0)
 
 
