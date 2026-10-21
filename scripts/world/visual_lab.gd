@@ -486,6 +486,10 @@ func _spawn_loot() -> void:
 		inv.add("flame_longsword", 1)
 		inv.add("strength_ring", 1)
 		inv.add("luck_necklace", 1)
+		inv.add("heal_potion", 2)
+		inv.add("mana_potion", 1)
+		inv.add("stamina_potion", 1)
+		inv.add("spellbook_minor_heal", 1)
 		Game.field["loot"].append({"id": "camp_crate", "kind": "crate", "title": "보급 상자",
 			"pos": Vector3(CRATE_POS.x, ground_height(CRATE_POS.x, CRATE_POS.z), CRATE_POS.z), "inv": inv, "expires": -1.0})
 		Game.field["crate_made"] = true

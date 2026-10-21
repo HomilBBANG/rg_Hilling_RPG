@@ -8,7 +8,8 @@ const ATTACK_TIME := 0.32
 ## Chibi proportions: tiny stubby legs (hip height 0.42 m), big round head and belly.
 const HIP_HEIGHT := 0.42
 ## Sprite sheet columns: [animation, frame count]. Rows are 8 facing directions.
-const ANIMS := [["idle", 2], ["walk", 8], ["attack", 5]]
+## drink / eat / cast: common use motions per consumable kind (GDD 6.4) and for spells.
+const ANIMS := [["idle", 2], ["walk", 8], ["attack", 5], ["drink", 2], ["eat", 2], ["cast", 2]]
 const DIRECTIONS := 8
 ## Wrist tilt of the sword at rest (blade forward-down).
 const SWORD_REST_TILT := 1.05
@@ -23,6 +24,8 @@ var _elbow_l: Node3D
 var _elbow_r: Node3D
 var _sword: Node3D
 var _shield: Node3D
+var _bottle: Node3D
+var _bun: Node3D
 ## Shown equipment: {"main": base id, "off": base id, "lantern": bool}.
 var gear := {"main": "iron_sword", "off": "", "lantern": true}
 var _lantern_glass: MeshInstance3D
@@ -148,6 +151,16 @@ func _build() -> void:
 	# the arm during the swing) and the shield mount on the left forearm; filled by set_gear().
 	_sword = _limb(_elbow_r, Vector3(0, -0.21, -0.02))
 	_shield = _limb(_elbow_l, Vector3(-0.09, -0.12, 0.0))
+	# Props in the left hand, shown only during the use motions (potion bottle, bread roll).
+	_bottle = _limb(_elbow_l, Vector3(0, -0.24, -0.03))
+	# pale glass so it reads against the red flannel
+	ProtoMesh.cylinder(_bottle, 0.05, 0.11, Vector3.ZERO, ProtoMesh.mat(Color(0.62, 0.9, 0.98), 0.3), Vector3.ZERO, 8)
+	ProtoMesh.cylinder(_bottle, 0.02, 0.05, Vector3(0, -0.07, 0), ProtoMesh.mat(Color(0.8, 0.85, 0.9), 0.3), Vector3.ZERO, 6)
+	ProtoMesh.cylinder(_bottle, 0.022, 0.025, Vector3(0, -0.105, 0), ProtoMesh.mat(Color(0.55, 0.38, 0.22)), Vector3.ZERO, 6)
+	_bun = _limb(_elbow_l, Vector3(0, -0.25, -0.03))
+	ProtoMesh.sphere(_bun, 0.08, Vector3.ZERO, ProtoMesh.mat(Color(0.78, 0.55, 0.28)), Vector3(1.2, 0.8, 1.0), 8, 5)
+	_bottle.visible = false
+	_bun.visible = false
 
 	# Belt lantern on the left hip (GDD 10.3: 허리띠에 끼우는 등불)
 	lantern_anchor = Node3D.new()
@@ -246,6 +259,8 @@ func pose(walk_phase: float, moving: float, attack_t: float, breathe := 0.0) -> 
 	hips.position.y = HIP_HEIGHT + absf(sin(walk_phase)) * 0.04 * moving + breathe
 	hips.rotation = Vector3(0, 0, sin(walk_phase) * 0.04 * moving)
 	_sword.rotation = Vector3(SWORD_REST_TILT, 0, 0)
+	_bottle.visible = false
+	_bun.visible = false
 	if attack_t >= 0.0:
 		var t := clampf(attack_t / ATTACK_TIME, 0.0, 1.0)
 		var e := 1.0 - pow(1.0 - t, 3.0)
@@ -254,6 +269,26 @@ func pose(walk_phase: float, moving: float, attack_t: float, breathe := 0.0) -> 
 		_elbow_r.rotation = Vector3(0.2, 0, 0)
 		_sword.rotation = Vector3(lerpf(0.5, 0.1, e), 0, 0)  # blade lines up with the arm
 		hips.rotation.y = deg_to_rad(lerpf(20.0, -15.0, e))
+
+
+## Use motion on top of the standing pose: kind "drink" / "eat" (left hand to the mouth with a
+## bottle / bread roll) or "cast" (both arms forward); frame 0/1 alternates.
+func pose_action(kind: String, frame: int) -> void:
+	match kind:
+		"drink", "eat":
+			_arm_l.rotation = Vector3(1.35, -0.6, 0.0)
+			_elbow_l.rotation = Vector3(1.5 + 0.3 * frame, 0, 0)
+			_bottle.visible = kind == "drink"
+			_bun.visible = kind == "eat"
+			hips.rotation.x = -0.05 * frame if kind == "drink" else 0.0
+			if kind == "eat":
+				hips.position.y += 0.015 * frame
+		"cast":
+			_arm_l.rotation = Vector3(1.45 + 0.15 * frame, 0.3, 0.0)
+			_arm_r.rotation = Vector3(1.45 + 0.15 * frame, -0.3, 0.0)
+			_elbow_l.rotation = Vector3(0.1, 0, 0)
+			_elbow_r.rotation = Vector3(0.1, 0, 0)
+			_sword.rotation = Vector3(0.4, 0, 0)
 
 
 ## Pose for a sprite sheet column (see ANIMS).
@@ -268,5 +303,8 @@ func pose_column(col: int) -> void:
 					pose(TAU * c / a[1], 1.0, -1.0)
 				"attack":
 					pose(0.0, 0.0, ATTACK_TIME * c / (a[1] - 1))
+				"drink", "eat", "cast":
+					pose(0.0, 0.0, -1.0)
+					pose_action(a[0], c)
 			return
 		c -= a[1]

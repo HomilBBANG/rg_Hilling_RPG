@@ -53,6 +53,15 @@ const SKILLS := {
 	"pack_mule": {"name": "짐 꾸리기 요령", "desc": "최대 소지 중량 +5 kg", "max": 2, "cost": [30, 55]},
 }
 
+# ---------------------------------------------------------------- quickslots (GDD 5.3 / 6.4)
+## Consumable quickslots and skill/magic quickslots are separate; slot counts are [미정] (4 + 4).
+const QUICK_ITEM_SLOTS := 4
+const QUICK_SKILL_SLOTS := 4
+var quick_items: Array[String] = ["heal_potion", "", "", ""]
+var quick_skills: Array[String] = ["", "", "", ""]
+var spells: Array[String] = []   ## learned magic / special skills (need a quickslot to use)
+var cooldowns := {}              ## spell id -> seconds left
+
 var level := 1
 var gen_exp := 0    ## general EXP (combat, quests)
 var life_exp := 0   ## life EXP (life activities, quests) - no sources yet
@@ -319,7 +328,50 @@ func drain_sp(amount: float) -> bool:
 	return true
 
 
+func assign_quick_item(slot: int, id: String) -> void:
+	for i in QUICK_ITEM_SLOTS:  # one item per slot, one slot per item
+		if quick_items[i] == id:
+			quick_items[i] = ""
+	quick_items[slot] = id
+	changed.emit()
+
+
+func assign_quick_skill(slot: int, id: String) -> void:
+	for i in QUICK_SKILL_SLOTS:
+		if quick_skills[i] == id:
+			quick_skills[i] = ""
+	quick_skills[slot] = id
+	changed.emit()
+
+
+func learn_spell(id: String) -> bool:
+	if id in spells:
+		return false
+	spells.append(id)
+	var free := quick_skills.find("")
+	if free >= 0:
+		quick_skills[free] = id  # convenience: drop it in the first free skill slot
+	changed.emit()
+	return true
+
+
+## Applies a consumable / spell effect; returns a short summary.
+func apply_effect(effect: Dictionary) -> String:
+	if effect.has("hp"):
+		hp = minf(max_hp(), hp + effect["hp"])
+	if effect.has("sp"):
+		sp = minf(max_sp(), sp + effect["sp"])
+	if effect.has("mp"):
+		mp = minf(max_mp(), mp + effect["mp"])
+	if effect.has("learn"):
+		learn_spell(effect["learn"])
+	changed.emit()
+	return ItemDB.effect_text(effect)
+
+
 func tick(delta: float) -> void:
+	for k in cooldowns.keys():
+		cooldowns[k] = maxf(0.0, cooldowns[k] - delta)
 	_sp_idle += delta
 	if _sp_idle >= SP_REGEN_DELAY and sp < max_sp():
 		sp = minf(max_sp(), sp + sp_regen() * delta)

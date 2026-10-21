@@ -57,6 +57,8 @@ var focus: Node3D
 var dead := false
 ## Ignore E/R briefly after getting out of the camper (the same key press must not re-enter).
 var _interact_block := 0.0
+## Consumable / spell in progress: {"kind": "item"|"spell", "id", "t", "time", "move", "anim", "label"}.
+var _use := {}
 var _swap_t := -1.0
 var _swap_action: Callable
 var _swap_done_text := ""
@@ -208,6 +210,8 @@ func _physics_process(delta: float) -> void:
 	var speed := (RUN_SPEED if run_now else WALK_SPEED) * st.speed_factor()
 	if is_swapping():
 		speed *= SWAP_MOVE_FACTOR
+	if is_using():
+		speed *= _use["move"]
 	velocity = dir * speed + _knock
 	_knock = _knock.move_toward(Vector3.ZERO, delta * 20.0)
 	move_and_slide()
@@ -250,6 +254,8 @@ func receive_attack(attacker_profile: Dictionary, from: Node3D) -> void:
 	var res := Combat.resolve(attacker_profile, st.combat_profile())
 	var top := global_position + Vector3(0, 1.9, 0)
 	if res["hit"]:
+		if is_using():
+			cancel_use("피격")
 		res["detail"] += " · 주인공 HP %d/%d" % [maxi(0, int(st.hp) - res["damage"]), int(st.max_hp())]
 		Game.combat_log.add(Combat.short_text(res), res["detail"], "hurt")
 		if Game.hud:
@@ -271,12 +277,14 @@ func _on_died() -> void:
 		return
 	dead = true
 	_attack_t = -1.0
+	_use = {}
 	if Game.boot:
 		Game.boot.on_player_died(global_position)
 
 
 ## Hide/show while sitting in the camper's driver seat.
 func set_driving(on: bool) -> void:
+	_use = {}
 	controls_enabled = not on
 	visible = not on
 	_interact_block = 0.3
@@ -295,6 +303,9 @@ func start_attack(aim_world: Variant = null) -> void:
 		return
 	if is_swapping():
 		_toast("장비 교체 중에는 공격할 수 없다")
+		return
+	if is_using():
+		_toast("%s 중에는 공격할 수 없다" % _use["label"])
 		return
 	if not Game.player_state.spend_sp(PlayerState.ATTACK_SP):
 		_toast("SP가 부족하다")
@@ -324,6 +335,10 @@ func _process(delta: float) -> void:
 	_invuln = maxf(0.0, _invuln - delta)
 	_flash = maxf(0.0, _flash - delta * 5.0)
 	_interact_block -= delta
+	if is_using():
+		_use["t"] += delta
+		if _use["t"] >= _use["time"]:
+			_finish_use()
 	if _swap_t >= 0.0:
 		_swap_t += delta
 		if _swap_t >= SWAP_TIME:
@@ -332,6 +347,12 @@ func _process(delta: float) -> void:
 		if Input.is_action_just_pressed("attack") and not (Game.hud and Game.hud.blocks_mouse()):
 			start_attack()
 		_update_focus()
+		for i in PlayerState.QUICK_ITEM_SLOTS:
+			if Input.is_action_just_pressed("quick_item_%d" % (i + 1)):
+				use_quick_item(i)
+		for i in PlayerState.QUICK_SKILL_SLOTS:
+			if Input.is_action_just_pressed("quick_skill_%d" % (i + 1)):
+				use_quick_skill(i)
 		if _interact_block > 0.0:
 			pass
 		elif focus and Input.is_action_just_pressed("interact"):
@@ -357,13 +378,17 @@ func _animate(delta: float) -> void:
 		if _attack_t >= PlayerRig.ATTACK_TIME + 0.08:
 			_attack_t = -1.0
 	model.pose(_walk_phase, 1.0 if moving else 0.0, _attack_t)
+	if is_using():
+		model.pose_action(_use["anim"], use_frame())
 	if sprite:
 		_update_sprite_frame(moving)
 
 
 func _update_sprite_frame(moving: bool) -> void:
 	var col: int
-	if _attack_t >= 0.0:
+	if is_using():
+		col = PlayerRig.column_for(_use["anim"], use_frame())
+	elif _attack_t >= 0.0:
 		var n: int = PlayerRig.ANIMS[2][1]
 		col = PlayerRig.column_for("attack", int(clampf(_attack_t / PlayerRig.ATTACK_TIME, 0.0, 1.0) * (n - 1) + 0.5))
 	elif moving:
@@ -380,13 +405,131 @@ func _update_sprite_frame(moving: bool) -> void:
 		sprite.set_flash(Color(0.75, 0.88, 1.0, 0.18 + 0.12 * sin(_swap_t * 25.0)))
 
 
+# ---------------------------------------------------------------- consumables & spells (GDD 6.4, 5.3)
+
+func is_using() -> bool:
+	return not _use.is_empty()
+
+
+func use_frame() -> int:
+	return int(_use.get("t", 0.0) * 4.0) % 2
+
+
+func use_progress() -> float:
+	return clampf(_use["t"] / _use["time"], 0.0, 1.0) if is_using() else 0.0
+
+
+func use_label() -> String:
+	return _use.get("label", "")
+
+
+func _can_start_action() -> bool:
+	return not dead and controls_enabled and not is_swapping() and not is_using() and _attack_t < 0.0
+
+
+func use_quick_item(slot: int) -> void:
+	var id: String = Game.player_state.quick_items[slot]
+	if id == "":
+		_toast("소모품 퀵슬롯 %d이 비어 있다 (Tab에서 등록)" % (slot + 1))
+		return
+	begin_use_item(id)
+
+
+func use_quick_skill(slot: int) -> void:
+	var id: String = Game.player_state.quick_skills[slot]
+	if id == "":
+		_toast("스킬·마법 퀵슬롯 %d이 비어 있다 (C에서 등록)" % (slot + 5))
+		return
+	begin_cast(id)
+
+
+## Starts the common use motion of the item's kind; it is applied and consumed when it ends.
+func begin_use_item(id: String) -> bool:
+	var st := Game.player_state
+	if not ItemDB.is_consumable(id) or st.inventory.count(id) <= 0:
+		_toast("%s이(가) 없다" % ItemDB.item_name(id))
+		return false
+	if not _can_start_action():
+		_toast("지금은 사용할 수 없다")
+		return false
+	var info := ItemDB.info(id)
+	var learn: String = info["effect"].get("learn", "")
+	if learn != "" and learn in st.spells:
+		_toast("이미 배운 마법이다")
+		return false
+	var kind: Dictionary = ItemDB.USE_TYPES[info["use"]]
+	_use = {"kind": "item", "id": id, "t": 0.0, "time": kind["time"], "move": kind["move"], "anim": kind["anim"],
+		"label": "%s %s" % [info["name"], kind["name"]]}
+	_float_status(_use["label"] + "…")
+	return true
+
+
+## Spells come only from the skill/magic quickslots (GDD 5.3); MP/SP are paid when the cast ends.
+func begin_cast(id: String) -> bool:
+	var st := Game.player_state
+	var sp_info: Dictionary = ItemDB.SPELLS[id]
+	if st.cooldowns.get(id, 0.0) > 0.0:
+		_toast("%s 재사용 대기 %.1f초" % [sp_info["name"], st.cooldowns[id]])
+		return false
+	if st.mp < sp_info["mp"] or st.sp < sp_info["sp"]:
+		_toast("MP가 부족하다" if st.mp < sp_info["mp"] else "SP가 부족하다")
+		return false
+	if not _can_start_action():
+		_toast("지금은 시전할 수 없다")
+		return false
+	_use = {"kind": "spell", "id": id, "t": 0.0, "time": sp_info["time"], "move": sp_info["move"],
+		"anim": sp_info["anim"], "label": "%s 시전" % sp_info["name"]}
+	_float_status(_use["label"] + "…")
+	return true
+
+
+func cancel_use(reason: String) -> void:
+	if not is_using():
+		return
+	var label: String = _use["label"]
+	var item: bool = _use["kind"] == "item"
+	_use = {}
+	var msg := "%s 중단(%s) — 효과 없음%s" % [label, reason, ", 아이템 유지" if item else ""]
+	Game.combat_log.add(msg, "", "info")
+	if Game.boot:
+		Game.boot.hud.toast(msg)
+
+
+func _finish_use() -> void:
+	var st := Game.player_state
+	var u := _use
+	_use = {}
+	var summary := ""
+	if u["kind"] == "item":
+		if st.inventory.remove(u["id"], 1) <= 0:
+			return
+		summary = st.apply_effect(ItemDB.info(u["id"])["effect"])
+		Game.combat_log.add("%s 사용 — %s" % [ItemDB.item_name(u["id"]), summary], "", "info")
+	else:
+		var sp_info: Dictionary = ItemDB.SPELLS[u["id"]]
+		if st.mp < sp_info["mp"] or st.sp < sp_info["sp"]:
+			cancel_use("자원 부족")
+			return
+		st.mp -= sp_info["mp"]
+		st.sp -= sp_info["sp"]
+		st.cooldowns[u["id"]] = sp_info["cooldown"]
+		summary = st.apply_effect(sp_info["effect"])
+		Game.combat_log.add("%s 시전 — %s (MP -%d)" % [sp_info["name"], summary, sp_info["mp"]], "", "info")
+	_float_status(summary, Color(0.6, 1.0, 0.65))
+
+
+func _float_status(text: String, color := Color(0.75, 0.88, 1.0)) -> void:
+	if Game.hud:
+		Game.hud.float_text(global_position + Vector3(0, 2.0, 0), text, color)
+
+
 func is_swapping() -> bool:
 	return _swap_t >= 0.0
 
 
 ## Starts the swap motion; `action` (the actual equip / unequip) runs when it ends.
 func begin_gear_change(action: Callable, done_text: String) -> bool:
-	if is_swapping() or dead:
+	if is_swapping() or is_using() or dead:
 		return false
 	_swap_t = 0.0
 	_swap_action = action

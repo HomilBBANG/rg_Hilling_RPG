@@ -257,6 +257,8 @@ func _parse_args() -> void:
 		_run_p2_tour()
 	elif tour == "gear":
 		_run_gear_tour()
+	elif tour == "items":
+		_run_items_tour()
 	elif tour == "drive":
 		_run_drive_compare()
 	elif tour == "wind":
@@ -1429,5 +1431,90 @@ func _run_gear_tour() -> void:
 	_place_player(Vector3(-1.0, 0, 4.6), PI * 0.75)
 	game_hud.toggle_inventory()
 	await _p1_shot("gear_04_inventory_field", "inventory after swaps")
+	game_hud.close_panel()
+	get_tree().quit()
+
+
+# ---------------------------------------------------------------- P2-3 consumables tour
+
+func _run_items_tour() -> void:
+	Dice.rng.seed = 5
+	Game.clock_running = false
+	Game.minute_of_day = 10.5 * 60.0
+	Game.combat_log.level = 2
+	await wait_for_sprites()
+	var st := Game.player_state
+	var p: PrototypePlayer = world.player
+	var crate: LootContainer = null
+	for n in world.get_children():
+		if n is LootContainer and n.data["id"] == "camp_crate":
+			crate = n
+	for id in ["heal_potion", "mana_potion", "stamina_potion", "spellbook_minor_heal"]:
+		game_hud._move(crate.inventory(), st.inventory, id, 9, game_hud._player_can_take)
+	st.inventory.add("bread", 1)
+	# open ground away from the camp props
+	_place_player(Vector3(6.0, 0, 9.0), 0.0)
+	await _frames(10)
+	# 1. potion from quickslot 1 (real key): applies only at the end of the motion
+	st.hp = 15.0
+	var n0 := st.inventory.count("heal_potion")
+	await _key(KEY_1)
+	await _seconds(0.4)
+	print("[items] key 1 -> using %s '%s', at 0.4 s HP %d, potions %d" % [p.is_using(), p.use_label(), st.hp, st.inventory.count("heal_potion")])
+	await _p1_shot("items_01_drinking", "drinking (progress in the prompt)", true)
+	while p.is_using():
+		await _frames(1)
+	print("[items] after motion: HP %d, potions %d -> %d" % [st.hp, n0, st.inventory.count("heal_potion")])
+	# 2. a hit during use cancels it: no effect, potion kept
+	st.hp = 15.0
+	n0 = st.inventory.count("heal_potion")
+	await _key(KEY_1)
+	await _seconds(0.3)
+	var test_hit := {"name": "시험 공격", "hit_bonus": 100, "crit_chance": 0, "phys": "1d1", "str_mult": 1.0, "ac": 10, "armor": 0}
+	p.receive_attack(test_hit, world.camper)
+	await _seconds(1.0)
+	print("[items] hit while drinking -> using %s, HP %d (15 - hit), potions %d -> %d" % [p.is_using(), st.hp, n0, st.inventory.count("heal_potion")])
+	await _seconds(0.6)
+	# 3. movement while eating (stand still) vs drinking (half speed)
+	var start := p.global_position
+	p.begin_use_item("bread")
+	p.scripted_move = Vector2(1, 0)
+	await _seconds(1.0)
+	var eat_move := p.global_position.distance_to(start)
+	await _p1_shot("items_02_eating", "eating", true)
+	while p.is_using():
+		await _frames(1)
+	start = p.global_position
+	p.begin_use_item("heal_potion")
+	await _seconds(0.6)
+	var drink_move := p.global_position.distance_to(start)
+	while p.is_using():
+		await _frames(1)
+	start = p.global_position
+	await _seconds(0.6)
+	var walk_move := p.global_position.distance_to(start)
+	p.scripted_move = Vector2.ZERO
+	print("[items] moved in 0.6-1 s: eating %.2f m, drinking %.2f m (0.6 s), walking %.2f m (0.6 s)" % [eat_move, drink_move, walk_move])
+	# 4. spellbook -> learn -> skill quickslot 5 -> cast (MP, cooldown)
+	p.begin_use_item("spellbook_minor_heal")
+	while p.is_using():
+		await _frames(1)
+	print("[items] spells %s, skill slots %s" % [st.spells, st.quick_skills])
+	st.hp = 10.0
+	var mp0 := st.mp
+	await _key(KEY_5)
+	await _seconds(0.5)
+	await _p1_shot("items_03_casting", "casting minor heal", true)
+	while p.is_using():
+		await _frames(1)
+	print("[items] key 5 cast -> HP %d (10 + 12), MP %d -> %d, cooldown %.1f" % [st.hp, mp0, st.mp, st.cooldowns.get("minor_heal", 0.0)])
+	await _key(KEY_5)
+	print("[items] key 5 again at once -> casting %s (cooldown)" % p.is_using())
+	await _p1_shot("items_04_quickbar_cooldown", "quickbar with cooldown")
+	game_hud.toggle_inventory()
+	await _p1_shot("items_05_inventory", "inventory consumable buttons")
+	game_hud.close_panel()
+	game_hud.toggle_character()
+	await _p1_shot("items_06_character_spells", "character panel spells")
 	game_hud.close_panel()
 	get_tree().quit()

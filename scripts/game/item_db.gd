@@ -16,7 +16,19 @@ const ITEMS := {
 	"cat_snack": {"name": "고양이 간식", "weight": 0.1, "desc": "검은 고양이가 좋아하는 간식."},
 	"firewood": {"name": "장작", "weight": 2.0, "desc": "잘 마른 장작."},
 	"iron_ore": {"name": "철광석", "weight": 4.0, "desc": "무거운 광석 덩어리."},
-	"canned_food": {"name": "통조림", "weight": 0.5, "desc": "현실에서 가져온 통조림."},
+	# --- consumables (GDD 6.4): effect applies when the use motion ends; a hit cancels it
+	"canned_food": {"name": "통조림", "weight": 0.5, "kind": "consumable", "use": "eat", "effect": {"hp": 15},
+		"desc": "현실에서 가져온 통조림. HP +15."},
+	"heal_potion": {"name": "회복 물약", "weight": 0.3, "kind": "consumable", "use": "drink", "effect": {"hp": 20},
+		"desc": "HP +20."},
+	"stamina_potion": {"name": "기력 물약", "weight": 0.3, "kind": "consumable", "use": "drink", "effect": {"sp": 30},
+		"desc": "SP +30."},
+	"mana_potion": {"name": "마나 물약", "weight": 0.3, "kind": "consumable", "use": "drink", "effect": {"mp": 12},
+		"desc": "MP +12."},
+	"bread": {"name": "빵", "weight": 0.3, "kind": "consumable", "use": "eat", "effect": {"hp": 8, "sp": 20},
+		"desc": "HP +8, SP +20."},
+	"spellbook_minor_heal": {"name": "마법서: 작은 치유", "weight": 0.6, "kind": "consumable", "use": "read",
+		"effect": {"learn": "minor_heal"}, "desc": "읽으면 마법 '작은 치유'를 배운다 (GDD 5.3: 마법서로 습득)."},
 	# --- weapons (GDD 6.2 examples)
 	"iron_sword": {"name": "철검", "weight": 3.0, "kind": "equip", "slot": "main", "hands": 1,
 		"phys": "1d4", "desc": "한손 무기. 물리 1d4."},
@@ -40,6 +52,20 @@ const ITEMS := {
 		"bonus": {"STR": 1}, "desc": "반지. STR +1."},
 	"lantern_belt": {"name": "등불 허리띠", "weight": 1.0, "kind": "equip", "slot": "belt", "lantern": true,
 		"desc": "허리띠. 등불을 걸 수 있다 (GDD 10.3: 등불은 허리띠에 끼움)."},
+}
+
+## Common use motion per consumable kind (GDD 6.4 [확정]); times / movement are [미정].
+const USE_TYPES := {
+	"drink": {"name": "마시는 중", "time": 0.8, "move": 0.5, "anim": "drink"},
+	"eat": {"name": "먹는 중", "time": 1.8, "move": 0.0, "anim": "eat"},
+	"read": {"name": "읽는 중", "time": 1.2, "move": 0.0, "anim": "cast"},
+}
+
+## Magic / special skills: learned from books, NPCs, quests (GDD 5.3), used only from the
+## skill/magic quickslots. MP (and for some SP) cost, cast time, cooldown are [미정].
+const SPELLS := {
+	"minor_heal": {"name": "작은 치유", "desc": "HP +12", "mp": 8, "sp": 0, "time": 1.0, "cooldown": 3.0,
+		"effect": {"hp": 12}, "anim": "cast", "move": 0.0},
 }
 
 const SLOT_NAMES := {"main": "주무기 손", "off": "보조 손", "head": "머리", "body": "몸통", "hands": "장갑",
@@ -87,6 +113,21 @@ static func item_name(id: String) -> String:
 
 static func weight(id: String) -> float:
 	return info(id).get("weight", 0.0)
+
+
+static func is_consumable(id: String) -> bool:
+	return info(id).get("kind", "") == "consumable"
+
+
+static func effect_text(effect: Dictionary) -> String:
+	var parts := PackedStringArray()
+	for k: String in effect:
+		match k:
+			"hp": parts.append("HP +%d" % effect[k])
+			"sp": parts.append("SP +%d" % effect[k])
+			"mp": parts.append("MP +%d" % effect[k])
+			"learn": parts.append("마법 습득: %s" % SPELLS[effect[k]]["name"])
+	return ", ".join(parts)
 
 
 static func is_equipment(id: String) -> bool:

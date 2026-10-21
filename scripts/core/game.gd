@@ -65,10 +65,19 @@ const ACTIONS := {
 	"move_right": [KEY_D, KEY_RIGHT],
 	"run": [KEY_SHIFT],
 	"camper_lights": [KEY_F],
-	"preset_coarse": [KEY_1],
-	"preset_mid": [KEY_2],
-	"preset_soft": [KEY_3],
-	"preset_native": [KEY_4],
+	# Render presets moved to F1-F4 in P2-3 (1-8 are the quickslots now).
+	"preset_coarse": [KEY_F1],
+	"preset_mid": [KEY_F2],
+	"preset_soft": [KEY_F3],
+	"preset_native": [KEY_F4],
+	"quick_item_1": [KEY_1],
+	"quick_item_2": [KEY_2],
+	"quick_item_3": [KEY_3],
+	"quick_item_4": [KEY_4],
+	"quick_skill_1": [KEY_5],
+	"quick_skill_2": [KEY_6],
+	"quick_skill_3": [KEY_7],
+	"quick_skill_4": [KEY_8],
 	"cycle_camera_style": [KEY_V],
 	"toggle_outline": [KEY_O],
 	"toggle_wind": [KEY_B],
@@ -93,7 +102,7 @@ const ACTIONS := {
 	"inventory": [KEY_TAB],
 	"character": [KEY_C],
 	"combat_log": [KEY_G],
-	"debug_status": [KEY_F3],
+	"debug_status": [KEY_F10],
 	"debug_heal": [KEY_F8],
 	"debug_stage": [KEY_F9],
 }
@@ -110,6 +119,8 @@ func _ready() -> void:
 	storage.add("leather_armor", 1)
 	storage.add("wooden_shield", 1)
 	storage.add("leather_cap", 1)
+	storage.add("heal_potion", 3)
+	storage.add("bread", 2)
 
 
 func _register_actions() -> void:

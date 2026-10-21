@@ -21,6 +21,7 @@ var _log_line: Label
 var _log_detail: RichTextLabel
 var _floats: Array[Dictionary] = []
 var _float_layer: Control
+var _quick_slots: Array[Dictionary] = []  # {"panel": PanelContainer, "label": Label, "style": StyleBoxFlat}
 var _fade: ColorRect
 var _fade_label: Label
 var _panel: PanelContainer
@@ -57,11 +58,12 @@ func _ready() -> void:
 		_make_bar(spec[0], spec[1], spec[2], Vector2(22, y))
 		y += BAR_SIZE.y + 8
 	_info = _label("", 20, Vector2(22, y + 2))
-	_prompt = _label("", 26, Vector2(0, 960))
+	_prompt = _label("", 26, Vector2(0, 880))  # above the quickslot bar
 	_prompt.size = Vector2(1920, 40)
 	_prompt.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_prompt.add_theme_color_override("font_color", Color(1.0, 0.92, 0.6))
 	_build_log()
+	_build_quickbar()
 	_float_layer = Control.new()
 	_float_layer.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(_float_layer)
@@ -180,6 +182,76 @@ func _refresh_log() -> void:
 			lines.append("[color=#808890]%s[/color] [color=%s]%s[/color]" % [e["time"], LOG_COLORS.get(e["kind"], "#ffffff"), e["detail"]])
 		_log_detail.text = "\n".join(lines) if not lines.is_empty() else "[color=#808890]전투 기록이 없습니다[/color]"
 	_log_box.reset_size()
+
+
+# ---------------------------------------------------------------- quickslot bar (GDD 5.3 / 6.4)
+
+func _build_quickbar() -> void:
+	var total := PlayerState.QUICK_ITEM_SLOTS + PlayerState.QUICK_SKILL_SLOTS
+	var w := 96.0
+	var x0 := 1900.0 - total * (w + 6.0) - 14.0
+	for i in total:
+		var pc := PanelContainer.new()
+		var sb := StyleBoxFlat.new()
+		sb.bg_color = Color(0.06, 0.07, 0.09, 0.78)
+		sb.border_color = Color(0.45, 0.4, 0.3) if i < PlayerState.QUICK_ITEM_SLOTS else Color(0.3, 0.42, 0.6)
+		sb.set_border_width_all(2)
+		sb.set_corner_radius_all(5)
+		sb.set_content_margin_all(4)
+		pc.add_theme_stylebox_override("panel", sb)
+		pc.position = Vector2(x0 + i * (w + 6.0) + (14.0 if i >= PlayerState.QUICK_ITEM_SLOTS else 0.0), 932)
+		pc.custom_minimum_size = Vector2(w, 66)
+		pc.size = Vector2(w, 66)
+		pc.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		var l := Label.new()
+		l.add_theme_font_size_override("font_size", 15)
+		l.add_theme_constant_override("outline_size", 4)
+		l.autowrap_mode = TextServer.AUTOWRAP_ARBITRARY
+		l.custom_minimum_size = Vector2(w - 8, 0)
+		l.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		pc.add_child(l)
+		add_child(pc)
+		_quick_slots.append({"panel": pc, "label": l, "style": sb})
+
+
+func _update_quickbar() -> void:
+	var st := Game.player_state
+	var p := _player()
+	var using_id := ""
+	if p and p.is_using():
+		using_id = p._use["id"]
+	for i in _quick_slots.size():
+		var q: Dictionary = _quick_slots[i]
+		var l: Label = q["label"]
+		var sb: StyleBoxFlat = q["style"]
+		var text := ""
+		var dim := false
+		if i < PlayerState.QUICK_ITEM_SLOTS:
+			var id: String = st.quick_items[i]
+			if id == "":
+				text = "%d\n—" % (i + 1)
+				dim = true
+			else:
+				var n := st.inventory.count(id)
+				text = "%d  ×%d\n%s" % [i + 1, n, ItemDB.item_name(id)]
+				dim = n <= 0
+		else:
+			var k := i - PlayerState.QUICK_ITEM_SLOTS
+			var id: String = st.quick_skills[k]
+			if id == "":
+				text = "%d\n—" % (k + 5)
+				dim = true
+			else:
+				var sp_info: Dictionary = ItemDB.SPELLS[id]
+				var cd: float = st.cooldowns.get(id, 0.0)
+				text = "%d  MP%d\n%s%s" % [k + 5, sp_info["mp"], sp_info["name"], "\n%.1fs" % cd if cd > 0.05 else ""]
+				dim = cd > 0.0 or st.mp < sp_info["mp"]
+			if id != "" and id == using_id:
+				dim = false
+		l.text = text
+		l.modulate = Color(1, 1, 1, 0.45) if dim else Color.WHITE
+		sb.border_color = Color(0.95, 0.85, 0.45) if (using_id != "" and ((i < PlayerState.QUICK_ITEM_SLOTS and st.quick_items[i] == using_id) or (i >= PlayerState.QUICK_ITEM_SLOTS and st.quick_skills[i - PlayerState.QUICK_ITEM_SLOTS] == using_id))) \
+			else (Color(0.45, 0.4, 0.3) if i < PlayerState.QUICK_ITEM_SLOTS else Color(0.3, 0.42, 0.6))
 
 
 # ---------------------------------------------------------------- floating text
@@ -417,6 +489,23 @@ func toggle_inventory() -> void:
 			left.add_child(row)
 		right.add_child(_row_label("가방", 300, 22, Color(1.0, 0.9, 0.6)))
 		_items_list(right, st.inventory, func(h: HBoxContainer, id: String, _count: int) -> void:
+			if ItemDB.is_consumable(id):
+				var reading: bool = ItemDB.info(id).get("use", "") == "read"
+				var ub := _button("읽기" if reading else "사용", func() -> void:
+					var pl := _player()
+					if pl:
+						pl.begin_use_item(id)
+					_refresh_panel())
+				ub.disabled = swapping
+				h.add_child(ub)
+				if not reading:
+					for qi in PlayerState.QUICK_ITEM_SLOTS:
+						var on: bool = st.quick_items[qi] == id
+						var qb := _button(("[%d]" if on else "%d") % (qi + 1), func() -> void:
+							st.assign_quick_item(qi, "" if on else id)
+							_refresh_panel())
+						qb.tooltip_text = "소모품 퀵슬롯 %d에 등록" % (qi + 1)
+						h.add_child(qb)
 			if ItemDB.is_equipment(id):
 				var slot := st.target_slot(id)
 				var eb := _button("장착 (%s)" % ItemDB.SLOT_NAMES[slot], func() -> void:
@@ -428,6 +517,11 @@ func toggle_inventory() -> void:
 		for e in st.inventory.items:
 			if ItemDB.is_equipment(e["id"]):
 				hint.append("%s: %s" % [ItemDB.item_name(e["id"]), ItemDB.equip_summary(e["id"])])
+			elif ItemDB.is_consumable(e["id"]):
+				var ci := ItemDB.info(e["id"])
+				var ut: Dictionary = ItemDB.USE_TYPES[ci["use"]]
+				hint.append("%s: %s · %s %.1f초%s" % [ci["name"], ItemDB.effect_text(ci["effect"]), ut["name"].replace(" 중", ""),
+					ut["time"], " (천천히 이동 가능)" if ut["move"] > 0.0 else " (멈춰서)"])
 		if not hint.is_empty():
 			right.add_child(_row_label("\n".join(hint), 620, 16, Color(0.7, 0.74, 0.78)))
 		v.add_child(_button("닫기 (Tab)", close_panel)), 1180)
@@ -569,7 +663,21 @@ func toggle_character() -> void:
 		v.add_child(_row_label("최대 HP %d · SP %d · MP %d · 소지 %.0f/%.0f kg · 물리 배율 ×%.1f · 명중 +%d · 치명 %d%% · 방어 %d (괄호 = 장비 보너스)" % [
 			st.max_hp(), st.max_sp(), st.max_mp(), st.carry_capacity(), st.carry_limit(), st.str_multiplier(),
 			st.total_hit_bonus(), st.total_crit_chance(), st.total_armor()], 840, 18, Color(0.75, 0.88, 0.75)))
-		v.add_child(_row_label("기본 스킬 — 일반 EXP로 스승 없이 습득", 600, 22, Color(1.0, 0.9, 0.6)))
+		v.add_child(_row_label("마법·특수 스킬 — 퀵슬롯(5~8)에 등록해야 사용 · 마법서/NPC/퀘스트로 습득", 840, 22, Color(1.0, 0.9, 0.6)))
+		if st.spells.is_empty():
+			v.add_child(_row_label("  아직 배운 마법이 없다 (보급 상자의 '마법서: 작은 치유'를 Tab에서 읽기)", 840, 18, Color(0.7, 0.74, 0.78)))
+		for sid: String in st.spells:
+			var spi: Dictionary = ItemDB.SPELLS[sid]
+			var srow := HBoxContainer.new()
+			srow.add_child(_row_label(spi["name"], 160, 21))
+			srow.add_child(_row_label("%s · MP %d · %.1f초 시전 · 재사용 %.0f초" % [spi["desc"], spi["mp"], spi["time"], spi["cooldown"]], 420, 18, Color(0.72, 0.76, 0.8)))
+			for qi in PlayerState.QUICK_SKILL_SLOTS:
+				var on: bool = st.quick_skills[qi] == sid
+				srow.add_child(_button(("[%d]" if on else "%d") % (qi + 5), func() -> void:
+					st.assign_quick_skill(qi, "" if on else sid)
+					_refresh_panel()))
+			v.add_child(srow)
+		v.add_child(_row_label("기본 스킬 — 일반 EXP로 스승 없이 습득 (패시브, 퀵슬롯 불필요)", 700, 22, Color(1.0, 0.9, 0.6)))
 		for id: String in PlayerState.SKILLS:
 			var sk: Dictionary = PlayerState.SKILLS[id]
 			var row2 := HBoxContainer.new()
@@ -618,7 +726,12 @@ func _process(delta: float) -> void:
 			text = p.focus.prompt_text()
 		if text == "" and w.has_method("context_hint"):
 			text = w.context_hint()
+	var pl := _player()
+	if pl and pl.is_using():
+		var n := int(pl.use_progress() * 10.0)
+		text = "%s  %s%s  (맞으면 중단)" % [pl.use_label(), "▮".repeat(n), "▯".repeat(10 - n)]
 	_prompt.text = text
+	_update_quickbar()
 	# The detailed log would show through an open panel: collapse it to one line meanwhile.
 	var want_detail := Game.combat_log.level == 3 and _panel == null
 	if _log_detail.visible != want_detail:

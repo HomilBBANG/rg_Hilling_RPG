@@ -289,6 +289,8 @@ func roll_loot() -> Inventory:
 		inv.add("slime_core", 1)
 	if _rng.randf() < 0.15:
 		inv.add("mana_shard", 1)
+	if _rng.randf() < 0.1:
+		inv.add("heal_potion", 1)
 	# GDD 15.4: equipment from hunting too; pieces may carry a random extra option (15.2).
 	if _rng.randf() < 0.12:
 		var base: String = ["leather_cap", "leather_gloves", "sturdy_boots"][_rng.randi() % 3]
