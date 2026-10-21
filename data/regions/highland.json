@@ -128,6 +128,10 @@
         [
           -3,
           -20.0
+        ],
+        [
+          -3,
+          -25.0
         ]
       ]
     ],
@@ -302,6 +306,20 @@
       "radius": 2.3,
       "to_region": "meadow",
       "to_entry": "east_road"
+    },
+    {
+      "id": "cave",
+      "name": "이끼 동굴 입구",
+      "pos": [
+        -3.0,
+        -26.0
+      ],
+      "radius": 2.0,
+      "to_region": "cave",
+      "to_entry": "entrance",
+      "no_vehicle": true,
+      "hidden": true,
+      "style": "cave"
     }
   ],
   "entries": {
@@ -316,6 +334,13 @@
         -1.6
       ],
       "camper_yaw": 0.0
+    },
+    "cave_mouth": {
+      "pos": [
+        -3.0,
+        -20.5
+      ],
+      "yaw": 3.1416
     }
   },
   "tips": [

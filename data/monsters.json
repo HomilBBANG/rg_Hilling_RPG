@@ -200,6 +200,106 @@
           "option_chance": 0.6
         }
       ]
+    },
+    "cave_slime": {
+      "name": "동굴 슬라임",
+      "aggressive": true,
+      "hp": 12,
+      "exp": 9,
+      "profile": {
+        "hit_bonus": 3,
+        "crit_chance": 5,
+        "phys": "1d4+1",
+        "str_mult": 1.0,
+        "ac": 10,
+        "armor": 0
+      },
+      "colors": {
+        "body": [
+          0.5,
+          0.42,
+          0.72
+        ],
+        "light": [
+          0.72,
+          0.64,
+          0.9
+        ],
+        "core": [
+          0.3,
+          0.22,
+          0.48
+        ]
+      },
+      "scale": 0.95,
+      "loot": [
+        {
+          "item": "slime_jelly",
+          "chance": 1.0,
+          "dice": "1d3"
+        },
+        {
+          "item": "slime_core",
+          "chance": 0.35
+        },
+        {
+          "item": "mana_shard",
+          "chance": 0.25
+        }
+      ]
+    },
+    "slime_king": {
+      "name": "슬라임 왕",
+      "aggressive": true,
+      "boss": true,
+      "hp": 60,
+      "exp": 60,
+      "profile": {
+        "hit_bonus": 4,
+        "crit_chance": 8,
+        "phys": "2d4+1",
+        "str_mult": 1.0,
+        "ac": 12,
+        "armor": 1
+      },
+      "colors": {
+        "body": [
+          0.86,
+          0.72,
+          0.3
+        ],
+        "light": [
+          0.98,
+          0.9,
+          0.55
+        ],
+        "core": [
+          0.6,
+          0.44,
+          0.14
+        ]
+      },
+      "scale": 2.0,
+      "loot": [
+        {
+          "item": "slime_core",
+          "chance": 1.0,
+          "dice": "1d2+1"
+        },
+        {
+          "item": "mana_shard",
+          "chance": 1.0,
+          "dice": "1d2+1"
+        },
+        {
+          "equip_pool": [
+            "strength_ring",
+            "luck_necklace"
+          ],
+          "chance": 1.0,
+          "option_chance": 0.0
+        }
+      ]
     }
   }
 }

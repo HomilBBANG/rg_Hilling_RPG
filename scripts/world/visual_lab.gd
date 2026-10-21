@@ -83,11 +83,19 @@ func _ready() -> void:
 	_build_ground()
 	_build_camp()
 	_build_landmarks()
-	_scatter_nature()
-	_build_ground_cover()
+	if is_dungeon():
+		_build_dungeon()
+	else:
+		_scatter_nature()
+		_build_ground_cover()
 	_spawn_actors()
 	_spawn_loot()
+	Game.discovered["region:" + region_id] = true
 	Game.story_changed.connect(_on_story_changed)
+
+
+func is_dungeon() -> bool:
+	return region.get("kind", "") == "dungeon"
 
 
 func has_feature(f: String) -> bool:
@@ -123,6 +131,7 @@ func _build_environment() -> void:
 	day_night.name = "DayNight"
 	day_night.sun = sun
 	day_night.environment = we.environment
+	day_night.cave = is_dungeon()
 	add_child(day_night)
 	day_night.apply(Game.daylight(), Game.twilight())
 
@@ -505,7 +514,7 @@ func _spawn_actors() -> void:
 
 	for spec: Dictionary in region.get("monsters", []):
 		var dead_at: float = Game.field["dead"].get(spec["id"], -1.0)
-		if dead_at < 0.0:
+		if dead_at < 0.0 and not _defeated(spec):
 			_spawn_monster(spec)
 	_spawn_cat(ov.get("kind", "") == "checkpoint" and Game.cat_joined)
 	if has_feature("trade_post"):
@@ -539,6 +548,107 @@ func sprite_targets() -> Array:
 	return out
 
 
+# ---------------------------------------------------------------- P3-2: fixed dungeon
+
+func _grid_world(col: int, row: int) -> Vector3:
+	var w := RegionDB.grid_to_world(col, row, int(region["_cols"]), int(region["_rows"]), float(region.get("cell", 2.0)))
+	return Vector3(w.x, 0.0, w.y)
+
+
+## Walls (merged per row run, with a lighter cap), torches with real light, rubble and glowing
+## mushrooms on the floor. Walls stay low (1.5 m) so the fixed top-down camera sees over them.
+func _build_dungeon() -> void:
+	var c := float(region.get("cell", 2.0))
+	var h := float(region.get("wall_height", 1.5))
+	# dark rock mass with a slightly lighter rim on top: the lit floor reads as the walkable space
+	var stone := ProtoMesh.mat(Color(0.22, 0.21, 0.25))
+	var cap := ProtoMesh.mat(Color(0.3, 0.29, 0.33))
+	var cols := int(region["_cols"])
+	var rows := int(region["_rows"])
+	var wall := {}
+	for wc: Array in region["_walls"]:
+		wall[Vector2i(int(wc[0]), int(wc[1]))] = true
+	for r in rows:
+		var col := 0
+		while col < cols:
+			if not wall.has(Vector2i(col, r)):
+				col += 1
+				continue
+			var start := col
+			while col < cols and wall.has(Vector2i(col, r)):
+				col += 1
+			var a := _grid_world(start, r)
+			var b := _grid_world(col - 1, r)
+			var center := (a + b) * 0.5
+			var size := Vector3((col - start) * c, h, c)
+			var y := ground_height(center.x, center.z)
+			var mi := ProtoMesh.box(self, size, Vector3(center.x, y + h * 0.5, center.z), stone)
+			mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON
+			ProtoMesh.box(self, Vector3(size.x, 0.08, size.z), Vector3(center.x, y + h + 0.04, center.z), cap)
+			ProtoMesh.static_box_collider(self, Vector3(size.x, 3.0, size.z), Vector3(center.x, y + 0.5, center.z))
+	var flame := ProtoMesh.mat(Color(1.0, 0.62, 0.25), 0.6, Color(1.0, 0.55, 0.2), 3.0)
+	var wood := ProtoMesh.mat(Color(0.36, 0.25, 0.16))
+	for t: Array in region.get("_torches", []):
+		var p := Vector3(float(t[0]), 0.0, float(t[1]))
+		var root := _on_ground(Node3D.new(), p.x, p.z)
+		ProtoMesh.cylinder(root, 0.05, 1.3, Vector3(0, 0.65, 0), wood, Vector3.ZERO, 6)
+		var f := ProtoMesh.sphere(root, 0.13, Vector3(0, 1.38, 0), flame, Vector3(1, 1.5, 1), 6, 4)
+		f.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		var light := OmniLight3D.new()
+		light.position = Vector3(0, 1.5, 0)
+		light.light_color = Color(1.0, 0.68, 0.4)
+		light.light_energy = 2.2
+		light.omni_range = 8.0
+		light.omni_attenuation = 1.2
+		light.shadow_enabled = false
+		root.add_child(light)
+		AmbientParticles.embers(self, root.position + Vector3(0, 1.4, 0))
+		_block(p.x, p.z, 1.0)
+	# rubble + glowing mushrooms on free floor cells (fixed seed: the layout never changes)
+	var glow := ProtoMesh.mat(Color(0.5, 0.95, 0.9), 0.4, Color(0.4, 0.95, 0.85), 1.6)
+	var stem := ProtoMesh.mat(Color(0.75, 0.78, 0.7))
+	for fc: Array in region.get("_floor", []):
+		var p2 := _grid_world(int(fc[0]), int(fc[1]))
+		var roll := _rng.randf()
+		var jitter := Vector3(_rng.randf_range(-0.6, 0.6), 0, _rng.randf_range(-0.6, 0.6))
+		var q := p2 + jitter
+		if not _is_free(q.x, q.z, 0.4, 0.0):
+			continue
+		if roll < 0.08:
+			_place_rock(q.x, q.z, false, _rng.randf_range(0.6, 1.1))
+		elif roll < 0.14:
+			var m := _on_ground(Node3D.new(), q.x, q.z)
+			for i in 3:
+				var o := Vector3(_rng.randf_range(-0.2, 0.2), 0, _rng.randf_range(-0.2, 0.2))
+				ProtoMesh.cylinder(m, 0.025, 0.14, o + Vector3(0, 0.07, 0), stem, Vector3.ZERO, 5)
+				var capm := ProtoMesh.sphere(m, 0.07, o + Vector3(0, 0.15, 0), glow, Vector3(1, 0.55, 1), 6, 3)
+				capm.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+
+
+## Highland cave mouth: two big rocks around a dark opening, a lantern-less warning sign.
+func _build_cave_mouth(c: Vector3) -> void:
+	var dark := ProtoMesh.mat(Color(0.03, 0.03, 0.04))
+	for spec in [[-2.3, 0.2, 1.5], [2.3, 0.0, 1.6], [0.0, -1.6, 1.9]]:
+		var r := _on_ground(NatureProps.rock(true, spec[2], _rng), c.x + spec[0], c.z + spec[1])
+		ProtoMesh.static_cylinder_collider(self, 0.8 * spec[2], 6.0, r.position)
+	var hole := ProtoMesh.sphere(self, 1.25, Vector3(c.x, ground_height(c.x, c.z) + 0.15, c.z - 0.6), dark, Vector3(1.2, 0.85, 0.5), 10, 6)
+	hole.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	_on_ground(NatureProps.signpost(), c.x + 3.0, c.z + 2.6)
+	_block(c.x, c.z, 4.0)
+
+
+## Way out of the dungeon: pale light falling on a stone slab.
+func _build_dungeon_exit(c: Vector3) -> void:
+	var slab := ProtoMesh.mat(Color(0.42, 0.43, 0.45), 0.8, Color(0.5, 0.6, 0.75), 0.25)
+	ProtoMesh.box(self, Vector3(1.6, 0.08, 1.6), Vector3(c.x, ground_height(c.x, c.z) + 0.04, c.z), slab)
+	var light := OmniLight3D.new()
+	light.position = Vector3(c.x, ground_height(c.x, c.z) + 2.2, c.z)
+	light.light_color = Color(0.75, 0.85, 1.0)
+	light.light_energy = 1.1
+	light.omni_range = 5.0
+	add_child(light)
+
+
 # ---------------------------------------------------------------- P1: monsters, loot, safety
 
 func _spawn_monster(spec: Dictionary) -> SlimeMonster:
@@ -546,6 +656,7 @@ func _spawn_monster(spec: Dictionary) -> SlimeMonster:
 	m.name = "Slime_" + str(spec["id"])
 	m.monster_id = str(spec["id"])
 	m.kind = str(spec.get("kind", "meadow_slime"))
+	m.set_meta("once", bool(spec.get("once", false)))
 	m.height_func = Callable(self, "ground_height")
 	m.world = self
 	var h := RegionDB.v3(spec["pos"])
@@ -564,8 +675,18 @@ func alert_species(source: SlimeMonster) -> void:
 			m.engage()
 
 
+## GDD 7.4 [확정]: bosses / special monsters can appear only once.
+func _defeated(spec: Dictionary) -> bool:
+	return bool(spec.get("once", false)) and Game.field.get("defeated", {}).has(spec["id"])
+
+
 func on_monster_killed(m: SlimeMonster) -> void:
 	monsters.erase(m)
+	if m.get_meta("once", false):
+		var dfd: Dictionary = Game.field.get("defeated", {})
+		dfd[m.monster_id] = Game.total_minutes()
+		Game.field["defeated"] = dfd
+		Game.boot.hud.toast("%s을(를) 쓰러뜨렸다 — 다시 나타나지 않는다" % m.display_name)
 	Game.field["dead"][m.monster_id] = Game.total_minutes()
 	var p := m.global_position
 	var d := {"id": "corpse_%s_%d" % [m.monster_id, int(Game.total_minutes())], "kind": "corpse",
@@ -595,6 +716,18 @@ func _spawn_loot() -> void:
 		Game.field["loot"].append({"id": "camp_crate", "kind": "crate", "title": "보급 상자",
 			"pos": Vector3(CRATE_POS.x, ground_height(CRATE_POS.x, CRATE_POS.z), CRATE_POS.z), "inv": inv, "expires": -1.0})
 		Game.field["crate_made"] = true
+	if is_dungeon() and not Game.field.get("chests_made", false):
+		var defs: Array = region.get("chests", [])
+		var spots: Array = region.get("_chests", [])
+		for i in mini(defs.size(), spots.size()):
+			var inv2 := Inventory.new()
+			var items: Dictionary = defs[i].get("items", {})
+			for id: String in items:
+				inv2.add(id, int(items[id]))
+			var sp: Array = spots[i]
+			Game.field["loot"].append({"id": "chest_%d" % i, "kind": "chest", "title": defs[i].get("title", "상자"),
+				"pos": Vector3(float(sp[0]), ground_height(float(sp[0]), float(sp[1])), float(sp[1])), "inv": inv2, "expires": -1.0})
+		Game.field["chests_made"] = true  # one-time contents, never refilled
 	for d: Dictionary in Game.field["loot"].duplicate():
 		LootContainer.create(self, d)
 
@@ -603,7 +736,7 @@ func _respawn_check() -> void:
 	var now := Game.total_minutes()
 	for spec: Dictionary in region.get("monsters", []):
 		var dead_at: float = Game.field["dead"].get(spec["id"], -1.0)
-		if dead_at >= 0.0 and now - dead_at >= MONSTER_RESPAWN_MIN:
+		if dead_at >= 0.0 and now - dead_at >= MONSTER_RESPAWN_MIN and not _defeated(spec):
 			Game.field["dead"].erase(spec["id"])
 			_spawn_monster(spec)
 
@@ -930,6 +1063,7 @@ var _respawn_timer := 0.0
 var _age := 0.0
 ## Set by bootstrap.travel when the camper drives out: its new parking spot is already decided.
 var _leaving_with_camper := false
+var _no_vehicle_toast_at := 0.0
 
 
 ## Exit whose zone (plus margin) contains pos, or {}.
@@ -956,9 +1090,16 @@ func _discover(pos: Vector3) -> void:
 			Game.discovered[key2] = true
 
 
-## Road exit: two stone posts and a signpost naming where the road leads.
+## Road exit: two stone posts and a signpost naming where the road leads (cave mouth / dungeon
+## way out have their own look).
 func _build_exit_marker(ex: Dictionary) -> void:
 	var c: Vector3 = ex["pos"]
+	if is_dungeon():
+		_build_dungeon_exit(c)
+		return
+	if ex.get("style", "") == "cave":
+		_build_cave_mouth(c)
+		return
 	var stone := ProtoMesh.mat(Color(0.58, 0.57, 0.54))
 	var cloth := ProtoMesh.mat(Color(0.86, 0.72, 0.36))
 	# posts either side of the road, across the direction toward the region edge
@@ -1001,7 +1142,12 @@ func _process(delta: float) -> void:
 		var at := vehicle.global_position if vehicle.driving else player.global_position
 		var ex := _exit_near(at, 0.0)
 		if not ex.is_empty() and (vehicle.driving or player.visible):
-			Game.boot.travel(ex["to_region"], ex["to_entry"], vehicle.driving)
+			if vehicle.driving and ex.get("no_vehicle", false):
+				if _age > _no_vehicle_toast_at:
+					_no_vehicle_toast_at = _age + 3.0
+					Game.boot.hud.toast("캠핑카로는 들어갈 수 없다 — 내려서 걸어가자")
+			else:
+				Game.boot.travel(ex["to_region"], ex["to_entry"], vehicle.driving)
 
 
 func _update_occluder_fade(delta: float) -> void:
@@ -1068,6 +1214,10 @@ func context_hint() -> String:
 		return "운전 중 — W 전진 · S 후진 · A/D 머리 좌/우 · E 내리기(정지 시) · F 라이트"
 	var ex := _exit_near(player.global_position, 7.0)
 	if not ex.is_empty():
+		if is_dungeon():
+			return "%s → %s" % [ex.get("name", "출구"), RegionDB.region_name(ex["to_region"])]
+		if ex.get("style", "") == "cave":
+			return "%s — 들어가면 → %s (위험도 %s, 캠핑카로는 못 들어감)" % [ex.get("name", "동굴"), RegionDB.region_name(ex["to_region"]), RegionDB.danger_text(ex["to_region"])]
 		return "이 길을 따라가면 → %s (위험도 %s)" % [RegionDB.region_name(ex["to_region"]), RegionDB.danger_text(ex["to_region"])]
 	if player_near_camper():
 		return "캠핑카 근처 — F: 외부 라이트"

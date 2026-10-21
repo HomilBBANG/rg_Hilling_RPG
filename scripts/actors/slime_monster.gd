@@ -17,6 +17,8 @@ const NIGHT_AGGRO_MULT := 1.4  # night is a bit more dangerous (GDD 10.2)
 var monster_id := ""
 ## Monster definition (data/monsters.json): name, 선공 flag, HP, EXP, combat profile, colours, loot.
 var kind := "meadow_slime"
+## Body size from the kind (boss slimes are big): collision, contact and lunge reach scale with it.
+var body_scale := 1.0
 var display_name := "슬라임"
 var aggressive := false
 var home := Vector3.ZERO
@@ -61,14 +63,15 @@ func _ready() -> void:
 	exp_reward = int(def.get("exp", exp_reward))
 	profile = profile.merged(def.get("profile", {}), true)
 	profile["name"] = display_name
+	body_scale = float(def.get("scale", 1.0))
 	motion_mode = CharacterBody3D.MOTION_MODE_FLOATING
 	collision_layer = LAYER
 	collision_mask = 1 | LAYER
 	var shape := CollisionShape3D.new()
 	var sph := SphereShape3D.new()
-	sph.radius = RADIUS
+	sph.radius = RADIUS * body_scale
 	shape.shape = sph
-	shape.position.y = RADIUS
+	shape.position.y = RADIUS * body_scale
 	add_child(shape)
 	_rig = SlimeRig.new(def.get("colors", null), float(def.get("scale", 1.0)))
 	add_child(_rig)
@@ -203,14 +206,15 @@ func _next_hop(to_player: Vector3, dist: float) -> void:
 				cand = _flat(global_position) + (home - _flat(global_position)).normalized() * r
 			_start_hop(cand - _flat(global_position), 1.1)
 		State.CHASE, State.ATTACK:
-			if dist < 1.7 and _cooldown <= 0.0:
+			var reach := (RADIUS * body_scale - RADIUS) * 2.0
+			if dist < 1.7 + reach and _cooldown <= 0.0:
 				state = State.ATTACK
 				_attack_done = false
 				_cooldown = 1.3
 				_start_hop(to_player.normalized() * minf(dist + 0.2, 1.5), 0.6)
 			else:
 				state = State.CHASE
-				var step := minf(1.5, maxf(0.0, dist - 1.0))
+				var step := minf(1.5, maxf(0.0, dist - 1.0 - reach))
 				if step < 0.3:
 					_start_hop(Vector3.ZERO, 0.4, true)  # waiting for the next lunge
 				else:
@@ -235,9 +239,9 @@ func _try_contact() -> void:
 		return
 	var params := PhysicsShapeQueryParameters3D.new()
 	var sph := SphereShape3D.new()
-	sph.radius = RADIUS + 0.08
+	sph.radius = RADIUS * body_scale + 0.08
 	params.shape = sph
-	params.transform = Transform3D(Basis(), global_position + Vector3(0, RADIUS, 0))
+	params.transform = Transform3D(Basis(), global_position + Vector3(0, RADIUS * body_scale, 0))
 	params.collision_mask = PrototypePlayer.BODY_LAYER
 	var hits := get_world_3d().direct_space_state.intersect_shape(params, 4)
 	for h in hits:

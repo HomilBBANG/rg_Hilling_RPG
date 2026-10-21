@@ -5,6 +5,8 @@ extends Node
 ## All values are tuning placeholders for the P0 comparison.
 
 @export var interior := false
+## Underground (fixed dungeon): no sun or sky, dim cool ambient - torches and lanterns do the rest.
+var cave := false
 
 var sun: DirectionalLight3D
 var environment: Environment
@@ -73,6 +75,18 @@ func _process(_delta: float) -> void:
 
 
 func apply(d: float, tw: float) -> void:
+	if cave:
+		if environment:
+			environment.ambient_light_color = Color(0.22, 0.21, 0.3)
+			environment.ambient_light_energy = 0.55
+			environment.background_color = Color(0.01, 0.01, 0.015)
+			environment.fog_enabled = false
+			environment.ssao_enabled = style_ssao
+			environment.glow_intensity = 0.4
+			environment.glow_hdr_threshold = 1.1
+		if sun:
+			sun.visible = false
+		return
 	if environment:
 		if interior:
 			environment.ambient_light_color = Color(0.55, 0.5, 0.45).lerp(Color(0.7, 0.68, 0.64), d)

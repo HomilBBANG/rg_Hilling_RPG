@@ -7,8 +7,17 @@ extends Control
 var font: Font
 
 
+## Hidden places (dungeons) appear only once found (GDD 11.3).
+static func known(id: String, reg: Dictionary) -> bool:
+	return not reg.get("hidden", false) or Game.discovered.has("region:" + id)
+
+
 func _draw() -> void:
-	var regions := RegionDB.all()
+	var regions := {}
+	var all_regions := RegionDB.all()
+	for rid: String in all_regions:
+		if known(rid, all_regions[rid]):
+			regions[rid] = all_regions[rid]
 	if regions.is_empty():
 		return
 	# overall bounds in map space
@@ -27,6 +36,8 @@ func _draw() -> void:
 	for id: String in regions:
 		var reg: Dictionary = regions[id]
 		for ex: Dictionary in reg.get("exits", []):
+			if ex.get("hidden", false) and not Game.discovered.has("%s:%s" % [id, ex["id"]]):
+				continue
 			var other: Dictionary = regions.get(ex["to_region"], {})
 			var e: Dictionary = other.get("entries", {}).get(ex["to_entry"], {})
 			if other.is_empty() or e.is_empty():
@@ -43,6 +54,12 @@ func _draw() -> void:
 		draw_rect(sr, col.darkened(0.25))
 		draw_rect(sr, col.lightened(0.3) if id == Game.region else col.darkened(0.5), false, 3.0 if id == Game.region else 1.5)
 		var t: Dictionary = reg.get("terrain", {})
+		if reg.get("kind", "") == "dungeon":
+			var cl := float(reg.get("cell", 2.0))
+			for fc: Array in reg.get("_floor", []):
+				var w := RegionDB.grid_to_world(int(fc[0]), int(fc[1]), int(reg["_cols"]), int(reg["_rows"]), cl)
+				var tl: Vector2 = to_screen.call(_world_to_map(reg, [w.x - cl * 0.5, w.y - cl * 0.5]))
+				draw_rect(Rect2(tl, Vector2(cl, cl) * k), Color(0.55, 0.52, 0.5))
 		var fo: Variant = t.get("forest", null)
 		if fo is Dictionary:
 			draw_circle(to_screen.call(_world_to_map(reg, fo["center"])), float(fo["radius"]) * k, col.darkened(0.45))

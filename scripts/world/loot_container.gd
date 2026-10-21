@@ -23,9 +23,11 @@ func _ready() -> void:
 			_build_corpse()
 		"bag":
 			_build_bag()
+		"chest":
+			_build_chest()
 		_:
 			_build_crate()
-	if data["kind"] != "crate":
+	if not data["kind"] in ["crate", "chest"]:
 		# Flat, low objects: their shadow from the hip lantern a few cm above smeared over the ground.
 		for mi in find_children("*", "MeshInstance3D", true, false):
 			(mi as MeshInstance3D).cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
@@ -79,6 +81,17 @@ func _build_bag() -> void:
 	ProtoMesh.sphere(self, 0.28, Vector3(0, 0.22, 0), cloth, Vector3(1.0, 0.85, 0.9), 10, 5)
 	ProtoMesh.cylinder(self, 0.09, 0.12, Vector3(0, 0.48, 0), dark, Vector3.ZERO, 6)
 	ProtoMesh.sphere(self, 0.11, Vector3(0, 0.58, 0), cloth, Vector3(1.2, 0.6, 1.2), 6, 3)
+
+
+## Dungeon treasure chest (one-time contents).
+func _build_chest() -> void:
+	var wood := ProtoMesh.mat(Color(0.52, 0.32, 0.18))
+	var trim := ProtoMesh.mat(Color(0.86, 0.68, 0.3), 0.35)
+	ProtoMesh.box(self, Vector3(0.9, 0.48, 0.58), Vector3(0, 0.24, 0), wood)
+	ProtoMesh.cylinder(self, 0.29, 0.9, Vector3(0, 0.48, 0), wood, Vector3(0, 0, 90), 10)
+	for x in [-0.36, 0.36]:
+		ProtoMesh.box(self, Vector3(0.07, 0.5, 0.6), Vector3(x, 0.25, 0), trim)
+	ProtoMesh.box(self, Vector3(0.14, 0.14, 0.04), Vector3(0, 0.42, -0.3), trim)
 
 
 func _build_crate() -> void:

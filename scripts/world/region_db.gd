@@ -20,8 +20,89 @@ static func all() -> Dictionary:
 		for p in DialogueData.list_files(DIR):
 			var d: Variant = DialogueData.read_json(p)
 			if d is Dictionary and d.has("region_id"):
-				_cache[d["region_id"]] = d
+				_cache[d["region_id"]] = _expand_dungeon(d) if d.get("kind", "") == "dungeon" else d
 	return _cache
+
+
+static func is_dungeon(region_id: String) -> bool:
+	return info(region_id).get("kind", "") == "dungeon"
+
+
+## Fixed dungeon (GDD 12.1 [확정]: a hand-designed layout that never changes) drawn as a text
+## grid; this turns it into the ordinary region fields (terrain bounds, spawns, checkpoint,
+## exits, entries) so the world, death / loot rules, travel and map treat it like any region.
+## Grid: '#' wall, '.' floor, '+' doorway, 'S' arrival, 'E' exit, 'K' safe checkpoint, 'T' torch,
+## 'C' chest, other letters = monsters through "spawn_kinds".
+static func _expand_dungeon(src: Dictionary) -> Dictionary:
+	var d := src.duplicate(true)
+	var grid: Array = d["grid"]
+	var c := float(d.get("cell", 2.0))
+	var rows := grid.size()
+	var cols := str(grid[0]).length()
+	var half := Vector2(cols, rows) * c * 0.5
+	d["terrain"] = {"min": [-half.x - 8.0, -half.y - 8.0], "max": [half.x + 8.0, half.y + 8.0], "seed": 31,
+		"hill_noise": 0.04, "pond": null, "camp_center": null, "paths": [], "mounds": [],
+		"forest": {"center": [9999, 9999], "radius": 1}}
+	var kinds: Dictionary = d.get("spawn_kinds", {})
+	var once: Array = d.get("once", [])
+	var monsters := []
+	var checkpoints := []
+	var exits := []
+	var entries := {}
+	var walls := []
+	var torches := []
+	var chests := []
+	var floor := []
+	var counts := {}
+	for r in rows:
+		var line := str(grid[r])
+		for col in cols:
+			var ch := line[col] if col < line.length() else "#"
+			var w := grid_to_world(col, r, cols, rows, c)
+			if ch == "#" or ch == " ":
+				walls.append([col, r])
+				continue
+			floor.append([col, r])
+			match ch:
+				"T":
+					torches.append([w.x, w.y])
+				"C":
+					chests.append([w.x, w.y])
+				"K":
+					var sr: Dictionary = d.get("safe_room", {})
+					checkpoints.append({"id": "safe_room", "name": sr.get("name", "쉼터"), "pos": [w.x, w.y],
+						"radius": float(sr.get("radius", 6.0)), "marker": true})
+				_:
+					if kinds.has(ch):
+						counts[ch] = int(counts.get(ch, 0)) + 1
+						monsters.append({"id": "%s_%s%d" % [d["region_id"], ch, counts[ch]], "kind": kinds[ch], "pos": [w.x, w.y],
+							"once": once.has(ch)})
+			if d.get("exit_tiles", {}).has(ch):
+				var e: Dictionary = d["exit_tiles"][ch].duplicate()
+				e["pos"] = [w.x, w.y]
+				e["radius"] = c * 0.7
+				exits.append(e)
+			for entry_id: String in d.get("entry_tiles", {}):
+				var et: Dictionary = d["entry_tiles"][entry_id]
+				if et.get("tile", "") == ch:
+					entries[entry_id] = {"pos": [w.x, w.y], "yaw": float(et.get("yaw", 0.0))}
+	d["monsters"] = monsters
+	d["checkpoints"] = checkpoints
+	d["exits"] = exits
+	d["entries"] = entries
+	if not entries.is_empty():
+		d["default_spawn"] = entries.values()[0]
+	d["_walls"] = walls
+	d["_floor"] = floor
+	d["_torches"] = torches
+	d["_chests"] = chests
+	d["_cols"] = cols
+	d["_rows"] = rows
+	return d
+
+
+static func grid_to_world(col: int, row: int, cols: int, rows: int, cell: float) -> Vector2:
+	return Vector2((col - cols * 0.5 + 0.5) * cell, (row - rows * 0.5 + 0.5) * cell)
 
 
 static func info(region_id: String) -> Dictionary:

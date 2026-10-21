@@ -297,6 +297,8 @@ func _parse_args() -> void:
 		_run_quest_tour()
 	elif tour == "region":
 		_run_region_tour()
+	elif tour == "dungeon":
+		_run_dungeon_tour()
 	elif tour == "drive":
 		_run_drive_compare()
 	elif tour == "wind":
@@ -626,7 +628,10 @@ func travel(to_region: String, entry_id: String, driving: bool) -> void:
 		" (캠핑카와 함께)" if driving else " (캠핑카는 %s에)" % RegionDB.region_name(str(Game.camper.get("region", ""))) if Game.has_camper else "",
 		info.get("name", to_region), RegionDB.danger_text(to_region)], "info")
 	await game_hud.fade_to(0.0, 0.6)
-	hud.toast("%s — 위험도 %s" % [info.get("name", to_region), RegionDB.danger_text(to_region)])
+	var arrive := "%s — 위험도 %s" % [info.get("name", to_region), RegionDB.danger_text(to_region)]
+	if RegionDB.is_dungeon(to_region) and not Game.lantern_on:
+		arrive += (" · 어둡다 — L로 등불을 켜자" if Game.player_state.has_lantern() else " · 어둡다 — 횃불 빛을 따라가자")
+	hud.toast(arrive)
 	_busy = false
 
 
@@ -1950,4 +1955,135 @@ func _run_region_tour() -> void:
 	print("[region] M -> panel %s" % game_hud._panel_kind)
 	await _p1_shot("region_06_world_map", "world map: two regions, road link, camper in the highland", true)
 	await _key(KEY_M)
+	get_tree().quit()
+
+
+# ---------------------------------------------------------------- P3-2 fixed dungeon
+
+func _run_dungeon_tour() -> void:
+	Dice.rng.seed = 33
+	Game.clock_running = false
+	Game.minute_of_day = 13.0 * 60.0
+	await wait_for_sprites()
+	var st := Game.player_state
+	# drive the camper to the highland, then try to drive into the cave
+	var east: Vector3 = world.exits[0]["pos"]
+	world.vehicle.global_position = Vector3(east.x - 7.0, world.ground_height(east.x - 7.0, east.z), east.z)
+	world.vehicle.rotation.y = 0.0
+	world.enter_vehicle()
+	await _frames(3)
+	world.vehicle.global_position = Vector3(east.x, world.vehicle.global_position.y, east.z)
+	await _seconds(0.5)
+	await _wait_travel()
+	var mouth: Dictionary = {}
+	for ex: Dictionary in world.exits:
+		if ex["to_region"] == "cave":
+			mouth = ex
+	var mp: Vector3 = mouth["pos"]
+	await _seconds(VisualLab.EXIT_GRACE)
+	world.vehicle.global_position = Vector3(mp.x, world.ground_height(mp.x, mp.z), mp.z + 0.3)
+	await _seconds(1.0)
+	print("[dungeon] drove into the cave mouth -> still %s (busy %s), camper stays outside" % [Game.region, _busy])
+	world.vehicle.global_position = Vector3(mp.x + 4.0, world.ground_height(mp.x + 4.0, mp.z + 7.0), mp.z + 7.0)
+	world.vehicle.speed = 0.0
+	await _frames(3)
+	world.exit_vehicle()
+	await _frames(5)
+	_place_player(mp + Vector3(0, 0, 5.0), PI)
+	await _frames(15)
+	print("[dungeon] at the cave mouth -> hint '%s'" % world.context_hint())
+	await _p1_shot("dungeon_00_cave_mouth", "highland cave mouth", true)
+	_place_player(mp, PI)
+	await _seconds(0.5)
+	await _wait_travel()
+	print("[dungeon] entered -> %s (%s), dungeon %s, safe room %s" % [Game.region, world.world_title(), world.is_dungeon(),
+		world.checkpoints[0]["name"] if not world.checkpoints.is_empty() else "-"])
+	var kinds := {}
+	for m: SlimeMonster in world.monsters:
+		kinds[m.kind] = int(kinds.get(m.kind, 0)) + 1
+	print("[dungeon] monsters %s" % kinds)
+	await _seconds(2.6)
+	await _p1_shot("dungeon_01_entrance", "dark entrance room lit by torches", true)
+	# one-time chest
+	var chest: LootContainer = null
+	for lc in world.find_children("*", "LootContainer", false, false):
+		if (lc as LootContainer).data["id"] == "chest_0":
+			chest = lc
+	_place_player(chest.global_position + Vector3(0, 0, 1.1), PI)
+	await _frames(8)
+	await _key(KEY_E)
+	print("[dungeon] E at the chest -> panel %s, contents %d" % [game_hud._panel_kind, chest.inventory().unit_count()])
+	await _p1_shot("dungeon_02_chest", "one-time treasure chest", true)
+	for e in chest.inventory().duplicate_items():
+		st.inventory.add(e["id"], e["count"])
+	chest.inventory().clear()
+	game_hud.close_panel()
+	# the boss
+	var boss: SlimeMonster = null
+	for m: SlimeMonster in world.monsters:
+		if m.kind == "slime_king":
+			boss = m
+	print("[dungeon] boss %s: HP %d, %s, AC %d, scale %.1f" % [boss.display_name, boss.max_hp, boss.profile["phys"], boss.profile["ac"], boss.body_scale])
+	_place_player(boss.global_position + Vector3(-4.5, 0, 1.0), -PI * 0.4)
+	await _frames(20)
+	await _p1_shot("dungeon_03_boss", "slime king in the deep hall", true)
+	var bid := boss.monster_id
+	boss._die()
+	var victim: SlimeMonster = null
+	for m: SlimeMonster in world.monsters:
+		if m.kind == "cave_slime":
+			victim = m
+	var vid := victim.monster_id
+	victim._die()
+	await _frames(5)
+	print("[dungeon] killed boss + %s; defeated %s" % [vid, Game.field.get("defeated", {}).keys()])
+	Game.advance_minutes(3 * 1440.0)
+	world._respawn_check()
+	await _frames(5)
+	var back_ids := PackedStringArray()
+	for m: SlimeMonster in world.monsters:
+		back_ids.append(m.monster_id)
+	print("[dungeon] +3 days: %s respawned %s, boss respawned %s" % [vid, back_ids.has(vid), back_ids.has(bid)])
+	# death in the dungeon, no camper yet: field rules + nearest safe checkpoint (the entrance room)
+	Game.set_story_stage(1)
+	await _frames(5)
+	var death_at := Vector3(10.0, 0, 6.0)
+	_place_player(death_at, 0.0)
+	await _frames(5)
+	var before := st.inventory.unit_count()
+	on_player_died(world.player.global_position)
+	while _busy:
+		await _frames(2)
+	var bag := {}
+	for d: Dictionary in Game.field["loot"]:
+		if d["kind"] == "bag":
+			bag = d
+	print("[dungeon] died with %d items -> woke in %s at (%.1f, %.1f); bag left at (%.1f, %.1f) with %d (rest taken by goblins)" % [before, Game.region,
+		world.player.global_position.x, world.player.global_position.z, bag["pos"].x, bag["pos"].z, bag["inv"].unit_count()])
+	await _p1_shot("dungeon_04_wake_safe_room", "woke at the dungeon's safe room, cat beside", true)
+	Game.set_story_stage(2)
+	await _frames(5)
+	# with the camper: rescued into the camper, step out where it is parked (the highland)
+	on_player_died(world.player.global_position)
+	while _busy:
+		await _frames(2)
+	Game.request_world(Game.WORLD_EXTERIOR)
+	await _frames(3)
+	await wait_for_sprites()
+	print("[dungeon] died with the camper -> stepped out in %s; cave bag still there %s" % [Game.region, not Game.fields["cave"]["loot"].filter(func(d: Dictionary) -> bool: return d["kind"] == "bag").is_empty()])
+	_place_player(world.player.global_position, 0.0)
+	await _seconds(2.0)
+	await _key(KEY_M)
+	await _p1_shot("dungeon_05_map", "map with the found cave", true)
+	await _key(KEY_M)
+	# walk back in and out through the dungeon exit
+	_place_player(mp, PI)
+	await _seconds(0.5)
+	await _wait_travel()
+	await _seconds(VisualLab.EXIT_GRACE)
+	var out: Vector3 = world.exits[0]["pos"]
+	_place_player(out, 0.0)
+	await _seconds(0.5)
+	await _wait_travel()
+	print("[dungeon] left through the exit -> %s at (%.1f, %.1f)" % [Game.region, world.player.global_position.x, world.player.global_position.z])
 	get_tree().quit()
