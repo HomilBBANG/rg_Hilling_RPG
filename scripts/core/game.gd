@@ -140,6 +140,18 @@ var spawn_override := {}
 ## Set when actors appear after a world load (respawn, cat joins): bootstrap re-applies sprites.
 var sprites_dirty := false
 
+# ---------------------------------------------------------------- save slots (SaveManager)
+## Slot this character saves into (1..3), 0 = none chosen yet (title screen, capture tours).
+var slot := 0
+## Real seconds played on this character (shown on the slot card).
+var play_seconds := 0.0
+## Set by the title screen before the scene is rebuilt: "new" / "load" -> bootstrap fades in
+## (and claims the slot with a first save for a new game).
+var boot_note := ""
+## Set right before the scene is rebuilt: {"slot": n, "new": bool}; slot 0 = back to the title.
+## Applied by the new bootstrap, after the old world has left the tree.
+var pending_start := {}
+
 # action -> physical keys (debug bindings from GRAPHICS_PROTOTYPE.md section 5, plus extras)
 const ACTIONS := {
 	"move_up": [KEY_W, KEY_UP],
@@ -208,6 +220,7 @@ func _ready() -> void:
 	storage.add("heal_potion", 3)
 	storage.add("bread", 2)
 	storage.add("fishing_rod", 1)  # P3-4 test tool (the general store also sells one)
+	SaveManager.defaults = SaveManager.capture_state().duplicate(true)
 
 
 func _register_actions() -> void:
@@ -228,6 +241,7 @@ func _register_actions() -> void:
 func _process(delta: float) -> void:
 	if get_tree().paused:
 		return
+	play_seconds += delta
 	if clock_running:
 		advance_minutes(delta * GAME_MINUTES_PER_SECOND)
 	player_state.tick(delta)

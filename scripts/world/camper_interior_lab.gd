@@ -205,6 +205,10 @@ func _spawn_actors() -> void:
 		# Woken on the cot after the cat brought the player home (GDD 2.4 [확정]).
 		player.global_position = COT_POS + Vector3(0.2, 0, 0.75)
 		player.face_direction(PI)
+	elif ov.has("pos"):  # loaded save
+		var lp: Vector3 = ov["pos"]
+		player.global_position = Vector3(lp.x, 0.0, lp.z)
+		player.face_direction(float(ov.get("yaw", 0.0)))
 	else:
 		player.global_position = Vector3(DOOR_X, 0.0, ROOM_Z - 0.6)
 		player.face_direction(0.0)

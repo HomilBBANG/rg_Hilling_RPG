@@ -28,6 +28,7 @@
 | 랜덤 던전 (P3-3) | 초원 **호숫가 쉼터 동쪽의 보라색 돌 고리**(변덕의 미궁, 위험도 ★★★)에서 `E` → "지도가 계속 바뀐다·쓰러지면 이번 탐험 전리품을 모두 잃는다" **안내 후 입장**. 들어갈 때마다 **방·복도 구조가 새로 생성**. 층마다 **출구**(돌 테두리 구멍)를 찾아 `E` → **탈출(가지고 나감)** 또는 **아래층으로**(더 크고, 몬스터가 강하고, 상자가 풍성). 몬스터를 다 잡을 필요 없음, 아무 때나 나가는 방법 없음. 쓰러지면 **이번 탐험에서 얻은 것만 전부 사라짐**(착용한 것 포함, 들어가기 전 짐·장비·EXP는 유지) → 캠핑카 또는 호숫가 쉼터에서 깨어남. HUD에 층·이번 탐험 획득 수 |
 | 채집·낚시 (P3-4) | **채집**: 약초 덤불·산딸기 덤불·식용 버섯(초원), 철광석 광맥(고원) 앞에서 `E` → 짧은 채집 동작(맞으면 중단) → 재료 + 생활 EXP + 채집 숙련도. 딴 자리는 12~24시간 뒤 다시 자람. **달빛 꽃**(희귀)은 밤에만 핌. **낚시**: 낚싯대(캠핑카 창고·잡화점 35g)를 들고 연못 남쪽 나무 부두에서 `E` 자동 낚시 / `R` 직접 낚시(하얀 표시가 초록 구간에 올 때 `E`, 2번) — 직접 낚시는 희귀 어종(황금 잉어) 확률 3배·생활 EXP 1.5배. 숙련도가 오르면 채집 시간↓·추가 수확↑, 입질↑·성공↑. `C` 창에서 생활 EXP로 **생활 기술**(채집 요령·낚시 감각, 숙련도 조건) 습득. 게시판 "약초 납품"(생활 EXP만 주는 반복 의뢰) |
 | 요리·제작 (P3-5) | `U` **요리·제작 창**: 배운 레시피마다 필요한 재료(가진 수/필요 수)와 시설이 보이고 `만들기` → 짧은 제작 동작(맞으면 중단, 재료는 그대로) → 결과물 + 생활 EXP + 요리/제작 숙련도. **시설**: 캠프 **모닥불**·캠핑카 실내 **주방**(2구 버너) = 조리 시설, 캠프 **작업대**(캠핑카 옆) = 작업대 — 시설 앞에서 `E`로 바로 열림. 약초 연고 같은 **간단한 제작은 어디서나**. **기본 레시피**(송어 구이·버섯 꼬치·약초차·낚싯대·회복 물약 등)는 창에서 생활 EXP로 배우기(일부는 숙련도 조건). **특수 레시피**는 "??? — 얻는 곳"만 보임: 로사의 젤리 의뢰 보상(산딸기 잼), 로사와 대화(황금 잉어 찜), 변덕의 미궁 2층부터 상자의 제작서(달빛 부적). 숙련도가 오르면 제작 시간↓·추가 결과물 확률↑ |
+| 저장/불러오기 | 시작하면 **타이틀 화면**: 저장 슬롯 3개, **슬롯 하나 = 캐릭터 하나**. 빈 슬롯에서 `새 게임` → 그 슬롯에 바로 저장되고, 이후 그 캐릭터는 계속 같은 슬롯에만 저장됨. 쓴 슬롯은 `이어하기`(Lv·장소·날짜·플레이 시간·마지막 저장 시각 표시) 또는 `삭제`(두 번 눌러 확인). 3개가 다 차면 하나를 지워야 새 캐릭터를 만들 수 있음. **자동 저장**: 간이침대 수면 뒤, 지역 이동 뒤, 쓰러졌다 깨어난 뒤, 플레이 5분마다, 창을 닫을 때. **수동 저장**: `ESC` 메뉴 → `지금 저장` / `저장하고 타이틀로` / `저장하고 게임 종료`. 변덕의 미궁 안·운전 중·대화·낚시·동작 중에는 저장하지 않음(메뉴에 이유 표시). 저장 위치: `%APPDATA%\Godot\app_userdata\Denial\saves\slot1~3.save` |
 | 퀘스트 (P2-5) | **NPC 의뢰**: 로사에게 `R`로 말을 걸어 대화에서 직접 수락(젤리 5개 → 보고하면 골드·EXP·빵). **게시판**(교역소 가운데) `E`: 반복 의뢰(풀밭 슬라임 3마리), 긴급 의뢰(숲 슬라임 3마리, **24시간 제한** — 실패해도 다시 받기). **현장 사건**: 갈림길 가는 길의 넘어진 짐수레에 다가가면 수락 없이 시작 → 꾸러미 3개를 주워 브론에게 → **해결 2가지**(사례 없이 돌려줌 = 생활 EXP / 사례를 받음 = 골드+일반 EXP). `J` 퀘스트 기록, 오른쪽 위에 진행 목록 |
 | 대화 (P2-5) | 계산대 앞 `R` 대화(로사·브론). 대화창: `E`/`Space`/클릭 다음, `1`~`9` 선택. 대화 중에는 이동·공격 잠금, 카메라 그대로. 대사·분기는 모두 `data/dialogues/*.json` (대화 에디터로 편집) |
 | 상점·NPC (P2-4) | 캠프 서쪽 길가 **교역소**: 로사의 잡화점(08~20시)·브론의 대장간(09~18시). 계산대 앞 `E`로 거래 — 사기·팔기(상인마다 매입가가 다르고, 희귀 재료는 대장간만 삼). 재고는 1일/3일마다 다시 채워짐. 대장간에서 착용 장비 **강화**(100% 성공, 최대 +3). 문 닫는 시각이면 주인이 집으로 걸어 들어가고 거래 불가. 골드는 HUD에 표시(시작 50) |
@@ -65,9 +66,10 @@ git clone -b claude/gallant-edison-84bkyp https://github.com/HomilBBANG/rg_Hilli
 
 ## 실행
 
-- **F5**: 메인 씬 `scenes/bootstrap.tscn` 실행 (야외 랩에서 시작).
+- **F5**: 메인 씬 `scenes/bootstrap.tscn` 실행 → 타이틀 화면(저장 슬롯 3개)에서 새 게임/이어하기.
 - **F6**: `scenes/visual_lab.tscn` 또는 `scenes/camper_interior_lab.tscn`을 연 상태에서 실행하면,
-  픽셀 렌더 파이프라인과 HUD를 갖춘 bootstrap으로 자동 전환되며 해당 씬에서 시작합니다.
+  픽셀 렌더 파이프라인과 HUD를 갖춘 bootstrap으로 자동 전환됩니다(타이틀 뒤 배경이 그 씬, 슬롯을 고르면 그 캐릭터의 저장 위치에서 시작).
+- 자동 투어(`--tour=...`)와 대화 에디터의 '게임에서 실행'은 타이틀 없이 바로 시작하고 저장하지 않습니다.
 - GPU가 Vulkan을 지원하지 않으면: `Godot.exe --path C:/Game/denial --rendering-method gl_compatibility`
 
 ## 조작 (프로토타입 임시 키 — 최종 게임 키가 아님)
@@ -103,7 +105,7 @@ git clone -b claude/gallant-edison-84bkyp https://github.com/HomilBBANG/rg_Hilli
 | `-` / `=` | 카메라 규모(화면 세로 9~22m) |
 | `F12` | 스크린샷 → `user://captures` (Windows: `%APPDATA%\Godot\app_userdata\Denial\captures`) |
 | `F11` | 전체 화면 전환 |
-| `ESC` | 일시정지 |
+| `ESC` | 일시정지 메뉴: 계속 · 지금 저장 · 저장하고 타이틀로 · 저장하고 게임 종료 |
 | `H` | 도움말 패널 표시/숨김 |
 
 ## 렌더 구조 (P1 재사용 대상)
@@ -159,7 +161,7 @@ captures/sprite_pipeline/   구운 스프라이트 시트(sheets/) + 베이크 v
 captures/p1/                P1 흐름 검증 캡처 19장 (--tour=p1)
 captures/p2/                P2 캡처: 성장(--tour=p2), 장비(--tour=gear), 소모품(--tour=items), 상점·NPC(--tour=shop), 퀘스트·대화(--tour=quest)
 captures/dialogue_editor/   실제 Godot 에디터 안의 대화 에디터 자동 점검 캡처
-captures/p3/                P3-1 지역 이동(region_*), P3-2 고정 던전(dungeon_*), P3-3 랜덤 던전(rift_*), P3-4 채집·낚시(life_*, --tour=life), P3-5 요리·제작(craft_*, --tour=craft)
+captures/p3/                P3-1 지역 이동(region_*), P3-2 고정 던전(dungeon_*), P3-3 랜덤 던전(rift_*), P3-4 채집·낚시(life_*, --tour=life), P3-5 요리·제작(craft_*, --tour=craft), 저장 슬롯(save_*, --tour=save)
 notes/             VISUAL_DIRECTION.md, VISUAL_COMPARISON.md, IMPLEMENTATION_ASSUMPTIONS.md, DIALOGUE_EDITOR.md, DRIVING.md
 docs/              GDD.md(v10.2), CAT_COMPANION_HANDOFF.md, DIALOGUE_EDITOR_HANDOFF.md(v10.5), GRAPHICS_PROTOTYPE.md, CLAUDE_CODE_HANDOFF.md
 ```
@@ -190,6 +192,8 @@ Godot.exe --path C:/Game/denial -- --tour=rift --capture-dir=C:/Game/denial/capt
 Godot.exe --path C:/Game/denial -- --tour=life --capture-dir=C:/Game/denial/captures/p3
 :: P3-5 요리·제작: U 창, 시설 필요/어디서나, 모닥불·작업대·캠핑카 주방, 피격 중단, 기본 레시피 배우기·숙련도 조건, 특수 레시피(퀘스트·NPC·제작서)
 Godot.exe --path C:/Game/denial -- --tour=craft --capture-dir=C:/Game/denial/captures/p3
+:: 저장 슬롯: 타이틀·새 게임 슬롯 점유·수동/자동/창 닫기 저장·캐릭터 간 분리·이어하기 복원·실내 저장·삭제 확인 (user://tour_saves 사용, 실제 슬롯은 건드리지 않음)
+Godot.exe --path C:/Game/denial -- --tour=save --capture-dir=C:/Game/denial/captures/p3
 :: 대화 에디터 자동 점검 (실제 에디터 안에서 실행 후 자동 종료, 콘솔에 [editor] PASS/FAIL)
 set DIALOGUE_EDITOR_SELFTEST=C:/Game/denial/captures/dialogue_editor
 Godot.exe --path C:/Game/denial -e

@@ -632,3 +632,7 @@ func _update_focus() -> void:
 func face_direction(yaw: float) -> void:
 	_yaw = yaw
 	model.rotation.y = yaw
+
+
+func facing_yaw() -> float:
+	return _yaw

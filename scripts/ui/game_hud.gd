@@ -36,6 +36,8 @@ var cutscene: CutsceneRunner
 var _caption: Label
 var _tracker: Label
 var _tracker_t := 0.0
+var _save_note: Label
+var _save_note_t := 0.0
 
 
 func _ready() -> void:
@@ -100,6 +102,8 @@ func _ready() -> void:
 	_caption.size = Vector2(1920, 50)
 	_caption.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_caption.add_theme_color_override("font_color", Color(0.95, 0.93, 0.86))
+	_save_note = _label("", 20, Vector2(24, 912))
+	_save_note.add_theme_color_override("font_color", Color(0.7, 1.0, 0.65))
 	move_child(_fade, -1)
 	move_child(_fade_label, -1)
 	Game.quests.changed.connect(func() -> void:
@@ -864,6 +868,12 @@ func show_caption(text: String) -> void:
 	_caption.text = text
 
 
+## Small "saved" note above the log button (doesn't take over the toast line).
+func show_save_note(text: String) -> void:
+	_save_note.text = "● " + text
+	_save_note_t = 2.5
+
+
 func toast_quest(text: String) -> void:
 	if boot and boot.hud:
 		boot.hud.toast(text)
@@ -1233,6 +1243,8 @@ func _process(delta: float) -> void:
 		_log_box.reset_size()
 	_log_box.position = Vector2(22, 1004 - _log_box.size.y)
 	_update_floats(delta)
+	_save_note_t -= delta
+	_save_note.modulate.a = clampf(_save_note_t, 0.0, 1.0)
 	if _panel and _panel_source:
 		var p2: Node3D = w.player if w else null
 		if not is_instance_valid(_panel_source) or p2 == null \

@@ -28,6 +28,12 @@ var _baking := false
 var _capture_dir := ""
 var _touring := false
 var _busy := false  # death / sleep sequence running
+var title: TitleScreen
+var pause_menu: PauseMenu
+## GDD 17 [미정] autosave interval (real seconds of play), see IMPLEMENTATION_ASSUMPTIONS.md.
+const AUTOSAVE_SECONDS := 300.0
+var _autosave_t := 0.0
+var _arriving := false
 
 
 func _ready() -> void:
@@ -57,9 +63,26 @@ func _ready() -> void:
 	add_child(baker)
 	Game.world_change_requested.connect(_load_world)
 	render.settings_changed.connect(_on_render_settings_changed)
+	_consume_pending_start()
 	_load_world(Game.start_world)
+	pause_menu = PauseMenu.new()
+	pause_menu.boot = self
+	pause_menu.theme = game_hud.theme
+	pause_menu.visible = false
+	layer.add_child(pause_menu)
+	title = TitleScreen.new()
+	title.boot = self
+	title.theme = game_hud.theme
+	title.visible = false
+	layer.add_child(title)
+	var playtest := FileAccess.file_exists(PLAYTEST_PATH)
+	var tour := _cmd_tour()
 	_parse_args()
 	_check_dialogue_playtest()
+	if Game.boot_note != "":
+		_arrive()
+	elif Game.slot == 0 and tour == "" and not playtest:
+		show_title()
 
 
 ## The dialogue editor's "게임에서 실행" writes this file and starts the game: play that dialogue
@@ -80,6 +103,138 @@ func _check_dialogue_playtest() -> void:
 	hud.toast("대화 에디터에서 실행: " + id)
 	if not game_hud.start_dialogue(id):
 		hud.toast("대화 파일을 찾을 수 없다: " + id)
+
+
+# ---------------------------------------------------------------- save slots
+
+## Applies what the title screen / pause menu asked for before the scene was rebuilt.
+func _consume_pending_start() -> void:
+	var ps: Dictionary = Game.pending_start
+	if ps.is_empty():
+		return
+	Game.pending_start = {}
+	var slot := int(ps.get("slot", 0))
+	var data := SaveManager.read(slot) if slot > 0 and not ps.get("new", false) else {}
+	if data.has("state"):
+		SaveManager.apply_state(data["state"])
+		Game.start_world = StringName(str(data.get("world", Game.WORLD_EXTERIOR)))
+		if Game.start_world == Game.WORLD_INTERIOR and not Game.has_camper:
+			Game.start_world = Game.WORLD_EXTERIOR
+		Game.spawn_override = {"kind": "load", "pos": data["pos"], "yaw": float(data["yaw"])}
+		Game.slot = slot
+		Game.boot_note = "load"
+		return
+	SaveManager.apply_state({})
+	Game.start_world = Game.WORLD_EXTERIOR
+	Game.slot = slot if ps.get("new", false) else 0
+	Game.boot_note = "new" if Game.slot > 0 else ""
+
+
+## Fade in after a slot was chosen; a new game claims its slot with a first save right away.
+func _arrive() -> void:
+	var note := Game.boot_note
+	Game.boot_note = ""
+	_arriving = true
+	get_tree().paused = true  # no game time or monster passes behind the loading screen
+	game_hud.fade_to(1.0, 0.01, "불러오는 중…")
+	await wait_for_sprites()
+	await _frames(6)
+	get_tree().paused = false
+	if note == "new":
+		save_game("new")
+	await game_hud.fade_to(0.0, 0.6)
+	hud.toast("슬롯 %d — %s" % [Game.slot, "새 캐릭터로 시작했다" if note == "new" else "이어하기 · %d일차 %s" % [Game.day, Game.clock_text()]])
+	_arriving = false
+
+
+func title_open() -> bool:
+	return title != null and title.visible
+
+
+## Title, pause menu or the loading fade covers the game.
+func menu_open() -> bool:
+	return title_open() or _arriving or (pause_menu != null and pause_menu.visible)
+
+
+func show_title() -> void:
+	game_hud.close_panel()
+	hud.show_help_panel(false)
+	game_hud.visible = false  # the title is its own screen (the scene is rebuilt when it closes)
+	hud.visible = false
+	pause_menu.visible = false
+	get_tree().paused = true
+	title.refresh()
+	title.visible = true
+
+
+## Title screen choice: the scene is rebuilt and the new bootstrap applies the slot (see above).
+func start_slot(slot: int, new_game: bool) -> void:
+	if new_game == SaveManager.exists(slot) or (not new_game and not SaveManager.read(slot).has("state")):
+		return  # new games only go into empty slots; broken files can only be deleted
+	Game.pending_start = {"slot": slot, "new": new_game}
+	title.visible = false
+	game_hud.visible = true  # for the loading fade
+	await game_hud.fade_to(1.0, 0.35, "불러오는 중…")
+	get_tree().paused = false
+	get_tree().reload_current_scene()
+
+
+func to_title() -> void:
+	Game.pending_start = {"slot": 0}
+	get_tree().paused = false
+	get_tree().reload_current_scene()
+
+
+func set_paused(on: bool) -> void:
+	get_tree().paused = on
+	pause_menu.visible = on
+	if on:
+		pause_menu.open()
+
+
+## "" when the game can be saved right now, else why not (GDD 17 [미정] save rules).
+func save_block() -> String:
+	if Game.slot <= 0:
+		return "저장 슬롯이 없다 (테스트 실행)"
+	if _busy:
+		return "지금은 저장할 수 없다 (이동·수면·기상 중)"
+	if Game.in_run():
+		return "변덕의 미궁 안에서는 저장할 수 없다 — 출구로 나가면 자동 저장"
+	if game_hud.dialogue_active() or game_hud.cutscene.playing:
+		return "대화 중에는 저장할 수 없다"
+	if game_hud.fishing.active:
+		return "낚시 중에는 저장할 수 없다"
+	if world is VisualLab and world.vehicle.driving:
+		return "운전 중에는 저장할 수 없다 — 차를 세우고 내리자"
+	var p: PrototypePlayer = world.get("player") if world else null
+	if p == null or p.dead or p.is_using():
+		return "동작 중에는 저장할 수 없다"
+	return ""
+
+
+## Writes this character's slot. kind: "manual" | "auto" | "new". Returns "" or why not.
+func save_game(kind := "manual") -> String:
+	var why := save_block()
+	if why != "":
+		return why
+	if world is VisualLab:
+		world._save_parking()
+	var p: PrototypePlayer = world.player
+	if not SaveManager.write(Game.slot, SaveManager.capture(String(current_world_id()), p.global_position, p.facing_yaw())):
+		return "저장 실패 — 파일을 쓸 수 없다"
+	_autosave_t = 0.0
+	game_hud.show_save_note({"manual": "저장했다", "auto": "자동 저장", "new": "새 캐릭터 저장"}.get(kind, "저장") + " — 슬롯 %d" % Game.slot)
+	return ""
+
+
+func _autosave() -> void:
+	if save_block() == "":
+		save_game("auto")
+
+
+func _notification(what: int) -> void:
+	if what == NOTIFICATION_WM_CLOSE_REQUEST and not title_open():
+		_autosave()
 
 
 func _load_world(world_id: StringName) -> void:
@@ -149,7 +304,7 @@ func current_world_id() -> StringName:
 
 
 func _unhandled_input(event: InputEvent) -> void:
-	if _touring or not event.is_pressed() or event.is_echo():
+	if _touring or not event.is_pressed() or event.is_echo() or title_open() or _arriving:
 		return
 	if _busy and not event.is_action("pause"):
 		return
@@ -162,7 +317,7 @@ func _unhandled_input(event: InputEvent) -> void:
 			game_hud.dialogue.handle_key(event)
 		return
 	if event.is_action("pause"):
-		get_tree().paused = not get_tree().paused
+		set_paused(not get_tree().paused)
 	elif event.is_action("inventory"):
 		game_hud.toggle_inventory()
 	elif event.is_action("character"):
@@ -267,6 +422,13 @@ func save_screenshot(name: String) -> String:
 
 # ---------------------------------------------------------------- capture tour
 
+func _cmd_tour() -> String:
+	for a in OS.get_cmdline_user_args():
+		if a.begins_with("--tour="):
+			return a.trim_prefix("--tour=")
+	return ""
+
+
 func _parse_args() -> void:
 	var tour := ""
 	for a in OS.get_cmdline_user_args():
@@ -312,6 +474,8 @@ func _parse_args() -> void:
 		_run_life_tour()
 	elif tour == "craft":
 		_run_craft_tour()
+	elif tour == "save":
+		_run_save_tour()
 	elif tour == "drive":
 		_run_drive_compare()
 	elif tour == "wind":
@@ -528,7 +692,11 @@ func _run_night_outline_check() -> void:
 
 # ---------------------------------------------------------------- sprite baking
 
-func _process(_delta: float) -> void:
+func _process(delta: float) -> void:
+	if Game.slot > 0 and not get_tree().paused:
+		_autosave_t += delta
+		if _autosave_t >= AUTOSAVE_SECONDS:
+			_autosave()
 	if world == null or _baking:
 		return
 	var sig := _current_bake_signature()
@@ -649,6 +817,7 @@ func travel(to_region: String, entry_id: String, driving: bool) -> void:
 		arrive += (" · 어둡다 — L로 등불을 켜자" if Game.player_state.has_lantern() else " · 어둡다 — 횃불 빛을 따라가자")
 	hud.toast(arrive)
 	_busy = false
+	_autosave()
 
 
 ## Player HP reached 0 (GDD 2.4 / 12.3 [확정]): field loot is split (goblins take part, the rest
@@ -713,6 +882,7 @@ func on_player_died(death_pos: Vector3) -> void:
 	await _frames(150)
 	hud.toast(detail)
 	_busy = false
+	_autosave()  # the death outcome sticks: reloading cannot undo it
 
 
 ## Cot sleep (GDD 9.6 / 10.1 [확정]): chosen hours pass, cot restores HP 10 % of max [임시].
@@ -734,6 +904,7 @@ func sleep(hours: int) -> void:
 	hud.toast(msg)
 	Game.combat_log.add(msg, "", "info")
 	_busy = false
+	_autosave()
 
 
 ## Pre-rendered sprite pipeline: export baked sheets + live 3D vs sprite comparison shots.
@@ -2530,3 +2701,139 @@ func _run_craft_tour() -> void:
 	var tea_eff: Dictionary = ItemDB.info("golden_carp_stew")["effect"]
 	print("[craft] stew effect %s; free combination UI: none (recipes only)" % tea_eff)
 	get_tree().quit()
+
+
+# ---------------------------------------------------------------- save slots tour
+
+## Save slots (3 slots, one character per slot). Every slot change rebuilds the scene, so the tour
+## keeps its step in Game meta and resumes on each reload. Uses user://tour_saves, never the real slots.
+func _run_save_tour() -> void:
+	_touring = true
+	SaveManager.dir = "user://tour_saves"
+	var t: Dictionary = Game.get_meta("save_tour", {"step": 0})
+	Game.set_meta("save_tour", t)
+	var step := int(t["step"])
+	t["step"] = step + 1
+	await _frames(5)
+	while _arriving:
+		await get_tree().process_frame
+	await wait_for_sprites()
+	hud.show_help_panel(false)
+	var st := Game.player_state
+	match step:
+		0:
+			for i in range(1, SaveManager.SLOTS + 1):
+				SaveManager.delete(i)
+			show_title()
+			await _frames(10)
+			print("[tour] saved ", save_screenshot("p1_save_01_title_empty.png"))  # title hides the HUD; _p1_shot would show it
+			print("[save] title open %s, paused %s, slots used %s" % [title_open(), get_tree().paused, _slots_used()])
+			start_slot(1, true)
+		1:
+			print("[save] new game in slot 1 -> slot %d, file written %s, gold %d, day %d, region %s" % [Game.slot, SaveManager.exists(1), st.gold, Game.day, Game.region])
+			st.gold = 777
+			st.level = 3
+			st.inventory.add("herb", 5)
+			st.learn_recipe("berry_jam")
+			st.add_mastery("cooking", 20)
+			Game.narrative.set_flag("tour.saved")
+			Game.quests.accept("quest.rosa.jelly")
+			st.equipment["main"] = ItemDB.enhanced("iron_sword")
+			Game.cat_affection = 40
+			Game.day = 3
+			Game.minute_of_day = 16.5 * 60.0
+			var victim: String = world.monsters[0].monster_id
+			Game.field["dead"][victim] = Game.total_minutes()
+			var bag := Inventory.new()
+			bag.add("iron_ore", 2)
+			Game.field["loot"].append({"id": "bag_tour", "kind": "bag", "title": "테스트 꾸러미", "pos": Vector3(2, 0, 7), "inv": bag, "expires": -1.0})
+			for d: Dictionary in Game.field["loot"]:
+				if d["id"] == "camp_crate":
+					(d["inv"] as Inventory).remove("iron_ore", 2)
+			_place_player(Vector3(3.0, 0, 6.0), 1.2)
+			await _frames(5)
+			var pos: Vector3 = world.player.global_position
+			print("[save] manual save -> '%s'" % save_game("manual"))
+			t["expect"] = {"pos": pos, "victim": victim, "sword": st.equipment["main"], "minute": Game.minute_of_day}
+			set_paused(true)
+			await _frames(5)
+			await _p1_shot("save_02_pause_menu", "pause menu (ESC)", true)
+			pause_menu._leave("title")
+		2:
+			show_title()
+			await _frames(10)
+			print("[tour] saved ", save_screenshot("p1_save_03_title_slot1.png"))  # title hides the HUD; _p1_shot would show it
+			print("[save] back at the title: slots used %s, slot 1 card '%s'" % [_slots_used(), SaveManager.read(1)["meta"]])
+			start_slot(1, true)
+			await _frames(3)
+			print("[save] new game into used slot 1 -> refused %s" % Game.pending_start.is_empty())
+			start_slot(2, true)
+		3:
+			print("[save] new game in slot 2 -> slot %d: gold %d, level %d, knows berry jam %s, flag %s, quest %s, upgraded items %d, day %d, dead %d" % [
+				Game.slot, st.gold, st.level, st.knows_recipe("berry_jam"), Game.narrative.get_flag("tour.saved"),
+				Game.quests.state("quest.rosa.jelly"), ItemDB.instances.size(), Game.day, Game.field["dead"].size()])
+			st.gold = 1234
+			_autosave_t = AUTOSAVE_SECONDS - 0.5
+			await _seconds(1.5)
+			print("[save] periodic autosave -> slot 2 gold in file %d" % int(SaveManager.read(2)["state"]["player"]["gold"]))
+			to_title()
+		4:
+			show_title()
+			await _frames(10)
+			print("[save] slots used %s" % [_slots_used()])
+			start_slot(1, false)
+		5:
+			var e: Dictionary = t["expect"]
+			var p: PrototypePlayer = world.player
+			var ids := PackedStringArray()
+			for m in world.monsters:
+				ids.append(m.monster_id)
+			var bag_ok := false
+			var crate_ore := -1
+			for d: Dictionary in Game.field["loot"]:
+				if d["id"] == "bag_tour":
+					bag_ok = d["inv"] is Inventory and (d["inv"] as Inventory).count("iron_ore") == 2
+				if d["id"] == "camp_crate":
+					crate_ore = (d["inv"] as Inventory).count("iron_ore")
+			print("[save] continue slot 1 -> slot %d: gold %d, level %d, herb %d, knows berry jam %s, cooking mastery %d, flag %s, quest %s" % [
+				Game.slot, st.gold, st.level, st.inventory.count("herb"), st.knows_recipe("berry_jam"), st.mastery["cooking"],
+				Game.narrative.get_flag("tour.saved"), Game.quests.state("quest.rosa.jelly")])
+			print("[save]   sword '%s' (same id %s), cat %d, day %d %s, pos off %.2f m, yaw %.2f" % [ItemDB.item_name(st.equipment["main"]),
+				st.equipment["main"] == e["sword"], Game.cat_affection, Game.day, Game.clock_text(), p.global_position.distance_to(e["pos"]), p.facing_yaw()])
+			print("[save]   dead monster stays dead %s, bag with items %s, crate iron ore %d (was 6, took 2)" % [not e["victim"] in ids, bag_ok, crate_ore])
+			await _frames(30)
+			await _p1_shot("save_05_continued", "slot 1 continued where it was saved", true)
+			Game.run = {"dungeon": "rift", "floor": 1, "seed": 1, "before": {}, "from": "meadow"}
+			print("[save] in the rift -> '%s'" % save_block())
+			Game.run = {}
+			Game.request_world(Game.WORLD_INTERIOR)
+			await _frames(5)
+			await wait_for_sprites()
+			await _frames(5)
+			world.player.global_position = Vector3(-1.0, 0, 0.4)
+			print("[save] save inside the camper -> '%s'" % save_game("manual"))
+			to_title()
+		6:
+			show_title()
+			title.press_delete(2)
+			await _frames(6)
+			print("[tour] saved ", save_screenshot("p1_save_06_delete_confirm.png"))  # title hides the HUD; _p1_shot would show it
+			print("[save] delete slot 2 once -> still there %s" % SaveManager.exists(2))
+			title.press_delete(2)
+			print("[save] twice -> gone %s, slots used %s" % [not SaveManager.exists(2), _slots_used()])
+			start_slot(1, false)
+		7:
+			print("[save] continue slot 1 -> world %s, pos (%.1f, %.1f)" % [current_world_id(), world.player.global_position.x, world.player.global_position.z])
+			st.gold = 4321
+			_notification(NOTIFICATION_WM_CLOSE_REQUEST)
+			print("[save] window close -> gold in file %d" % int(SaveManager.read(1)["state"]["player"]["gold"]))
+			for i in range(1, SaveManager.SLOTS + 1):
+				SaveManager.delete(i)
+			DirAccess.remove_absolute(ProjectSettings.globalize_path(SaveManager.dir))
+			Game.remove_meta("save_tour")
+			print("[save] done")
+			get_tree().quit()
+
+
+func _slots_used() -> Array:
+	return range(1, SaveManager.SLOTS + 1).filter(func(i: int) -> bool: return SaveManager.exists(i))
