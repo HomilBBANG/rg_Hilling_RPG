@@ -1,0 +1,179 @@
+{
+  "version": 1,
+  "_comment": "Recipes (GDD 14.4 [확정]: learned recipes only, no free combination; simple crafting anywhere, cooking / complex crafting need a facility; basic recipes cost life EXP, special ones come from NPCs, books, quests or exploration). Numbers [미정].",
+  "facilities": {
+    "cooking": "조리 시설 (캠프 모닥불 · 캠핑카 주방)",
+    "workbench": "작업대 (캠프)"
+  },
+  "recipes": {
+    "grilled_fish": {
+      "name": "구운 붕어",
+      "field": "cooking",
+      "facility": "cooking",
+      "inputs": {
+        "small_fish": 1
+      },
+      "outputs": {
+        "grilled_fish": 1
+      },
+      "time": 2.0,
+      "life_exp": 2,
+      "mastery": 3,
+      "learn": "known"
+    },
+    "grilled_trout": {
+      "name": "송어 구이",
+      "field": "cooking",
+      "facility": "cooking",
+      "inputs": {
+        "trout": 1
+      },
+      "outputs": {
+        "grilled_trout": 1
+      },
+      "time": 2.4,
+      "life_exp": 3,
+      "mastery": 3,
+      "learn": "basic",
+      "cost": 8
+    },
+    "mushroom_skewer": {
+      "name": "버섯 꼬치",
+      "field": "cooking",
+      "facility": "cooking",
+      "inputs": {
+        "edible_mushroom": 3
+      },
+      "outputs": {
+        "mushroom_skewer": 1
+      },
+      "time": 2.0,
+      "life_exp": 2,
+      "mastery": 3,
+      "learn": "basic",
+      "cost": 6
+    },
+    "herb_tea": {
+      "name": "약초차",
+      "field": "cooking",
+      "facility": "cooking",
+      "inputs": {
+        "herb": 2,
+        "wild_berry": 1
+      },
+      "outputs": {
+        "herb_tea": 1
+      },
+      "time": 1.8,
+      "life_exp": 2,
+      "mastery": 3,
+      "learn": "basic",
+      "cost": 6
+    },
+    "herbal_salve": {
+      "name": "약초 연고",
+      "field": "crafting",
+      "facility": "",
+      "inputs": {
+        "herb": 2,
+        "slime_jelly": 1
+      },
+      "outputs": {
+        "herbal_salve": 1
+      },
+      "time": 1.6,
+      "life_exp": 2,
+      "mastery": 3,
+      "learn": "basic",
+      "cost": 5
+    },
+    "fishing_rod": {
+      "name": "낚싯대",
+      "field": "crafting",
+      "facility": "workbench",
+      "inputs": {
+        "firewood": 2,
+        "slime_jelly": 2
+      },
+      "outputs": {
+        "fishing_rod": 1
+      },
+      "time": 3.0,
+      "life_exp": 3,
+      "mastery": 4,
+      "learn": "basic",
+      "cost": 8
+    },
+    "heal_potion": {
+      "name": "회복 물약",
+      "field": "crafting",
+      "facility": "workbench",
+      "inputs": {
+        "herb": 3,
+        "slime_core": 1
+      },
+      "outputs": {
+        "heal_potion": 1
+      },
+      "time": 3.0,
+      "life_exp": 4,
+      "mastery": 5,
+      "learn": "basic",
+      "cost": 12,
+      "req": {
+        "crafting": 2
+      }
+    },
+    "berry_jam": {
+      "name": "산딸기 잼",
+      "field": "cooking",
+      "facility": "cooking",
+      "inputs": {
+        "wild_berry": 4,
+        "slime_jelly": 1
+      },
+      "outputs": {
+        "berry_jam": 1
+      },
+      "time": 2.6,
+      "life_exp": 4,
+      "mastery": 4,
+      "learn": "special",
+      "source": "퀘스트 — 로사의 젤리 잼"
+    },
+    "golden_carp_stew": {
+      "name": "황금 잉어 찜",
+      "field": "cooking",
+      "facility": "cooking",
+      "inputs": {
+        "golden_carp": 1,
+        "herb": 2
+      },
+      "outputs": {
+        "golden_carp_stew": 1
+      },
+      "time": 3.5,
+      "life_exp": 8,
+      "mastery": 6,
+      "learn": "special",
+      "source": "NPC — 로사에게 배움"
+    },
+    "moon_charm": {
+      "name": "달빛 부적",
+      "field": "crafting",
+      "facility": "workbench",
+      "inputs": {
+        "moon_petal": 2,
+        "mana_shard": 1
+      },
+      "outputs": {
+        "moon_charm": 1
+      },
+      "time": 4.0,
+      "life_exp": 8,
+      "mastery": 6,
+      "learn": "special",
+      "source": "책·탐험 — 변덕의 미궁 상자의 제작서"
+    }
+  }
+}

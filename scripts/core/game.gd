@@ -168,6 +168,7 @@ const ACTIONS := {
 	"toggle_fullscreen": [KEY_F11],
 	"toggle_pipeline": [KEY_F6],  # debug (M is the world map since P3)
 	"world_map": [KEY_M],
+	"crafting": [KEY_U],
 	"toggle_post": [KEY_P],
 	"toggle_day_night": [KEY_N],
 	"toggle_clock": [KEY_T],

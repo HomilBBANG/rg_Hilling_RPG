@@ -34,7 +34,8 @@ const BOARD_POS := Vector3(-22.9, 0.0, 3.3)
 const CART_POS := Vector3(40.8, 0.0, -6.4)
 const PARCELS := [["parcel_1", Vector3(38.7, 0.0, -4.2)], ["parcel_2", Vector3(42.1, 0.0, -3.9)], ["parcel_3", Vector3(39.3, 0.0, -7.6)]]
 const PARCEL_QUEST := "quest.event.lost_parcels"
-const CRATE_POS := Vector3(-4.6, 0.0, 2.9)  # inside the camper's turning circle: clear of its way out
+const CRATE_POS := Vector3(-4.6, 0.0, 2.9)
+const WORKBENCH_POS := Vector3(-11.4, 0.0, 1.0)  # P3-5: camp workbench (complex crafting)  # inside the camper's turning circle: clear of its way out
 
 var region_id := RegionDB.START
 var region := {}
@@ -247,6 +248,26 @@ func _build_vehicle() -> void:
 	_apply_camper_owned()
 
 
+## Camp workbench (GDD 14.4: complex crafting needs one): sturdy table, vice, a few tools.
+func _build_workbench(p: Vector3) -> void:
+	var wood := ProtoMesh.mat(Color(0.55, 0.38, 0.22))
+	var dark := ProtoMesh.mat(Color(0.34, 0.24, 0.15))
+	var metal := ProtoMesh.mat(Color(0.5, 0.52, 0.56), 0.4)
+	var root := _on_ground(Node3D.new(), p.x, p.z)
+	root.rotation_degrees.y = 8.0
+	ProtoMesh.box(root, Vector3(1.5, 0.1, 0.7), Vector3(0, 0.82, 0), wood)
+	for x in [-0.65, 0.65]:
+		for z in [-0.28, 0.28]:
+			ProtoMesh.box(root, Vector3(0.09, 0.8, 0.09), Vector3(x, 0.4, z), dark)
+	ProtoMesh.box(root, Vector3(1.3, 0.05, 0.55), Vector3(0, 0.25, 0), dark)
+	ProtoMesh.box(root, Vector3(0.2, 0.14, 0.16), Vector3(-0.55, 0.94, 0.12), metal)
+	ProtoMesh.box(root, Vector3(0.36, 0.04, 0.06), Vector3(0.25, 0.89, -0.1), metal, Vector3(0, 30, 0))
+	ProtoMesh.cylinder(root, 0.03, 0.3, Vector3(0.5, 0.89, 0.1), dark, Vector3(0, 0, 90), 6)
+	ProtoMesh.static_box_collider(self, Vector3(1.5, 2.0, 0.7), Vector3(p.x, 0.5, p.z), Vector3(0, 8, 0))
+	_block(p.x, p.z, 1.4)
+	InteractPoint.facility(self, p + Vector3(0, 0, 0.9), "workbench", "작업대")
+
+
 func _build_camp_props() -> void:
 	_block(CAMPER_POS.x, CAMPER_POS.z, 4.2)
 	_block(CAMPER_POS.x - 2.0, CAMPER_POS.z, 2.0)
@@ -268,6 +289,8 @@ func _build_camp_props() -> void:
 	_on_ground(CampProps.potted_plant(_rng, true), door.x - 1.6, door.z + 0.4)
 	# Campfire with log seats
 	var fire := _on_ground(CampProps.campfire(_rng), CAMPFIRE_POS.x, CAMPFIRE_POS.z)
+	InteractPoint.facility(self, CAMPFIRE_POS + Vector3(-1.1, 0, 0.9), "cooking", "모닥불")
+	_build_workbench(WORKBENCH_POS)
 	_block(fire.position.x, fire.position.z, 2.0)
 	ProtoMesh.static_cylinder_collider(self, 0.7, 4.0, fire.position)
 	AmbientParticles.embers(self, fire.position + Vector3(0, 0.4, 0))

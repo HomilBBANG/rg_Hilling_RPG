@@ -41,6 +41,7 @@ const ACTIONS := {
 	"quest_complete": {"label": "퀘스트 완료(보상)", "args": [{"name": "quest_id", "type": "quest", "label": "퀘스트"},
 		{"name": "outcome", "type": "outcome", "label": "결과(분기)", "default": ""}]},
 	"mark_event_complete": {"label": "이벤트 완료 기록", "args": [{"name": "event_id", "type": "event", "label": "이벤트 ID"}]},
+	"learn_recipe": {"label": "레시피 가르치기", "args": [{"name": "recipe_id", "type": "recipe", "label": "레시피"}]},
 }
 
 ## Read-only queries for Condition nodes and choice-option conditions.
@@ -230,7 +231,7 @@ static func cutscene_steps_text(cutscene_id: String) -> String:
 
 
 static func catalog() -> Dictionary:
-	return {"speakers": speakers(), "quests": QuestDB.all(), "cutscenes": cutscenes(), "items": ItemDB.ITEMS}
+	return {"speakers": speakers(), "quests": QuestDB.all(), "cutscenes": cutscenes(), "items": ItemDB.ITEMS, "recipes": RecipeDB.all()}
 
 
 # ---------------------------------------------------------------- graph helpers
@@ -487,6 +488,9 @@ static func _validate_node(n: Dictionary, cat: Dictionary, err: Callable, warn: 
 					"quest":
 						if not cat["quests"].has(str(v)):
 							err.call(id, "존재하지 않는 퀘스트 ID '%s'" % v)
+					"recipe":
+						if not cat.get("recipes", {}).has(str(v)):
+							err.call(id, "존재하지 않는 레시피 ID '%s' (data/recipes.json)" % v)
 					"objective":
 						var q: Dictionary = cat["quests"].get(qid, {})
 						var found := false

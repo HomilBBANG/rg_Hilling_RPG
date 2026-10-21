@@ -14,7 +14,7 @@ extends RefCounted
 ##                   {"id": "talk", "type": "count", "count": 1},   advanced by quest_advance actions
 ##                   {"id": "seen", "type": "flag", "flag": "some.flag"} ],
 ##   "consume_items": true,               collect items are handed over on completion
-##   "rewards": {"gen_exp": 0, "life_exp": 0, "gold": 0, "items": {"bread": 2}},   13.4
+##   "rewards": {"gen_exp": 0, "life_exp": 0, "gold": 0, "items": {"bread": 2}, "recipes": []},   13.4 / 14.4
 ##   "outcomes": {"key": {"label": "", "rewards": {...}}},   optional alternative resolutions (13.2)
 ##   "trigger": {"type": "reach", "region": "meadow", "pos": [x, z], "radius": 6},   auto events only
 ##   "test_only": true }                   placeholder data, not real story content
@@ -72,4 +72,6 @@ static func reward_text(r: Dictionary) -> String:
 	var items: Dictionary = r.get("items", {})
 	for id: String in items:
 		parts.append("%s ×%d" % [ItemDB.item_name(id), int(items[id])])
+	for rid in r.get("recipes", []):
+		parts.append("레시피: %s" % RecipeDB.recipe_name(str(rid)))
 	return ", ".join(parts) if not parts.is_empty() else "없음"

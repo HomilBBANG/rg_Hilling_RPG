@@ -184,6 +184,11 @@
         "item": "flame_longsword",
         "w": 1,
         "min_floor": 4
+      },
+      {
+        "item": "recipe_moon_charm",
+        "w": 1,
+        "min_floor": 2
       }
     ]
   },

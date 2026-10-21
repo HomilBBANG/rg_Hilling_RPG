@@ -18,6 +18,15 @@ var enabled_func: Callable
 var prompt_func: Callable
 
 
+## Crafting facility (GDD 14.4): opens the recipe panel for that facility type.
+static func facility(parent: Node, pos: Vector3, kind: String, label: String) -> InteractPoint:
+	var ip := make(parent, pos, "E %s — 요리·제작" % label, Callable(), 1.5)
+	ip.add_to_group("facility")
+	ip.set_meta("facility", kind)
+	ip.action = func(_p: Node) -> void: Game.hud.open_crafting(kind, ip)
+	return ip
+
+
 static func make(parent: Node, pos: Vector3, text: String, cb: Callable, radius := 1.6) -> InteractPoint:
 	var ip := InteractPoint.new()
 	ip.prompt = text

@@ -40,4 +40,10 @@ func _apply(action: String, args: Dictionary) -> String:
 		"mark_event_complete":
 			var first := Game.narrative.mark_event(str(args.get("event_id", "")))
 			return "이벤트 완료 기록: %s%s" % [args.get("event_id", ""), "" if first else " (이미 기록됨)"]
+		"learn_recipe":
+			var rid := str(args.get("recipe_id", ""))
+			var first := Game.player_state.learn_recipe(rid)
+			if first and Game.hud:
+				Game.hud.toast_quest("레시피 습득: " + RecipeDB.recipe_name(rid))
+			return "레시피 습득: %s%s" % [RecipeDB.recipe_name(rid), "" if first else " (이미 알고 있음)"]
 	return "지원하지 않는 액션 %s — 무시" % action

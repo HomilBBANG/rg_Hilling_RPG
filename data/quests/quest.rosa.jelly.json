@@ -9,8 +9,24 @@
   "repeatable": false,
   "time_limit_hours": 0,
   "objectives": [
-    {"id": "jelly", "type": "collect", "item": "slime_jelly", "count": 5, "text": "슬라임 젤리"}
+    {
+      "id": "jelly",
+      "type": "collect",
+      "item": "slime_jelly",
+      "count": 5,
+      "text": "슬라임 젤리"
+    }
   ],
   "consume_items": true,
-  "rewards": {"gen_exp": 10, "life_exp": 0, "gold": 30, "items": {"bread": 2}}
+  "rewards": {
+    "gen_exp": 10,
+    "life_exp": 0,
+    "gold": 30,
+    "items": {
+      "bread": 2
+    },
+    "recipes": [
+      "berry_jam"
+    ]
+  }
 }

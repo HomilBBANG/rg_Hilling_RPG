@@ -1366,6 +1366,15 @@ func _value_widget(spec: Dictionary, target: Dictionary, quest_id: String) -> Co
 			return _options_widget(opts4, str(val), func(v: String) -> void:
 				target[key] = v
 				_node_edited(key))
+		"recipe":
+			var opts6 := []
+			var rids: Array = (_catalog.get("recipes", {}) as Dictionary).keys()
+			rids.sort()
+			for rid: String in rids:
+				opts6.append([rid, "%s (%s)" % [_catalog["recipes"][rid].get("name", rid), rid]])
+			return _options_widget(opts6, str(val), func(v: String) -> void:
+				target[key] = v
+				_node_edited(key))
 		"item":
 			var opts5 := []
 			var items: Array = ItemDB.ITEMS.keys()

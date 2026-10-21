@@ -27,6 +27,25 @@ const ITEMS := {
 	"trout": {"name": "송어", "value": 9, "weight": 0.7, "desc": "살이 단단한 물고기."},
 	"golden_carp": {"name": "황금 잉어", "cat": "rare", "value": 60, "weight": 1.0, "desc": "보기 드문 황금빛 잉어."},
 	"fishing_rod": {"name": "낚싯대", "value": 30, "weight": 1.5, "kind": "tool", "desc": "연못가 나무 부두에서 낚시할 때 필요하다."},
+	# --- cooking / crafting results (P3-5, GDD 14.4)
+	"grilled_fish": {"name": "구운 붕어", "value": 9, "weight": 0.3, "kind": "consumable", "use": "eat", "effect": {"hp": 16, "sp": 10},
+		"desc": "모닥불에 구운 붕어. HP +16, SP +10."},
+	"grilled_trout": {"name": "송어 구이", "value": 16, "weight": 0.5, "kind": "consumable", "use": "eat", "effect": {"hp": 24, "sp": 15},
+		"desc": "기름진 송어 구이. HP +24, SP +15."},
+	"mushroom_skewer": {"name": "버섯 꼬치", "value": 10, "weight": 0.3, "kind": "consumable", "use": "eat", "effect": {"hp": 12, "sp": 22},
+		"desc": "버섯 세 개를 꿴 꼬치. HP +12, SP +22."},
+	"herb_tea": {"name": "약초차", "value": 12, "weight": 0.3, "kind": "consumable", "use": "drink", "effect": {"sp": 25, "mp": 6},
+		"desc": "향긋한 약초차. SP +25, MP +6."},
+	"herbal_salve": {"name": "약초 연고", "value": 10, "weight": 0.2, "kind": "consumable", "use": "drink", "effect": {"hp": 14},
+		"desc": "상처에 바르는 연고. HP +14."},
+	"berry_jam": {"name": "산딸기 잼", "value": 20, "weight": 0.4, "kind": "consumable", "use": "eat", "effect": {"hp": 10, "sp": 30},
+		"desc": "로사에게 배운 잼. HP +10, SP +30."},
+	"golden_carp_stew": {"name": "황금 잉어 찜", "value": 90, "weight": 0.8, "kind": "consumable", "use": "eat", "effect": {"hp": 45, "sp": 40, "mp": 10},
+		"desc": "귀한 잉어로 만든 찜. HP +45, SP +40, MP +10."},
+	"moon_charm": {"name": "달빛 부적", "value": 110, "weight": 0.1, "kind": "equip", "slot": "neck", "bonus": {"DIV": 1, "crit": 2},
+		"desc": "목걸이. DIV +1, 치명타 +2%."},
+	"recipe_moon_charm": {"name": "제작서: 달빛 부적", "value": 60, "weight": 0.2, "kind": "consumable", "use": "read",
+		"effect": {"recipe": "moon_charm"}, "desc": "읽으면 '달빛 부적' 제작법을 배운다 (특수 레시피)."},
 	# quest items: no merchant buys them, goblins don't take them
 	"lost_parcel": {"name": "흩어진 짐 꾸러미", "cat": "quest", "value": 0, "weight": 1.5, "desc": "대장간 표식이 찍힌 꾸러미."},
 	# --- consumables (GDD 6.4): effect applies when the use motion ends; a hit cancels it
@@ -187,6 +206,7 @@ static func effect_text(effect: Dictionary) -> String:
 			"sp": parts.append("SP +%d" % effect[k])
 			"mp": parts.append("MP +%d" % effect[k])
 			"learn": parts.append("마법 습득: %s" % SPELLS[effect[k]]["name"])
+			"recipe": parts.append("레시피 습득: %s" % RecipeDB.recipe_name(str(effect[k])))
 	return ", ".join(parts)
 
 

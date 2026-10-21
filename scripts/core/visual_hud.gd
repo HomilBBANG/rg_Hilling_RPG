@@ -22,6 +22,7 @@ const HELP_TEXT := """[P1 조작 — 프로토타입 키, 최종 키 아님]
 WASD 이동 · Shift 달리기(SP) · 마우스 클릭 = 기본 공격 1회(마우스 방향, SP)
 E  조사/상호작용 (시체·상자·문·운전석·침대·창고·고양이)   R  고양이 간식
 Tab 소지품·장비(게임 계속 진행)   C  능력치·레벨업·스킬   G  전투 로그 1→2→3단계   ESC 일시정지
+U  요리·제작 (모닥불·캠핑카 주방·작업대 근처에서 시설 레시피)   M  지도
 1~4 소모품 퀵슬롯   5~8 스킬·마법 퀵슬롯 (사용 중 맞으면 중단)
 운전: W 전진 · S 브레이크→후진 · A/D 차 머리 좌/우 · 키를 놓으면 정지 · 멈춘 뒤 E 내리기
 F9 진행 단계 A/B/C   F8 전체 회복   F10 디버그 정보
@@ -30,7 +31,7 @@ V  카메라 스타일 A(기존) → B(개선 탑다운) → C(디오라마) →
 Z  스프라이트 파이프라인: 3D 모델→렌더→픽셀 스프라이트 ON/OFF
 O  픽셀 외곽선 ON/OFF (기본 ON)     B  바람 ON/OFF (기본 ON)
 F1/F2/F3/F4  PXL-COARSE 320×180 / PXL-MID 480×270 / PXL-SOFT 640×360 / 3D-NATIVE
-M  픽셀화 파이프라인 전환 (M1 SubViewport 확대 ↔ M2 3D 스케일링 nearest)
+F6 픽셀화 파이프라인 전환 (M1 SubViewport 확대 ↔ M2 3D 스케일링 nearest)
 P  모드3: 팔레트 제한 + 디더링 후처리 ON/OFF
 N  낮 ↔ 밤 (12:00 / 22:00)     T  시계 진행/정지 (1초 = 게임 1분)
 L  개인 등불(허리띠) ON/OFF       I  실내 ↔ 야외 (디버그, 캠핑카 보유 시)
@@ -57,7 +58,7 @@ func _ready() -> void:
 	_context.add_theme_color_override("font_color", Color(1.0, 0.92, 0.6))
 	_hint = _label(Vector2.ZERO, roundi(14 * UI_SCALE))
 	_hint.position = Vector2(14, 690) * UI_SCALE
-	_hint.text = "WASD 이동 · 클릭 공격 · E 조사/상호작용 · Tab 소지품 · C 능력치 · 1~8 퀵슬롯 · G 로그 · F 캠핑카 라이트 · L 등불 · N 낮밤 · F9 진행 단계 · H 도움말"
+	_hint.text = "WASD 이동 · 클릭 공격 · E 조사/상호작용 · Tab 소지품 · C 능력치 · 1~8 퀵슬롯 · U 요리·제작 · G 로그 · F 캠핑카 라이트 · L 등불 · N 낮밤 · F9 진행 단계 · H 도움말"
 	_toast = _label(Vector2.ZERO, roundi(18 * UI_SCALE))
 	_toast.position = Vector2(320, 96) * UI_SCALE  # above the item panels
 	_toast.size = Vector2(640, 26) * UI_SCALE

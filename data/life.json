@@ -13,7 +13,9 @@
   ],
   "mastery_names": {
     "gathering": "채집",
-    "fishing": "낚시"
+    "fishing": "낚시",
+    "cooking": "요리",
+    "crafting": "제작"
   },
   "gather_kinds": {
     "herb": {

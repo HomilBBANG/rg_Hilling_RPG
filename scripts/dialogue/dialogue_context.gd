@@ -76,4 +76,6 @@ func _apply(action: String, args: Dictionary) -> String:
 		"mark_event_complete":
 			flags["event." + str(args.get("event_id", ""))] = true
 			return "이벤트 완료 기록: %s" % args.get("event_id", "")
+		"learn_recipe":
+			return "레시피 습득(미리보기): %s" % args.get("recipe_id", "")
 	return "지원하지 않는 액션 %s — 무시" % action

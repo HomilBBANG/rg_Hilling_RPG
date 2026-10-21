@@ -171,6 +171,8 @@ func _unhandled_input(event: InputEvent) -> void:
 		game_hud.toggle_journal()
 	elif event.is_action("world_map"):
 		game_hud.toggle_map()
+	elif event.is_action("crafting"):
+		game_hud.toggle_crafting()
 	elif event.is_action("combat_log"):
 		game_hud.cycle_log_level()
 	elif event.is_action("debug_status"):
@@ -308,6 +310,8 @@ func _parse_args() -> void:
 		_run_rift_tour()
 	elif tour == "life":
 		_run_life_tour()
+	elif tour == "craft":
+		_run_craft_tour()
 	elif tour == "drive":
 		_run_drive_compare()
 	elif tour == "wind":
@@ -2404,4 +2408,125 @@ func _run_life_tour() -> void:
 	var le := st.life_exp
 	var ge := st.gen_exp
 	print("[life] herb delivery: %s -> life EXP %d -> %d, general EXP %d -> %d" % [Game.quests.complete("quest.board.herbs"), le, st.life_exp, ge, st.gen_exp])
+	get_tree().quit()
+
+
+# ---------------------------------------------------------------- P3-5 cooking / crafting
+
+func _craft_and_wait(rid: String, facility: String) -> bool:
+	var ok := game_hud.craft(rid, facility)
+	await _wait_task()
+	return ok
+
+
+func _counts(ids: Array) -> String:
+	var parts := PackedStringArray()
+	for id: String in ids:
+		parts.append("%s %d" % [ItemDB.item_name(id), Game.player_state.inventory.count(id)])
+	return ", ".join(parts)
+
+
+func _run_craft_tour() -> void:
+	Dice.rng.seed = 66
+	seed(66)
+	Game.clock_running = false
+	Game.minute_of_day = 15.0 * 60.0
+	await wait_for_sprites()
+	var st := Game.player_state
+	var p: PrototypePlayer = world.player
+	for kv in [["small_fish", 2], ["trout", 1], ["edible_mushroom", 3], ["herb", 9], ["wild_berry", 5], ["slime_jelly", 4],
+			["firewood", 2], ["slime_core", 1], ["golden_carp", 1], ["moon_petal", 2], ["mana_shard", 1], ["recipe_moon_charm", 1]]:
+		st.inventory.add(kv[0], kv[1])
+	st.life_exp = 40
+	# --- away from any facility: simple crafting only
+	_place_player(Vector3(6.0, 0, 8.0), 0.0)
+	await _frames(8)
+	await _key(KEY_U)
+	print("[craft] U in the field -> panel %s, facility '%s'" % [game_hud._panel_kind, game_hud.nearby_facility()])
+	print("[craft]   known: %s" % ", ".join(PackedStringArray(RecipeDB.all().keys().filter(func(r: String) -> bool: return st.knows_recipe(r)))))
+	print("[craft]   grilled fish here -> '%s'" % game_hud._recipe_block("grilled_fish", ""))
+	print("[craft]   learn herbal salve (basic, life EXP 5): %s -> life EXP %d" % [st.buy_recipe("herbal_salve"), st.life_exp])
+	game_hud._refresh_panel()
+	await _frames(3)
+	await _p1_shot("craft_01_field_panel", "recipe panel without a facility", true)
+	print("[craft]   salve crafted anywhere: %s -> %s" % [await _craft_and_wait("herbal_salve", ""), _counts(["herbal_salve", "herb", "slime_jelly"])])
+	game_hud.close_panel()
+	# --- campfire: cooking
+	_place_player(VisualLab.CAMPFIRE_POS + Vector3(-1.1, 0, 1.6), 0.0)
+	await _frames(8)
+	print("[craft] at the campfire -> '%s'" % (p.focus.prompt_text() if p.focus else "-"))
+	await _key(KEY_E)
+	print("[craft]   E -> panel %s, facility '%s'" % [game_hud._panel_kind, game_hud.nearby_facility()])
+	var before_life := st.life_exp
+	print("[craft]   grilled fish: %s -> %s, life EXP %d -> %d, cooking mastery %d" % [await _craft_and_wait("grilled_fish", "cooking"),
+		_counts(["grilled_fish", "small_fish"]), before_life, st.life_exp, st.mastery["cooking"]])
+	st.buy_recipe("mushroom_skewer")
+	st.buy_recipe("herb_tea")
+	game_hud._refresh_panel()
+	await _frames(3)
+	await _p1_shot("craft_02_campfire", "cooking at the campfire", true)
+	game_hud.craft("herb_tea", "cooking")
+	await _seconds(0.5)
+	p.cancel_use("피격")
+	await _frames(3)
+	print("[craft]   hit while brewing tea -> %s (nothing used up)" % _counts(["herb_tea", "herb", "wild_berry"]))
+	print("[craft]   skewer: %s, tea: %s -> %s" % [await _craft_and_wait("mushroom_skewer", "cooking"), await _craft_and_wait("herb_tea", "cooking"),
+		_counts(["mushroom_skewer", "herb_tea"])])
+	game_hud.close_panel()
+	# --- workbench: complex crafting
+	_place_player(VisualLab.WORKBENCH_POS + Vector3(0, 0, 1.5), 0.0)
+	await _frames(8)
+	await _key(KEY_E)
+	print("[craft] workbench -> panel %s, facility '%s'" % [game_hud._panel_kind, game_hud.nearby_facility()])
+	st.buy_recipe("fishing_rod")
+	print("[craft]   fishing rod: %s -> rods %d" % [await _craft_and_wait("fishing_rod", "workbench"), st.inventory.count("fishing_rod")])
+	print("[craft]   heal potion recipe -> '%s'" % st.recipe_learn_block("heal_potion"))
+	st.add_mastery("crafting", 40)
+	print("[craft]   crafting Lv %d -> learn %s, potion %s -> potions %d" % [st.mastery_level("crafting"), st.buy_recipe("heal_potion"),
+		await _craft_and_wait("heal_potion", "workbench"), st.inventory.count("heal_potion")])
+	# special: book (read the scroll) -> moon charm
+	print("[craft]   moon charm before the scroll -> '%s'" % st.recipe_learn_block("moon_charm"))
+	p.begin_use_item("recipe_moon_charm")
+	await _wait_task()
+	print("[craft]   read the scroll -> knows moon charm %s; craft %s -> charms %d" % [st.knows_recipe("moon_charm"),
+		await _craft_and_wait("moon_charm", "workbench"), st.inventory.count("moon_charm")])
+	game_hud._refresh_panel()
+	await _frames(3)
+	await _p1_shot("craft_03_workbench", "workbench panel", true)
+	game_hud.close_panel()
+	# special: quest reward (berry jam) and NPC (golden carp stew from Rosa)
+	Game.quests.accept("quest.rosa.jelly")
+	st.inventory.add("slime_jelly", 5)
+	await _frames(3)
+	Game.quests.complete("quest.rosa.jelly")
+	print("[craft] Rosa's quest reward -> knows berry jam %s" % st.knows_recipe("berry_jam"))
+	var rosa_stall: Vector3 = VisualLab.TRADE_STALLS[0][0]
+	Game.minute_of_day = 11.0 * 60.0
+	await _seconds(3.0)
+	_place_player(rosa_stall + Vector3(0, 0, 1.5), 0.0)
+	await _frames(8)
+	await _key(KEY_R)
+	await _talk_through([], "[craft]")
+	print("[craft] talked to Rosa -> knows golden carp stew %s" % st.knows_recipe("golden_carp_stew"))
+	await _key(KEY_R)
+	await _talk_through([], "[craft]")
+	# camper kitchen
+	Game.request_world(Game.WORLD_INTERIOR)
+	await _frames(5)
+	await wait_for_sprites()
+	await _frames(10)
+	var kitchen: Node3D = null
+	for ip in get_tree().get_nodes_in_group("facility"):
+		kitchen = ip
+	world.player.global_position = Vector3(kitchen.global_position.x, world.player.global_position.y, kitchen.global_position.z + 0.3)
+	await _frames(8)
+	await _key(KEY_E)
+	print("[craft] camper kitchen -> panel %s, facility '%s'" % [game_hud._panel_kind, game_hud.nearby_facility()])
+	print("[craft]   golden carp stew: %s -> %s, cooking Lv %d, life EXP %d" % [await _craft_and_wait("golden_carp_stew", "cooking"),
+		_counts(["golden_carp_stew", "golden_carp"]), st.mastery_level("cooking"), st.life_exp])
+	game_hud._refresh_panel()
+	await _frames(3)
+	await _p1_shot("craft_04_camper_kitchen", "cooking in the camper kitchen", true)
+	var tea_eff: Dictionary = ItemDB.info("golden_carp_stew")["effect"]
+	print("[craft] stew effect %s; free combination UI: none (recipes only)" % tea_eff)
 	get_tree().quit()

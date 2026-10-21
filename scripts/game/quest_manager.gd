@@ -145,6 +145,8 @@ func complete(id: String, outcome := "") -> String:
 	var items: Dictionary = r.get("items", {})
 	for item_id: String in items:
 		st.inventory.add(item_id, int(items[item_id]))  # rewards are handed over even when heavy
+	for rid in r.get("recipes", []):
+		st.learn_recipe(str(rid))  # GDD 14.4: special recipes can come from quests
 	var e: Dictionary = entries[id]
 	e["state"] = "completed"
 	e["outcome"] = outcome

@@ -5,7 +5,7 @@ extends RefCounted
 ## it better; life EXP is spent to learn life skills (some need a minimum mastery). Numbers [미정].
 
 const PATH := "res://data/life.json"
-const FIELDS := ["gathering", "fishing"]
+const FIELDS := ["gathering", "fishing", "cooking", "crafting"]
 
 static var _cache := {}
 

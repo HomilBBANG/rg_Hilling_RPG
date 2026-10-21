@@ -9,7 +9,7 @@
       "quest",
       "trade_post"
     ],
-    "notes": "임시 대사 (정식 서사 아님). 로사에게 R로 말을 걸면 열린다 (data/speakers.json의 talk)."
+    "notes": "임시 대사 (정식 서사 아님). 로사에게 R로 말을 걸면 열린다 (data/speakers.json의 talk). 의뢰 완료 뒤 한 번 특수 레시피(황금 잉어 찜)를 가르쳐 준다 (GDD 14.4: NPC에게서 배우는 특수 레시피)."
   },
   "start_node_id": "start",
   "nodes": [
@@ -118,6 +118,37 @@
       "text": "오늘도 좋은 날이에요. 물약이나 빵이 필요하면 말해요."
     },
     {
+      "id": "cond_taught",
+      "type": "condition",
+      "check": {
+        "kind": "flag",
+        "key": "rosa.taught_stew"
+      }
+    },
+    {
+      "id": "line_teach",
+      "type": "line",
+      "speaker_id": "rosa",
+      "text": "잼 일, 정말 고마웠어요. 답례로 '황금 잉어 찜' 만드는 법을 알려줄게요.\n연못에서 황금 잉어를 낚으면 모닥불에서 꼭 해 봐요."
+    },
+    {
+      "id": "act_teach",
+      "type": "action",
+      "action": "learn_recipe",
+      "args": {
+        "recipe_id": "golden_carp_stew"
+      }
+    },
+    {
+      "id": "act_taught",
+      "type": "action",
+      "action": "set_flag",
+      "args": {
+        "key": "rosa.taught_stew",
+        "value": true
+      }
+    },
+    {
       "id": "end",
       "type": "end",
       "complete_event": ""
@@ -200,17 +231,42 @@
       "to": "line_wait"
     },
     {
-      "from": "cond_active",
-      "port": "false",
-      "to": "line_small"
-    },
-    {
       "from": "line_wait",
       "port": "next",
       "to": "end"
     },
     {
       "from": "line_small",
+      "port": "next",
+      "to": "end"
+    },
+    {
+      "from": "cond_active",
+      "port": "false",
+      "to": "cond_taught"
+    },
+    {
+      "from": "cond_taught",
+      "port": "true",
+      "to": "line_small"
+    },
+    {
+      "from": "cond_taught",
+      "port": "false",
+      "to": "line_teach"
+    },
+    {
+      "from": "line_teach",
+      "port": "next",
+      "to": "act_teach"
+    },
+    {
+      "from": "act_teach",
+      "port": "next",
+      "to": "act_taught"
+    },
+    {
+      "from": "act_taught",
       "port": "next",
       "to": "end"
     }
@@ -269,12 +325,28 @@
       460
     ],
     "line_small": [
-      1160,
-      600
+      1460,
+      760
     ],
     "end": [
-      1800,
+      2380,
       320
+    ],
+    "cond_taught": [
+      1160,
+      620
+    ],
+    "line_teach": [
+      1460,
+      560
+    ],
+    "act_teach": [
+      1760,
+      560
+    ],
+    "act_taught": [
+      2060,
+      560
     ]
   }
 }

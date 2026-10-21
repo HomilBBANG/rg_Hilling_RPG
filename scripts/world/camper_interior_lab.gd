@@ -244,6 +244,7 @@ func _build_interactions() -> void:
 	cot.action = func(_p: Node) -> void: Game.hud.open_sleep(cot)
 	var box := InteractPoint.make(self, STORAGE_POS + Vector3(0, 0, -0.55), "E 캠핑카 창고 열기", Callable(), 1.4)
 	box.action = func(_p: Node) -> void: Game.hud.open_storage(box)
+	InteractPoint.facility(self, Vector3(0.4, 0, -1.1), "cooking", "주방 (2구 버너)")
 
 
 func cycle_occlusion_mode() -> String:

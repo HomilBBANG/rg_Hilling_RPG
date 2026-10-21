@@ -69,8 +69,10 @@ var level := 1
 var gen_exp := 0    ## general EXP (combat, quests)
 var life_exp := 0   ## life EXP (life activities, quests): spent on life skills (GDD 5.2 / 5.4)
 ## Mastery points per life field (GDD 5.4: grows automatically by repeating the activity).
-var mastery := {"gathering": 0, "fishing": 0}
+var mastery := {"gathering": 0, "fishing": 0, "cooking": 0, "crafting": 0}
 var life_skills: Array[String] = []
+## Learned recipes (GDD 14.4); "known" ones are there from the start.
+var recipes: Array[String] = []
 var stat_points := 0
 var skills := {}    ## id -> rank
 
@@ -87,6 +89,46 @@ func add_mastery(field: String, n: int) -> int:
 	var after := mastery_level(field)
 	changed.emit()
 	return after if after > before else 0
+
+
+func knows_recipe(id: String) -> bool:
+	return id in recipes or RecipeDB.info(id).get("learn", "") == "known"
+
+
+## Special recipes (NPC / book / quest / exploration) are simply given; returns false if known.
+func learn_recipe(id: String) -> bool:
+	if RecipeDB.info(id).is_empty() or knows_recipe(id):
+		return false
+	recipes.append(id)
+	changed.emit()
+	return true
+
+
+## Basic recipes cost life EXP (and sometimes a minimum mastery). "" = ok, else why not.
+func recipe_learn_block(id: String) -> String:
+	var r := RecipeDB.info(id)
+	if r.is_empty():
+		return "없는 레시피"
+	if knows_recipe(id):
+		return "이미 배움"
+	if r.get("learn", "") != "basic":
+		return "특수 레시피 — %s" % r.get("source", "NPC·책·퀘스트·탐험")
+	var req: Dictionary = r.get("req", {})
+	for f: String in req:
+		if mastery_level(f) < int(req[f]):
+			return "%s 숙련도 Lv %d 필요" % [LifeDB.field_name(f), int(req[f])]
+	if life_exp < int(r.get("cost", 0)):
+		return "생활 EXP %d 필요" % int(r.get("cost", 0))
+	return ""
+
+
+func buy_recipe(id: String) -> bool:
+	if recipe_learn_block(id) != "":
+		return false
+	life_exp -= int(RecipeDB.info(id).get("cost", 0))
+	recipes.append(id)
+	changed.emit()
+	return true
 
 
 func has_life_skill(id: String) -> bool:
@@ -428,6 +470,8 @@ func apply_effect(effect: Dictionary) -> String:
 		mp = minf(max_mp(), mp + effect["mp"])
 	if effect.has("learn"):
 		learn_spell(effect["learn"])
+	if effect.has("recipe"):
+		learn_recipe(str(effect["recipe"]))
 	changed.emit()
 	return ItemDB.effect_text(effect)
 

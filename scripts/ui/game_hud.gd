@@ -988,6 +988,129 @@ func open_floor_exit(source: Node3D) -> void:
 		v.add_child(row), 760)
 
 
+# ---------------------------------------------------------------- cooking & crafting (P3-5)
+
+## Facility type within reach of the player ("" = none: simple crafting only).
+func nearby_facility() -> String:
+	var p := _player()
+	if p == null:
+		return ""
+	for ip in get_tree().get_nodes_in_group("facility"):
+		if is_instance_valid(ip) and (ip as Node3D).is_visible_in_tree() and (ip as Node3D).global_position.distance_to(p.global_position) < 2.6:
+			return str(ip.get_meta("facility", ""))
+	return ""
+
+
+func toggle_crafting() -> void:
+	if _panel_kind == "craft":
+		close_panel()
+		return
+	open_crafting(nearby_facility(), null)
+
+
+func _recipe_block(rid: String, facility: String) -> String:
+	var r := RecipeDB.info(rid)
+	var f: String = r.get("facility", "")
+	if f != "" and f != facility:
+		return "%s 필요" % RecipeDB.facility_name(f)
+	var inputs: Dictionary = r.get("inputs", {})
+	for item: String in inputs:
+		if Game.player_state.inventory.count(item) < int(inputs[item]):
+			return "재료 부족: %s" % ItemDB.item_name(item)
+	return ""
+
+
+## Recipe panel (GDD 14.4): learned recipes only, ingredients are used up, the result is made.
+func open_crafting(facility: String, source: Node3D) -> void:
+	_open("craft", source, 3.0, func(v: VBoxContainer) -> void:
+		var st := Game.player_state
+		var where := RecipeDB.facility_name(facility) if facility != "" else "시설 없음 — 간단한 제작만"
+		v.add_child(_row_label("요리·제작 — %s" % where, 900, 26, Color(1.0, 0.9, 0.6)))
+		v.add_child(_row_label("생활 EXP %d · 요리 Lv %d · 제작 Lv %d" % [st.life_exp, st.mastery_level("cooking"), st.mastery_level("crafting")], 900, 18, Color(0.75, 0.9, 0.75)))
+		v.add_child(_row_label("배운 레시피", 400, 21, Color(0.8, 0.86, 1.0)))
+		var specials := []
+		var learnable := []
+		for rid: String in RecipeDB.all():
+			var r := RecipeDB.info(rid)
+			if not st.knows_recipe(rid):
+				(specials if r.get("learn", "") == "special" else learnable).append(rid)
+				continue
+			var row := HBoxContainer.new()
+			row.add_child(_row_label("  " + str(r.get("name", rid)), 170, 19))
+			var parts := PackedStringArray()
+			var inputs: Dictionary = r.get("inputs", {})
+			for item: String in inputs:
+				parts.append("%s %d/%d" % [ItemDB.item_name(item), st.inventory.count(item), int(inputs[item])])
+			row.add_child(_row_label(" + ".join(parts), 400, 17, Color(0.85, 0.85, 0.8)))
+			var fac: String = r.get("facility", "")
+			row.add_child(_row_label("어디서나" if fac == "" else ("모닥불·주방" if fac == "cooking" else "작업대"), 110, 17, Color(0.7, 0.78, 0.9)))
+			var block := _recipe_block(rid, facility)
+			var b := _button("만들기", func() -> void: craft(rid, facility), 120)
+			b.disabled = block != ""
+			b.tooltip_text = block if block != "" else "→ " + RecipeDB.outputs_text(rid)
+			row.add_child(b)
+			v.add_child(row)
+		v.add_child(_row_label("기본 레시피 배우기 (생활 EXP)", 400, 21, Color(0.8, 0.86, 1.0)))
+		if learnable.is_empty():
+			v.add_child(_row_label("  모두 배웠다", 400, 17, Color(0.6, 0.62, 0.66)))
+		for rid: String in learnable:
+			var r2 := RecipeDB.info(rid)
+			var row2 := HBoxContainer.new()
+			row2.add_child(_row_label("  %s — %s → %s" % [r2.get("name", rid), RecipeDB.inputs_text(rid), RecipeDB.outputs_text(rid)], 640, 17))
+			var blk := st.recipe_learn_block(rid)
+			var lb := _button("배우기 (생활 EXP %d)" % int(r2.get("cost", 0)), func() -> void:
+				if st.buy_recipe(rid):
+					boot.hud.toast("레시피 습득: " + RecipeDB.recipe_name(rid))
+				_refresh_panel(), 200)
+			lb.disabled = blk != ""
+			lb.tooltip_text = blk
+			row2.add_child(lb)
+			v.add_child(row2)
+		if not specials.is_empty():
+			v.add_child(_row_label("특수 레시피 (아직 모름)", 400, 21, Color(0.8, 0.86, 1.0)))
+			for rid: String in specials:
+				v.add_child(_row_label("  ??? — 얻는 곳: %s" % RecipeDB.info(rid).get("source", "NPC·책·퀘스트·탐험"), 900, 17, Color(0.65, 0.66, 0.72)))
+		v.add_child(_button("닫기 (U)", close_panel)), 960)
+
+
+## Crafting motion (same rules as using an item: a hit stops it and nothing is used up).
+func craft(rid: String, facility: String) -> bool:
+	var p := _player()
+	if p == null or _recipe_block(rid, facility) != "" or not Game.player_state.knows_recipe(rid):
+		return false
+	var r := RecipeDB.info(rid)
+	var field: String = r.get("field", "cooking")
+	var lv := Game.player_state.mastery_level(field)
+	var time := float(r.get("time", 2.0)) * maxf(0.5, 1.0 - 0.04 * (lv - 1))
+	return p.begin_task("%s 만드는 중" % r.get("name", rid), time, 0.0, "cast", func() -> void: _crafted(rid, facility))
+
+
+func _crafted(rid: String, facility: String) -> void:
+	var st := Game.player_state
+	if _recipe_block(rid, facility) != "":
+		return
+	var r := RecipeDB.info(rid)
+	var inputs: Dictionary = r.get("inputs", {})
+	for item: String in inputs:
+		st.inventory.remove(item, int(inputs[item]))
+	var field: String = r.get("field", "cooking")
+	var bonus := randf() < 0.06 * (st.mastery_level(field) - 1)  # mastery: a little extra now and then
+	var outs: Dictionary = r.get("outputs", {})
+	var made := PackedStringArray()
+	for item: String in outs:
+		var n := int(outs[item]) + (1 if bonus else 0)
+		st.inventory.add(item, n)
+		made.append("%s ×%d" % [ItemDB.item_name(item), n])
+	var lexp := int(r.get("life_exp", 2))
+	st.life_exp += lexp
+	var up := st.add_mastery(field, int(r.get("mastery", 3)))
+	var text := "%s 완성 — %s%s · 생활 EXP +%d" % [r.get("name", rid), ", ".join(made), " (숙련 보너스!)" if bonus else "", lexp]
+	Game.combat_log.add(text, "%s — %s 숙련도 %d" % [RecipeDB.inputs_text(rid), LifeDB.field_name(field), st.mastery[field]], "info")
+	boot.hud.toast(text + ("  ▲ %s 숙련도 Lv %d" % [LifeDB.field_name(field), up] if up > 0 else ""))
+	st.changed.emit()
+	_refresh_panel()
+
+
 ## World map (GDD 11.3 [확정]): regions and roads are known from the start; checkpoints and
 ## other places appear once visited. Pin UI / fog / notes are [미정] - this is a plain overview.
 func toggle_map() -> void:
@@ -1053,7 +1176,7 @@ func open_board(source: Node3D) -> void:
 
 
 func _on_player_changed() -> void:
-	if _panel_kind in ["inventory", "loot", "storage", "character", "shop", "journal", "board"]:
+	if _panel_kind in ["inventory", "loot", "storage", "character", "shop", "journal", "board", "craft"]:
 		_refresh_panel()
 
 
