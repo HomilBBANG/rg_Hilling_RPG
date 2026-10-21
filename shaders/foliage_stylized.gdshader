@@ -6,6 +6,7 @@ shader_type spatial;
 render_mode specular_disabled, shadows_disabled;
 
 #include "res://shaders/stylized_common.gdshaderinc"
+#include "res://shaders/wind.gdshaderinc"
 
 uniform sampler2D noise_detail : filter_linear, repeat_enable;
 uniform vec3 leaf_dark : source_color = vec3(0.16, 0.36, 0.22);
@@ -15,11 +16,18 @@ uniform float hue_shift = 0.0;
 uniform float fade : hint_range(0.0, 1.0) = 1.0;
 uniform float stylized = 1.0;
 uniform float detail = 1.0;
+// Canopy sway in metres at the top of a leaf blob (trees ~1.5 texels, bushes less).
+uniform float wind_strength = 0.045;
 
 varying vec3 wpos;
 varying vec3 wnormal;
 
 void vertex() {
+	// Whole blob drifts with the gust, its upper part a bit more (the trunk stays put).
+	vec3 origin = (MODEL_MATRIX * vec4(0.0, 0.0, 0.0, 1.0)).xyz;
+	float lean = clamp(0.55 + VERTEX.y * 0.35, 0.2, 1.0);
+	vec2 w = wind_offset(origin, TIME) * wind_strength * lean;
+	VERTEX += inverse(mat3(MODEL_MATRIX)) * vec3(w.x, 0.0, w.y);
 	wpos = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
 	wnormal = normalize((MODEL_MATRIX * vec4(NORMAL, 0.0)).xyz);
 }

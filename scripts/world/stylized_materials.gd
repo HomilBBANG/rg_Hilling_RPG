@@ -9,6 +9,7 @@ static var _registered: Array[ShaderMaterial] = []
 static var _rock_cache := {}
 static var stylized := true
 static var detail := 1.0
+static var wind := 1.0
 
 
 static func _noise(seed: int, freq: float, size: int) -> NoiseTexture2D:
@@ -43,6 +44,7 @@ static func _make(shader: Shader) -> ShaderMaterial:
 	m.set_shader_parameter("noise_detail", noise_detail())
 	m.set_shader_parameter("stylized", 1.0 if stylized else 0.0)
 	m.set_shader_parameter("detail", detail)
+	m.set_shader_parameter("wind_scale", wind)
 	_registered.append(m)
 	return m
 
@@ -91,8 +93,17 @@ static func set_detail(v: float) -> void:
 			m.set_shader_parameter("detail", v)
 
 
+## Global gentle wind (grass, bushes, canopies): 1 = on, 0 = still.
+static func set_wind(v: float) -> void:
+	wind = v
+	for m in _registered:
+		if is_instance_valid(m):
+			m.set_shader_parameter("wind_scale", v)
+
+
 static func register(m: ShaderMaterial) -> void:
 	m.set_shader_parameter("detail", detail)
+	m.set_shader_parameter("wind_scale", wind)
 	_registered.append(m)
 
 

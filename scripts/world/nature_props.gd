@@ -65,6 +65,7 @@ static func bush(kind: int, scale: float, rng: RandomNumberGenerator) -> Node3D:
 	## kind 0 = plain, 1 = flowering, 2 = berries
 	var root := Node3D.new()
 	var leaves := StylizedMaterials.foliage(Color(0.28, 0.54, 0.25), Color(0.58, 0.77, 0.32), Color(0.13, 0.33, 0.2), rng.randf_range(-1, 1))
+	leaves.set_shader_parameter("wind_strength", 0.025)  # low and stiff: less sway than canopies
 	var seed := rng.randi() % 1000
 	OrganicMesh.blob_instance(root, seed, Vector3(0, 0.38, 0), Vector3(0.65, 0.45, 0.6), leaves)
 	OrganicMesh.blob_instance(root, seed + 1, Vector3(0.45, 0.28, 0.15), Vector3(0.42, 0.32, 0.42), leaves)

@@ -164,6 +164,9 @@ func _unhandled_input(event: InputEvent) -> void:
 		_outline_user = not _outline_user
 		_configure_camera()
 		hud.toast("픽셀 외곽선: " + ("ON" if _outline_user else "OFF"))
+	elif event.is_action("toggle_wind"):
+		StylizedMaterials.set_wind(0.0 if StylizedMaterials.wind > 0.5 else 1.0)
+		hud.toast("바람(풀·수풀·나무 흔들림): " + ("ON" if StylizedMaterials.wind > 0.5 else "OFF"))
 	elif event.is_action("toggle_pipeline"):
 		render.toggle_pipeline()
 		hud.toast("파이프라인: " + render.pipeline_name())
@@ -245,6 +248,8 @@ func _parse_args() -> void:
 		_run_walk_tour()
 	elif tour == "p1":
 		_run_p1_tour()
+	elif tour == "wind":
+		_run_wind_check()
 	elif tour == "catfollow":
 		_run_cat_follow_check()
 	elif tour == "p1input":
@@ -1069,4 +1074,26 @@ func _run_cat_follow_check() -> void:
 				backsteps += 1
 	print("[cat] steady walk: offset changes %d, back-and-forth %d (frames 60-175)" % [changes, backsteps])
 	print("[cat] frames %d, walk/sit flips %d, mean |dv| per frame %.3f m/s, final gap %.2f m" % [frames, flips, jerk / speeds.size(), cat.global_position.distance_to(p.global_position)])
+	get_tree().quit()
+
+
+## Wind check: raw low-res frames with the player idle at camp, wind on then off.
+## Run with --fixed-fps 30 so TIME advances evenly.
+func _run_wind_check() -> void:
+	_touring = true
+	hud.set_capture_mode(true, "")
+	Game.clock_running = false
+	Game.minute_of_day = 10.5 * 60.0
+	await wait_for_sprites()
+	# Away from the campfire (its flickering light changes many pixels every frame).
+	_place_player(Vector3(-13.0, 0, 8.5), PI * 0.8)
+	await _frames(10)
+	for mode in [["on", 1.0, 90], ["off", 0.0, 30]]:
+		StylizedMaterials.set_wind(mode[1])
+		for i in mode[2]:
+			await RenderingServer.frame_post_draw
+			render.viewport.get_texture().get_image().save_png(_capture_dir.path_join("%s_%03d.png" % [mode[0], i]))
+	StylizedMaterials.set_wind(1.0)
+	await _frames(2)
+	print("[wind] saved")
 	get_tree().quit()

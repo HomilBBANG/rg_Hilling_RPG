@@ -71,6 +71,7 @@ const ACTIONS := {
 	"preset_native": [KEY_4],
 	"cycle_camera_style": [KEY_V],
 	"toggle_outline": [KEY_O],
+	"toggle_wind": [KEY_B],
 	"toggle_sprites": [KEY_Z],
 	"toggle_fullscreen": [KEY_F11],
 	"toggle_pipeline": [KEY_M],
