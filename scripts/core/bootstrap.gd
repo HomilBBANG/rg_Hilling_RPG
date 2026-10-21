@@ -137,6 +137,11 @@ func _consume_pending_start() -> void:
 	SaveManager.apply_state({})
 	Game.start_world = Game.WORLD_EXTERIOR
 	Game.slot = slot if ps.get("new", false) else 0
+	if Game.slot > 0:
+		# a new character arrives alone (GDD 2.1/2.3): no cat, no camper yet — stage A.
+		# Tours and test runs keep the stage-C test defaults.
+		Game.has_camper = false
+		Game.cat_joined = false
 	Game.boot_note = "new" if Game.slot > 0 else ""
 
 
@@ -2881,7 +2886,8 @@ func _run_save_tour() -> void:
 			title.close_panel()
 			start_slot(1, true)
 		1:
-			print("[save] new game in slot 1 -> slot %d, file written %s, gold %d, day %d, region %s" % [Game.slot, SaveManager.exists(1), st.gold, Game.day, Game.region])
+			print("[save] new game in slot 1 -> slot %d, file written %s, gold %d, day %d, region %s, stage %s, camper visible %s, cat following %s" % [Game.slot,
+				SaveManager.exists(1), st.gold, Game.day, Game.region, Game.STAGE_NAMES[Game.story_stage()], world.vehicle.visible, world.cat.visible and Game.cat_joined])
 			st.gold = 777
 			st.level = 3
 			st.inventory.add("herb", 5)
@@ -2891,6 +2897,7 @@ func _run_save_tour() -> void:
 			Game.quests.accept("quest.rosa.jelly")
 			st.equipment["main"] = ItemDB.enhanced("iron_sword")
 			Game.cat_affection = 40
+			Game.set_story_stage(2)  # this character has met the cat and owns the camper (saved and restored below)
 			Game.day = 3
 			Game.minute_of_day = 16.5 * 60.0
 			var victim: String = world.monsters[0].monster_id
@@ -2950,8 +2957,8 @@ func _run_save_tour() -> void:
 			print("[save] continue slot 1 -> slot %d: gold %d, level %d, herb %d, knows berry jam %s, cooking mastery %d, flag %s, quest %s" % [
 				Game.slot, st.gold, st.level, st.inventory.count("herb"), st.knows_recipe("berry_jam"), st.mastery["cooking"],
 				Game.narrative.get_flag("tour.saved"), Game.quests.state("quest.rosa.jelly")])
-			print("[save]   sword '%s' (same id %s), cat %d, day %d %s, pos off %.2f m, yaw %.2f" % [ItemDB.item_name(st.equipment["main"]),
-				st.equipment["main"] == e["sword"], Game.cat_affection, Game.day, Game.clock_text(), p.global_position.distance_to(e["pos"]), p.facing_yaw()])
+			print("[save]   sword '%s' (same id %s), cat %d, stage %s, day %d %s, pos off %.2f m, yaw %.2f" % [ItemDB.item_name(st.equipment["main"]),
+				st.equipment["main"] == e["sword"], Game.cat_affection, "ABC"[Game.story_stage()], Game.day, Game.clock_text(), p.global_position.distance_to(e["pos"]), p.facing_yaw()])
 			print("[save]   dead monster stays dead %s, bag with items %s, crate iron ore %d (was 6, took 2)" % [not e["victim"] in ids, bag_ok, crate_ore])
 			await _frames(30)
 			await _p1_shot("save_05_continued", "slot 1 continued where it was saved", true)
