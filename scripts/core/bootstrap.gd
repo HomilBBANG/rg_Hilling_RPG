@@ -476,6 +476,8 @@ func _parse_args() -> void:
 		_run_craft_tour()
 	elif tour == "save":
 		_run_save_tour()
+	elif tour == "charcompare":
+		_run_char_compare_tour()
 	elif tour == "drive":
 		_run_drive_compare()
 	elif tour == "wind":
@@ -2837,3 +2839,66 @@ func _run_save_tour() -> void:
 
 func _slots_used() -> Array:
 	return range(1, SaveManager.SLOTS + 1).filter(func(i: int) -> bool: return SaveManager.exists(i))
+
+
+# ---------------------------------------------------------------- player v2 comparison (static model review)
+
+const PLAYER_V2_GLB := "res://assets/characters/player_v2/player_v2.glb"
+
+
+## The Blender player v2 model (art_src/player_v2) as a static prop, with the game's toon shading.
+## Review only: the playable character is not replaced until the static model is approved.
+func _player_v2_prop() -> Node3D:
+	var m: Node3D = (load(PLAYER_V2_GLB) as PackedScene).instantiate()
+	for mi in m.find_children("*", "MeshInstance3D", true, false):
+		var mesh := (mi as MeshInstance3D).mesh
+		for i in mesh.get_surface_count():
+			var src := mesh.surface_get_material(i) as StandardMaterial3D
+			if src == null:
+				continue
+			var mat := src.duplicate() as StandardMaterial3D
+			mat.diffuse_mode = BaseMaterial3D.DIFFUSE_TOON  # same cel look as ProtoMesh._stylize
+			mat.specular_mode = BaseMaterial3D.SPECULAR_DISABLED
+			mat.metallic = 0.0
+			mat.roughness = 0.06
+			mat.texture_filter = BaseMaterial3D.TEXTURE_FILTER_NEAREST
+			(mi as MeshInstance3D).set_surface_override_material(i, mat)
+	return m
+
+
+## Old and new player side by side at the real game camera / scale (camp, next to the camper and a
+## tree), with the baked-sprite player and with both drawn as live 3D through the pixel pipeline.
+func _run_char_compare_tour() -> void:
+	_touring = true
+	hud.show_help_panel(false)
+	Game.clock_running = false
+	Game.minute_of_day = 10.5 * 60.0
+	await wait_for_sprites()
+	var spots := [["camp", Vector3(-5.2, 0, 0.3), 2.0], ["tree", Vector3(-10.6, 0, 6.6), 2.0]]
+	var v2 := _player_v2_prop()
+	world.add_child(v2)
+	for spot: Array in spots:
+		var pos: Vector3 = spot[1]
+		var right := pos + Vector3(float(spot[2]), 0, 0)
+		v2.position = Vector3(right.x, world.ground_height(right.x, right.z), right.z)
+		v2.rotation.y = 0.5  # model faces +Z (towards the camera), turned 3/4 like the player
+		for mode in [true, false]:
+			sprites_enabled = mode
+			await wait_for_sprites()
+			_place_player(pos, PI + 0.5)
+			hud.set_capture_mode(true, "왼쪽: 현재 주인공 (%s) · 오른쪽: 새 원형 v2 (정지 모델, 실시간 3D) · %s" % ["베이크 스프라이트" if mode else "실시간 3D", style_name()])
+			await _frames(25)
+			await _shot("charcompare_%s_%s.png" % [spot[0], "baked" if mode else "live3d"])
+	sprites_enabled = true
+	print("[charcompare] v2 height %.2f m, old rig height %.2f m" % [_mesh_height(v2), _mesh_height(world.player.model)])
+	get_tree().quit()
+
+
+func _mesh_height(n: Node3D) -> float:
+	var lo := INF
+	var hi := -INF
+	for mi in n.find_children("*", "MeshInstance3D", true, false):
+		var aabb: AABB = (mi as MeshInstance3D).global_transform * (mi as MeshInstance3D).get_aabb()
+		lo = minf(lo, aabb.position.y)
+		hi = maxf(hi, aabb.end.y)
+	return hi - lo
