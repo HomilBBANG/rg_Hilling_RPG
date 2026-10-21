@@ -62,6 +62,9 @@ var quick_skills: Array[String] = ["", "", "", ""]
 var spells: Array[String] = []   ## learned magic / special skills (need a quickslot to use)
 var cooldowns := {}              ## spell id -> seconds left
 
+## Currency (GDD 16.1 [확정]: 골드). Starting amount [미정].
+var gold := 50
+
 var level := 1
 var gen_exp := 0    ## general EXP (combat, quests)
 var life_exp := 0   ## life EXP (life activities, quests) - no sources yet
@@ -174,6 +177,20 @@ func target_slot(id: String) -> String:
 ## Equip an item from the bag. One/two-hand rules (GDD 15.1): a two-handed weapon frees the off
 ## hand, an off-hand item puts a two-handed weapon away. Displaced items go back to the bag
 ## (even past the weight limit - you can't drop them mid-swap) [가정].
+## Blacksmith upgrade of an equipped piece; the slot keeps the (new instance) id.
+func enhance_equipped(slot: String) -> bool:
+	var id: String = equipment.get(slot, "")
+	if id == "" or not ItemDB.can_enhance(id):
+		return false
+	var cost := ItemDB.enhance_cost(id)
+	if gold < cost:
+		return false
+	gold -= cost
+	equipment[slot] = ItemDB.enhanced(id)
+	changed.emit()
+	return true
+
+
 func equip(id: String) -> bool:
 	if not ItemDB.is_equipment(id) or inventory.count(id) <= 0:
 		return false
@@ -307,6 +324,7 @@ func combat_profile() -> Dictionary:
 	var w := weapon()
 	return {"name": "주인공", "hit_bonus": total_hit_bonus(), "crit_chance": total_crit_chance(),
 		"phys": w.get("phys", "1d2"), "elem": w.get("elem", []), "str_mult": str_multiplier(),
+		"phys_bonus": w.get("phys_bonus", 0),
 		"ac": armor_class, "armor": total_armor()}
 
 

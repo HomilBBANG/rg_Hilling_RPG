@@ -259,6 +259,8 @@ func _parse_args() -> void:
 		_run_gear_tour()
 	elif tour == "items":
 		_run_items_tour()
+	elif tour == "shop":
+		_run_shop_tour()
 	elif tour == "drive":
 		_run_drive_compare()
 	elif tour == "wind":
@@ -1517,4 +1519,87 @@ func _run_items_tour() -> void:
 	game_hud.toggle_character()
 	await _p1_shot("items_06_character_spells", "character panel spells")
 	game_hud.close_panel()
+	get_tree().quit()
+
+
+# ---------------------------------------------------------------- P2-4 shop tour
+
+func _run_shop_tour() -> void:
+	Dice.rng.seed = 8
+	Game.clock_running = false
+	Game.minute_of_day = 10.5 * 60.0
+	await wait_for_sprites()
+	var st := Game.player_state
+	var p: PrototypePlayer = world.player
+	for kv in [["slime_jelly", 5], ["slime_core", 2], ["mana_shard", 1], ["leather_cap", 1]]:
+		st.inventory.add(kv[0], kv[1])
+	var rosa_stall: Vector3 = VisualLab.TRADE_STALLS[0][0]
+	var bron_stall: Vector3 = VisualLab.TRADE_STALLS[1][0]
+	_place_player(Vector3(-22.9, 0, 7.6), 0.0)
+	await _frames(20)
+	await _p1_shot("shop_01_trade_post_day", "trade post by day, merchants at the stalls")
+	# general store via the real E key
+	_place_player(rosa_stall + Vector3(0, 0, 1.5), 0.0)
+	await _frames(5)
+	await _key(KEY_E)
+	print("[shop] E at rosa -> panel %s" % game_hud._panel_kind)
+	await _p1_shot("shop_02_rosa_panel", "general store panel")
+	print("[shop] sell prices rosa: jelly %d, core %d (0 = won't buy), shard %d, cap %d" % [ShopDB.sell_price("rosa", "slime_jelly"), ShopDB.sell_price("rosa", "slime_core"), ShopDB.sell_price("rosa", "mana_shard"), ShopDB.sell_price("rosa", "leather_cap")])
+	print("[shop] sell prices bron: jelly %d, core %d, shard %d, cap %d, iron ore %d (rosa %d)" % [ShopDB.sell_price("bron", "slime_jelly"), ShopDB.sell_price("bron", "slime_core"), ShopDB.sell_price("bron", "mana_shard"), ShopDB.sell_price("bron", "leather_cap"), ShopDB.sell_price("bron", "iron_ore"), ShopDB.sell_price("rosa", "iron_ore")])
+	var g0 := st.gold
+	for i in 5:
+		ShopDB.sell("rosa", "slime_jelly")
+	var why := ShopDB.buy("rosa", "heal_potion", 25)
+	print("[shop] sold 5 jelly, bought a potion ('%s'): gold %d -> %d, potion stock %d" % [why, g0, st.gold, ShopDB.stock_left("rosa", "heal_potion")])
+	game_hud.close_panel()
+	# blacksmith: specialist buys rare goods; upgrade the sword
+	_place_player(bron_stall + Vector3(0, 0, 1.5), 0.0)
+	await _frames(5)
+	await _key(KEY_E)
+	g0 = st.gold
+	ShopDB.sell("bron", "slime_core")
+	ShopDB.sell("bron", "slime_core")
+	ShopDB.sell("bron", "mana_shard")
+	ShopDB.sell("bron", "leather_cap")
+	print("[shop] sold cores, shard, cap to the blacksmith: gold %d -> %d" % [g0, st.gold])
+	var ok := st.enhance_equipped("main")
+	print("[shop] upgrade sword: %s -> '%s' (%s), phys bonus %d, gold %d" % [ok, ItemDB.item_name(st.equipment["main"]), ItemDB.equip_summary(st.equipment["main"]), st.combat_profile()["phys_bonus"], st.gold])
+	game_hud._refresh_panel()
+	await _frames(3)
+	await _p1_shot("shop_03_blacksmith_panel", "blacksmith panel with upgrade")
+	game_hud.close_panel()
+	var res := Combat.resolve(st.combat_profile().merged({"hit_bonus": 100}, true), {"name": "허수아비", "ac": 1, "armor": 0})
+	print("[shop] hit with the +1 sword: %s" % res["detail"])
+	# restock: buy out potions, +1 day -> refilled; equipment needs 3 days
+	st.gold = 2000
+	while ShopDB.buy("rosa", "heal_potion", 25) == "":
+		pass
+	ShopDB.buy("bron", "leather_armor", 95)
+	print("[shop] bought out: potions %d, armour %d" % [ShopDB.stock_left("rosa", "heal_potion"), ShopDB.stock_left("bron", "leather_armor")])
+	Game.advance_minutes(1440.0)
+	ShopDB.restock("rosa")
+	ShopDB.restock("bron")
+	print("[shop] +1 day: potions %d (1-day cycle), armour %d (3-day cycle)" % [ShopDB.stock_left("rosa", "heal_potion"), ShopDB.stock_left("bron", "leather_armor")])
+	Game.advance_minutes(1440.0 * 2)
+	ShopDB.restock("bron")
+	print("[shop] +3 days: armour %d" % ShopDB.stock_left("bron", "leather_armor"))
+	# hours: closing time -> merchants walk home and disappear; the counter refuses
+	Game.minute_of_day = 19.9 * 60.0
+	await _frames(5)
+	_place_player(Vector3(-22.9, 0, 7.6), 0.0)
+	Game.minute_of_day = 20.0 * 60.0 + 1.0
+	await _seconds(1.0)
+	var rosa: Npc = world.npcs[0]
+	print("[shop] 20:00 -> rosa %s, visible %s" % [Npc.Where.keys()[rosa.where], rosa.visible])
+	await _p1_shot("shop_04_closing_walk_home", "closing: rosa walks home", true)
+	await _seconds(5.0)
+	print("[shop] later -> rosa %s, visible %s; bron %s" % [Npc.Where.keys()[rosa.where], rosa.visible, Npc.Where.keys()[world.npcs[1].where]])
+	_place_player(rosa_stall + Vector3(0, 0, 1.5), 0.0)
+	await _frames(5)
+	print("[shop] prompt at closed stall: '%s'" % p.focus.prompt_text())
+	await _key(KEY_E)
+	print("[shop] E at closed stall -> panel '%s'" % game_hud._panel_kind)
+	Game.minute_of_day = 8.0 * 60.0 + 1.0
+	await _seconds(4.0)
+	print("[shop] 08:00 -> rosa %s, visible %s" % [Npc.Where.keys()[rosa.where], rosa.visible])
 	get_tree().quit()

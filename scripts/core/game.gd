@@ -52,6 +52,8 @@ const CAT_AFFECTION_MAX := 100
 const SNACK_AFFECTION := 10
 ## Exterior persistence across scene reloads: dead monsters, corpses, death bags, camper parking.
 var field := {"dead": {}, "loot": [], "camper": {}}
+## Shop stock / restock times by shop id (ShopDB), kept across scene reloads.
+var shops := {}
 ## One-shot spawn instruction for the next world load (death wake-up, vehicle exit, ...).
 var spawn_override := {}
 ## Set when actors appear after a world load (respawn, cat joins): bootstrap re-applies sprites.

@@ -14,6 +14,8 @@ var alt_prompt := ""
 var alt_action: Callable
 ## Optional Callable() -> bool (e.g. only while the camper is owned).
 var enabled_func: Callable
+## Optional Callable() -> String for a prompt that changes (e.g. shop open / closed).
+var prompt_func: Callable
 
 
 static func make(parent: Node, pos: Vector3, text: String, cb: Callable, radius := 1.6) -> InteractPoint:
@@ -35,7 +37,7 @@ func can_interact() -> bool:
 
 
 func prompt_text() -> String:
-	return prompt
+	return prompt_func.call() if prompt_func.is_valid() else prompt
 
 
 func interact(player: Node) -> void:

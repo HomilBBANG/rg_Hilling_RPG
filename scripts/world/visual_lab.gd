@@ -28,6 +28,13 @@ const CHECKPOINTS := [
 	{"id": "camp", "name": "캠프 모닥불", "pos": Vector3(-1.0, 0.0, 4.8), "radius": 6.5, "marker": false},
 	{"id": "crossroad", "name": "갈림길 돌무지", "pos": Vector3(44.6, 0.0, 2.0), "radius": 5.0, "marker": true},
 	{"id": "lake", "name": "호숫가 쉼터", "pos": Vector3(24.5, 0.0, 25.8), "radius": 5.0, "marker": true},
+	{"id": "trade", "name": "길가 교역소", "pos": Vector3(-22.8, 0.0, 6.0), "radius": 7.0, "marker": false},
+]
+## Trade post west of the camp (P2-4): stalls with a merchant each, their houses behind.
+## [stall position, shop id / look, house position]
+const TRADE_STALLS := [
+	[Vector3(-20.2, 0.0, 4.4), "rosa", Vector3(-20.6, 0.0, -0.8)],
+	[Vector3(-25.6, 0.0, 4.2), "bron", Vector3(-26.4, 0.0, -1.2)],
 ]
 const CAT_ENCOUNTER_POS := Vector3(7.5, 0.0, 3.0)
 const CRATE_POS := Vector3(-4.6, 0.0, 2.9)  # inside the camper's turning circle: clear of its way out
@@ -39,6 +46,7 @@ var camper: CamperExterior
 var vehicle: CamperVehicle
 var monsters: Array[SlimeMonster] = []
 var cat: CatCompanion
+var npcs: Array[Npc] = []
 var sun: DirectionalLight3D
 var day_night: DayNightController
 var occlusion_mode: Occlusion = Occlusion.SILHOUETTE
@@ -223,6 +231,7 @@ func _build_landmarks() -> void:
 	var shed := _on_ground(NatureProps.shed(), -19.0, 13.0)
 	_register_occluder(shed, 2.6, 3.4)
 	_block(-19, 13, 3.0)
+	_build_trade_post()
 	for cp: Dictionary in CHECKPOINTS:
 		var cpos: Vector3 = cp["pos"]
 		if cp["marker"]:
@@ -412,6 +421,7 @@ func _spawn_actors() -> void:
 		if dead_at < 0.0:
 			_spawn_monster(spec)
 	_spawn_cat(ov.get("kind", "") == "checkpoint" and Game.cat_joined)
+	_spawn_npcs()
 
 	camera = TopdownCamera.new()
 	camera.name = "Camera"
@@ -434,6 +444,8 @@ func sprite_targets() -> Array:
 		out.append([camper, CamperExterior.sprite_bake_spec(CAMPER_YAW_DEG), "camper"])
 	if cat:
 		out.append([cat, CatCompanion.sprite_bake_spec(), "cat"])
+	for n in npcs:
+		out.append([n, Npc.sprite_bake_spec(n.look), "npc_" + n.look])
 	return out
 
 
@@ -551,6 +563,84 @@ func drop_death_loot(pos: Vector3) -> Dictionary:
 			"pos": Vector3(pos.x, ground_height(pos.x, pos.z), pos.z), "inv": bag, "expires": -1.0}
 		Game.field["loot"].append(d)
 	return {"taken": taken, "left": bag.unit_count()}
+
+
+func _build_trade_post() -> void:
+	var wood := ProtoMesh.mat(Color(0.6, 0.42, 0.26))
+	var dark := ProtoMesh.mat(Color(0.38, 0.26, 0.16))
+	var cloths := {"rosa": [Color(0.36, 0.62, 0.46), Color(0.95, 0.9, 0.78)], "bron": [Color(0.72, 0.28, 0.22), Color(0.5, 0.5, 0.54)]}
+	for spec: Array in TRADE_STALLS:
+		var p: Vector3 = spec[0]
+		var shop_id: String = spec[1]
+		var root := _on_ground(Node3D.new(), p.x, p.z)
+		# counter + striped canopy on four posts
+		ProtoMesh.box(root, Vector3(2.2, 0.9, 0.7), Vector3(0, 0.45, 0), wood)
+		ProtoMesh.box(root, Vector3(2.3, 0.06, 0.8), Vector3(0, 0.92, 0), dark)
+		# canopy set high and back over the keeper so the camera still sees their face beneath it
+		for x in [-1.1, 1.1]:
+			for z in [-1.4, 0.05]:
+				ProtoMesh.box(root, Vector3(0.08, 2.85, 0.08), Vector3(x, 1.425, z), dark)
+		var cols: Array = cloths[shop_id]
+		for i in 6:
+			ProtoMesh.box(root, Vector3(0.4, 0.04, 1.7), Vector3(-1.0 + i * 0.4, 2.87, -0.65), ProtoMesh.mat(cols[i % 2]), Vector3(-8, 0, 0))
+		if shop_id == "rosa":  # goods on the counter: bottles, bread, a crate
+			for i in 4:
+				ProtoMesh.cylinder(root, 0.05, 0.16, Vector3(-0.8 + i * 0.18, 1.03, -0.05), ProtoMesh.mat([Color(0.85, 0.25, 0.25), Color(0.3, 0.7, 0.4), Color(0.3, 0.5, 0.9)][i % 3], 0.3), Vector3.ZERO, 6)
+			ProtoMesh.sphere(root, 0.1, Vector3(0.4, 1.0, 0.0), ProtoMesh.mat(Color(0.8, 0.56, 0.28)), Vector3(1.3, 0.7, 1), 8, 4)
+			ProtoMesh.box(root, Vector3(0.5, 0.4, 0.5), Vector3(1.6, 0.2, -0.3), wood)
+		else:  # forge: anvil, glowing hearth, a rack of blades
+			ProtoMesh.box(root, Vector3(0.5, 0.18, 0.22), Vector3(1.75, 0.62, -0.2), ProtoMesh.mat(Color(0.3, 0.31, 0.35), 0.4))
+			ProtoMesh.box(root, Vector3(0.22, 0.5, 0.2), Vector3(1.75, 0.27, -0.2), dark)
+			ProtoMesh.box(root, Vector3(0.9, 0.7, 0.8), Vector3(-1.7, 0.35, -0.6), ProtoMesh.mat(Color(0.45, 0.42, 0.4)))
+			var glow := ProtoMesh.box(root, Vector3(0.5, 0.12, 0.5), Vector3(-1.7, 0.72, -0.6), ProtoMesh.mat(Color(1.0, 0.5, 0.2), 0.8, Color(1.0, 0.45, 0.15), 2.5))
+			glow.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+			for i in 3:
+				ProtoMesh.box(root, Vector3(0.05, 0.6, 0.02), Vector3(-0.5 + i * 0.25, 1.25, -0.02), ProtoMesh.mat(Color(0.8, 0.83, 0.87), 0.3), Vector3(0, 0, 8))
+		ProtoMesh.static_box_collider(self, Vector3(2.3, 2.0, 0.8), Vector3(p.x, 0.5, p.z))
+		_block(p.x, p.z, 2.4)
+		# house behind the stall
+		var h: Vector3 = spec[2]
+		_on_ground(NatureProps.shed(), h.x, h.z)
+		ProtoMesh.static_box_collider(self, Vector3(3.3, 4.0, 2.7), Vector3(h.x, 1.0, h.z))
+		_block(h.x, h.z, 3.0)
+		# the counter interaction for the customer side (south, toward the path)
+		var ip := InteractPoint.make(self, Vector3(p.x, 0.0, p.z + 0.9), "", Callable(), 1.4)
+		ip.prompt_func = func() -> String:
+			var n := _npc_for(shop_id)
+			if n and n.is_working():
+				return "E 거래하기 — %s" % ShopDB.info(shop_id)["name"]
+			return "%s — 영업 종료 (%s)" % [ShopDB.info(shop_id)["name"], ShopDB.hours_text(shop_id)]
+		ip.action = func(_pl: Node) -> void:
+			var n := _npc_for(shop_id)
+			if n and n.is_working():
+				Game.hud.open_shop(shop_id, ip)
+			else:
+				Game.boot.hud.toast("%s은(는) 지금 문을 닫았다 — 영업시간 %s" % [ShopDB.info(shop_id)["name"], ShopDB.hours_text(shop_id)])
+	_on_ground(NatureProps.signpost(), -22.8, 6.8)
+
+
+func _spawn_npcs() -> void:
+	for spec: Array in TRADE_STALLS:
+		var n := Npc.new()
+		var p: Vector3 = spec[0]
+		var h: Vector3 = spec[2]
+		n.name = "Npc_" + spec[1]
+		n.look = spec[1]
+		n.shop_id = spec[1]
+		n.counter_pos = p + Vector3(0.0, 0.0, -0.75)
+		n.counter_yaw = PI  # faces the customers on the path side
+		n.door_pos = h + Vector3(0.5, 0.0, 1.6)
+		n.height_func = Callable(self, "ground_height")
+		n.player = player
+		add_child(n)
+		npcs.append(n)
+
+
+func _npc_for(shop_id: String) -> Npc:
+	for n in npcs:
+		if n.shop_id == shop_id:
+			return n
+	return null
 
 
 func _build_checkpoint_marker(p: Vector3) -> void:

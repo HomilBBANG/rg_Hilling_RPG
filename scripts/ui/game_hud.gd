@@ -527,6 +527,104 @@ func toggle_inventory() -> void:
 		v.add_child(_button("닫기 (Tab)", close_panel)), 1180)
 
 
+## Merchant (GDD 16): buy limited stock at the shop's price, sell bag items at this merchant's
+## rate (0 = doesn't buy: rare goods only to specialists). The blacksmith also upgrades the
+## equipped weapon / armour for gold (GDD 15.3: always succeeds).
+func open_shop(shop_id: String, source: Node3D) -> void:
+	if _panel_kind == "shop":
+		close_panel()
+		return
+	ShopDB.restock(shop_id)
+	var shop := ShopDB.info(shop_id)
+	var st := Game.player_state
+	_open("shop", source, 2.6, func(v: VBoxContainer) -> void:
+		v.add_child(_row_label("%s — 주인 %s · 영업 %s · 보유 %d 골드" % [shop["name"], shop["keeper"], ShopDB.hours_text(shop_id), st.gold], 1100, 26, Color(1.0, 0.9, 0.6)))
+		v.add_child(_row_label(_weight_line(), 1100, 18, Color(0.8, 0.84, 0.88)))
+		var cols := HBoxContainer.new()
+		cols.add_theme_constant_override("separation", 26)
+		v.add_child(cols)
+		var left := VBoxContainer.new()
+		var right := VBoxContainer.new()
+		cols.add_child(left)
+		cols.add_child(right)
+		left.add_child(_row_label("판매 물품", 300, 22, Color(1.0, 0.9, 0.6)))
+		for e: Array in shop["stock"]:
+			var id: String = e[0]
+			var price: int = e[1]
+			var left_n := ShopDB.stock_left(shop_id, id)
+			var row := HBoxContainer.new()
+			row.add_child(_row_label(ItemDB.item_name(id), 190, 20))
+			row.add_child(_row_label("%d g" % price, 70, 19, Color(1.0, 0.85, 0.4)))
+			row.add_child(_row_label("재고 %d/%d" % [left_n, e[2]], 100, 18, Color(0.72, 0.76, 0.8)))
+			var b := _button("구매", func() -> void:
+				var why := ShopDB.buy(shop_id, id, price)
+				if why != "":
+					boot.hud.toast(why)
+				else:
+					Game.combat_log.add("구매: %s (-%d 골드)" % [ItemDB.item_name(id), price], "", "info")
+				_refresh_panel())
+			b.disabled = left_n <= 0 or st.gold < price
+			b.tooltip_text = ItemDB.equip_summary(id) if ItemDB.is_equipment(id) else ItemDB.info(id).get("desc", "")
+			row.add_child(b)
+			left.add_child(row)
+		var groups := PackedStringArray()
+		for g: String in ShopDB.state(shop_id)["last"]:
+			var left_min: float = ShopDB.RESTOCK_DAYS[g] * 1440.0 - (Game.total_minutes() - ShopDB.state(shop_id)["last"][g])
+			groups.append("재입고 · %s %d일 주기 (다음 %d시간 후)" % [{"consumable": "생필품·소모품", "material": "일반 재료", "rare": "희귀 재료", "equip": "특수 장비"}[g],
+				ShopDB.RESTOCK_DAYS[g], ceili(left_min / 60.0)])
+		for g_text in groups:
+			left.add_child(_row_label(g_text, 520, 16, Color(0.66, 0.7, 0.74)))
+		right.add_child(_row_label("내 물건 팔기", 300, 22, Color(1.0, 0.9, 0.6)))
+		_items_list(right, st.inventory, func(h: HBoxContainer, id: String, count: int) -> void:
+			var price := ShopDB.sell_price(shop_id, id)
+			if price <= 0:
+				h.add_child(_row_label("안 삼", 80, 17, Color(0.6, 0.62, 0.66)))
+				return
+			h.add_child(_row_label("%d g" % price, 60, 19, Color(1.0, 0.85, 0.4)))
+			h.add_child(_button("팔기", func() -> void:
+				var got := ShopDB.sell(shop_id, id)
+				if got > 0:
+					Game.combat_log.add("판매: %s (+%d 골드)" % [ItemDB.item_name(id), got], "", "info")
+				_refresh_panel()))
+			if count > 1:
+				h.add_child(_button("모두", func() -> void:
+					var total := 0
+					for i in count:
+						total += ShopDB.sell(shop_id, id)
+					Game.combat_log.add("판매: %s ×%d (+%d 골드)" % [ItemDB.item_name(id), count, total], "", "info")
+					_refresh_panel())), "팔 물건이 없다")
+		if shop.get("smith", false):
+			v.add_child(_row_label("장비 강화 — 착용 중인 무기·방어구, 100%% 성공 (실패·하락·파괴 없음) · 최대 +%d" % ItemDB.MAX_ENHANCE, 1100, 22, Color(1.0, 0.9, 0.6)))
+			var any := false
+			for slot: String in ItemDB.SLOT_ORDER:
+				var eid: String = st.equipment[slot]
+				if eid == "" or not (ItemDB.info(eid).has("phys") or ItemDB.info(eid).has("armor")):
+					continue
+				any = true
+				var row2 := HBoxContainer.new()
+				row2.add_child(_row_label(ItemDB.SLOT_NAMES[slot], 100, 19, Color(0.72, 0.76, 0.8)))
+				row2.add_child(_row_label(ItemDB.item_name(eid), 300, 20))
+				row2.add_child(_row_label(ItemDB.equip_summary(eid), 330, 17, Color(0.72, 0.76, 0.8)))
+				if ItemDB.can_enhance(eid):
+					var cost := ItemDB.enhance_cost(eid)
+					var kind := "물리 피해 +1" if ItemDB.info(eid).has("phys") else "방어 +1"
+					var eb := _button("강화 (%d g, %s)" % [cost, kind], func() -> void:
+						if st.enhance_equipped(slot):
+							Game.combat_log.add("강화 성공: %s (-%d 골드)" % [ItemDB.item_name(st.equipment[slot]), cost], "", "info")
+							boot.hud.toast("강화 성공 — %s" % ItemDB.item_name(st.equipment[slot]))
+						else:
+							boot.hud.toast("골드가 부족하다")
+						_refresh_panel())
+					eb.disabled = st.gold < cost
+					row2.add_child(eb)
+				else:
+					row2.add_child(_row_label("최대 강화", 120, 18, Color(0.6, 0.62, 0.66)))
+				v.add_child(row2)
+			if not any:
+				v.add_child(_row_label("  강화할 장비를 착용하고 오세요", 600, 18, Color(0.7, 0.74, 0.78)))
+		v.add_child(_button("닫기 (E)", close_panel)), 1220)
+
+
 func _player() -> PrototypePlayer:
 	var w: Node = boot.world if boot else null
 	return w.player if w and is_instance_valid(w) and w.get("player") else null
@@ -696,7 +794,7 @@ func toggle_character() -> void:
 
 
 func _on_player_changed() -> void:
-	if _panel_kind in ["inventory", "loot", "storage", "character"]:
+	if _panel_kind in ["inventory", "loot", "storage", "character", "shop"]:
 		_refresh_panel()
 
 
@@ -708,7 +806,7 @@ func _process(delta: float) -> void:
 	var lines := PackedStringArray()
 	lines.append("Lv %d · EXP %d / %d%s" % [st.level, st.gen_exp, st.exp_to_next(),
 		"  ▲ 레벨업 가능 (C)" if st.can_level_up() else ("  ● 능력치 포인트 %d (C)" % st.stat_points if st.stat_points > 0 else "")])
-	lines.append("%s %s · %d일차" % [Game.clock_text(), "밤" if Game.is_night() else "낮", Game.day])
+	lines.append("%s %s · %d일차 · %d 골드" % [Game.clock_text(), "밤" if Game.is_night() else "낮", Game.day, st.gold])
 	var wl := "중량 %.1f / %.0f kg (한계 %.0f)" % [st.carried_weight(), st.carry_capacity(), st.carry_limit()]
 	if st.speed_factor() < 0.999:
 		wl += " — %s, 이동 ×%.2f" % [st.weight_state(), st.speed_factor()]

@@ -20,6 +20,7 @@
 | 실내 | 문 매트 `E` 밖으로, 오른쪽 아래 선반 `E` **창고**(개별/모두/소지품 전체 옮기기), 간이침대 `E` **수면**(1~12시간, HP 10%) |
 | 고양이 | 실내에 항상 있음: `E` 쓰다듬기, `R` 간식(소지품의 고양이 간식 1개 → 호감도 +10). 창고에 간식 6개가 있음 |
 | 사망/복귀 | 캠핑카 보유(단계 C) → 실내 간이침대 옆에서 기상. 미보유(A/B) → 가장 가까운 안전 체크포인트(캠프 모닥불·갈림길 돌무지·호숫가 쉼터). B에서는 고양이가 곁을 돌다 앉음. 가방의 일부는 고블린이 가져가고 나머지는 쓰러진 자리의 "짐 꾸러미"로 남음 |
+| 상점·NPC (P2-4) | 캠프 서쪽 길가 **교역소**: 로사의 잡화점(08~20시)·브론의 대장간(09~18시). 계산대 앞 `E`로 거래 — 사기·팔기(상인마다 매입가가 다르고, 희귀 재료는 대장간만 삼). 재고는 1일/3일마다 다시 채워짐. 대장간에서 착용 장비 **강화**(100% 성공, 최대 +3). 문 닫는 시각이면 주인이 집으로 걸어 들어가고 거래 불가. 골드는 HUD에 표시(시작 50) |
 | 소모품·퀵슬롯 (P2-3) | `1`~`4` 소모품 퀵슬롯, `5`~`8` 스킬·마법 퀵슬롯. 물약은 0.8초 마시는 동안 천천히 이동, 빵·통조림은 멈춰서 먹음 — 동작이 끝나야 효과, **사용 중 맞으면 중단되고 아이템은 남음**. Tab에서 사용·등록, 보급 상자의 '마법서: 작은 치유'를 읽으면 마법을 배워 5번 칸에 등록(MP 8, 재사용 3초) |
 | 장비 (P2-2) | `Tab`에서 장착/해제: 머리·몸통·장갑·신발·목걸이·반지 2·허리띠·주무기/보조 손. 양손 무기(불꽃 장검)는 보조 손을 비움. 교체는 0.6초 동작 뒤 적용(그동안 공격 불가). 방어구가 받는 피해를 줄이고, 일부 드롭 장비에는 무작위 옵션. 등불은 등불 허리띠가 있어야 켤 수 있음. 시험용 장비: 캠핑카 창고·캠프 보급 상자 |
 | 성장 (P2-1) | 몬스터 처치 시 일반 EXP. **자동 레벨업 없음**: `C` 능력치 창에서 직접 레벨업(능력치 포인트 +1) → 7종 능력치에 투자, 또는 EXP로 기본 스킬(명중 훈련·급소 노리기·짐 꾸리기 요령) 습득. HUD에 "레벨업 가능" 표시 |
@@ -65,7 +66,7 @@ git clone -b claude/gallant-edison-84bkyp https://github.com/HomilBBANG/rg_Hilli
 |---|---|
 | `WASD` / 방향키 | 이동 (걷기 SP 0, `Shift` 달리기 SP 8/초) |
 | 마우스 왼쪽 클릭 | 기본 공격 1회 (마우스 방향, 누르고 있어도 반복 안 함, SP 4) |
-| `E` / `R` | 조사·상호작용(시체·상자·짐 꾸러미·문·운전석·창고·침대·고양이) / 고양이 간식 |
+| `E` / `R` | 조사·상호작용(시체·상자·짐 꾸러미·문·운전석·창고·침대·고양이·상점 계산대) / 고양이 간식 |
 | `Tab` | 소지품 (열어도 게임은 멈추지 않음) |
 | `C` | 능력치 창: 일반 EXP로 레벨업(능력치 포인트 +1)·능력치 투자·기본 스킬 습득 (자동 레벨업 없음) |
 | `G` | 전투 로그 1 → 2 → 3단계 |
@@ -139,7 +140,7 @@ captures/visual_direction/  카메라 A/B/C 비교 (디오라마 방향)
 captures/p0_baseline/       P0 테스트 장면 6종 + 렌더 모드 비교 + 이동 영상
 captures/sprite_pipeline/   구운 스프라이트 시트(sheets/) + 베이크 vs 실시간 3D 비교
 captures/p1/                P1 흐름 검증 캡처 19장 (--tour=p1)
-captures/p2/                P2-1 성장(레벨업·능력치·기본 스킬) 캡처 + 철검 스프라이트 시트 (--tour=p2)
+captures/p2/                P2 캡처: 성장(--tour=p2), 장비(--tour=gear), 소모품(--tour=items), 상점·NPC(--tour=shop)
 notes/             VISUAL_DIRECTION.md, VISUAL_COMPARISON.md, IMPLEMENTATION_ASSUMPTIONS.md
 docs/              GDD.md(v10.2), CAT_COMPANION_HANDOFF.md, GRAPHICS_PROTOTYPE.md, CLAUDE_CODE_HANDOFF.md
 ```
@@ -156,6 +157,8 @@ docs/              GDD.md(v10.2), CAT_COMPANION_HANDOFF.md, GRAPHICS_PROTOTYPE.m
 Godot.exe --path C:/Game/denial -- --tour=p1 --capture-dir=C:/Game/denial/captures/p1
 :: 같은 흐름을 실제 키 입력 이벤트로 점검 (콘솔에 [input] 결과 출력)
 Godot.exe --path C:/Game/denial -- --tour=p1input
+:: P2 상점·NPC: 교역소·잡화점·대장간 강화·귀가 (콘솔에 [shop] 결과 출력)
+Godot.exe --path C:/Game/denial -- --tour=shop --capture-dir=C:/Game/denial/captures/p2
 :: 카메라 A/B/C 비교 8장
 Godot.exe --path C:/Game/denial -- --tour=styles --capture-dir=C:/Game/denial/captures/visual_direction
 :: P0 스크린샷 18장

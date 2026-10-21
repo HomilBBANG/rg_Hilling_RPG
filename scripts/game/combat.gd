@@ -28,8 +28,9 @@ static func resolve(attacker: Dictionary, defender: Dictionary) -> Dictionary:
 	res["crit"] = crit
 	var phys := Dice.roll(attacker["phys"])
 	var str_mult: float = attacker.get("str_mult", 1.0)
-	var phys_dmg := roundi(phys["total"] * str_mult)
-	var parts := PackedStringArray(["물리 %s×%.1f=%d" % [phys["text"], str_mult, phys_dmg]])
+	var phys_bonus: int = attacker.get("phys_bonus", 0)  # blacksmith upgrade, flat
+	var phys_dmg := roundi(phys["total"] * str_mult) + phys_bonus
+	var parts := PackedStringArray(["물리 %s×%.1f%s=%d" % [phys["text"], str_mult, "+%d(강화)" % phys_bonus if phys_bonus > 0 else "", phys_dmg]])
 	var total := phys_dmg
 	for e: Dictionary in attacker.get("elem", []):
 		var r := Dice.roll(e["dice"])
