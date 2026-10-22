@@ -318,6 +318,21 @@ func set_story_stage(stage: int) -> void:
 	story_changed.emit()
 
 
+## The king's wish (GDD 2.1 / 2.3 step 5): the camper appears where data/story.json "camper_wish"
+## parks it (in front of the castle), tank full and undamaged. Only once; false if already owned.
+func receive_camper() -> bool:
+	if has_camper:
+		return false
+	var w: Dictionary = CutsceneData.story().get("camper_wish", {})
+	camper = {"region": str(w.get("region", "capital")), "pos": RegionDB.v3(w.get("pos", [0, 0])), "yaw": float(w.get("yaw", 0.0))}
+	camper_fuel = CAMPER_FUEL_MAX
+	camper_durability = CAMPER_DURABILITY_MAX
+	has_camper = true
+	narrative.set_flag("story.camper_received")
+	story_changed.emit()
+	return true
+
+
 func camper_broken() -> bool:
 	return camper_durability <= 0.0
 

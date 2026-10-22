@@ -78,4 +78,6 @@ func _apply(action: String, args: Dictionary) -> String:
 			return "이벤트 완료 기록: %s" % args.get("event_id", "")
 		"learn_recipe":
 			return "레시피 습득(미리보기): %s" % args.get("recipe_id", "")
+		"receive_camper":
+			return "캠핑카 받음(미리보기)"
 	return "지원하지 않는 액션 %s — 무시" % action

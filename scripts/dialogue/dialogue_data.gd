@@ -42,6 +42,7 @@ const ACTIONS := {
 		{"name": "outcome", "type": "outcome", "label": "결과(분기)", "default": ""}]},
 	"mark_event_complete": {"label": "이벤트 완료 기록", "args": [{"name": "event_id", "type": "event", "label": "이벤트 ID"}]},
 	"learn_recipe": {"label": "레시피 가르치기", "args": [{"name": "recipe_id", "type": "recipe", "label": "레시피"}]},
+	"receive_camper": {"label": "캠핑카 받기 (왕의 소원)", "args": []},
 }
 
 ## Read-only queries for Condition nodes and choice-option conditions.

@@ -530,6 +530,8 @@ func _parse_args() -> void:
 		_run_dragon_road_tour()
 	elif tour == "dragon":
 		_run_dragon_tour()
+	elif tour == "wish":
+		_run_wish_tour()
 	elif tour == "drive":
 		_run_drive_compare()
 	elif tour == "wind":
@@ -2462,6 +2464,99 @@ func _run_dragon_tour() -> void:
 	_place_player(Vector3(0, 0, -6), 0.0)
 	await _seconds(0.8)
 	await _p1_shot("dragon_22_remains", "remains in the lair", true)
+	get_tree().quit()
+
+
+## Reporting the dragon to the king: dragon quest done (stage B, no camper yet) → throne room →
+## "think about it" first (nothing changes) → the camper wish → wish cutscene → quest complete →
+## camper parked in front of the castle (stage C) → out of the castle to the camper, into the
+## driver's seat → talking to the king once more.
+func _run_wish_tour() -> void:
+	Game.clock_running = false
+	Game.minute_of_day = 11.0 * 60.0
+	await wait_for_sprites()
+	var derr := DialogueData.validate(DialogueData.load_dialogue("dialogue.story.king_audience"))
+	var cerr := CutsceneData.validate(CutsceneData.load_cutscene("cutscene.camper_wish"))
+	print("[wish] data check: king dialogue %d issues %s, wish cutscene %d issues %s" % [derr.size(), derr, cerr.size(), cerr])
+	Game.narrative.set_flag("story.new_game_seen")
+	Game.set_story_stage(1)  # with the cat, no camper yet
+	Game.quests.accept("quest.main.audience")
+	Game.quests.advance("quest.main.audience", "audience")
+	Game.quests.complete("quest.main.audience")
+	Game.quests.accept("quest.main.dragon")
+	for f in ["story.pass_reached", "story.nest_found", "story.dragon_defeated"]:
+		Game.narrative.set_flag(f)
+	Game.quests.advance("quest.main.dragon", "dragon")
+	print("[wish] before: stage %s, camper %s, dragon quest %s" % ["ABC"[Game.story_stage()], Game.has_camper, Game.quests.state("quest.main.dragon")])
+	travel("throne_room", "entrance", false)
+	await _wait_travel()
+	var talk := func(pick: String, shots: Dictionary) -> PackedStringArray:
+		_place_player(Vector3(0, 0, -5.2), 0.0)
+		await _frames(6)
+		await _key(KEY_E)
+		await _frames(4)
+		var said := PackedStringArray()
+		var shot_cut := false
+		for i in 60:
+			if not game_hud.dialogue_active() and not game_hud.cutscene.playing:
+				break
+			if game_hud.cutscene.playing:
+				await _seconds(0.5)
+				if not shot_cut and shots.has("cutscene"):
+					shot_cut = true
+					await _seconds(2.0)  # past the fade: the illustration card + narration
+					await _p1_shot(shots["cutscene"], "wish cutscene", true)
+				if game_hud.cutscene.playing:  # (it may have just ended: then E belongs to the next line)
+					var tag := "[컷씬 %s]" % game_hud.cutscene.current
+					said.append(tag if not said.has(tag) else "")
+					await _key(KEY_E)
+				continue
+			var ev: Dictionary = game_hud.dialogue.event
+			await _seconds(0.2)
+			if shots.has(ev.get("node", "")):
+				await _p1_shot(shots[ev["node"]], ev["node"], true)
+			match ev.get("type", ""):
+				"line":
+					said.append("%s: %s" % [ev["name"], str(ev["text"]).split("\n")[0].substr(0, 34)])
+					await _key(KEY_E)
+				"choice":
+					said.append("[선택 %s]" % pick)
+					game_hud.dialogue.choose(pick)
+					await _frames(3)
+				_:
+					await _frames(3)
+		var out := PackedStringArray()
+		for t in said:
+			if t != "":
+				out.append(t)
+		return out
+	var s1: PackedStringArray = await talk.call("later", {"wish": "wish_01_report_choice"})
+	print("[wish] talk 1:   %s" % " | ".join(s1))
+	print("[wish] after 'later': quest %s, camper %s" % [Game.quests.state("quest.main.dragon"), Game.has_camper])
+	await _seconds(0.6)
+	var exp0 := Game.player_state.gen_exp
+	var s2: PackedStringArray = await talk.call("camper", {"r4": "wish_02_camper", "cutscene": "wish_03_cutscene", "r8": "wish_04_got_it"})
+	print("[wish] talk 2:   %s" % " | ".join(s2))
+	print("[wish] after the wish: quest %s, EXP +%d, stage %s, camper %s at %s %s, flag %s, event %s" % [Game.quests.state("quest.main.dragon"),
+		Game.player_state.gen_exp - exp0, "ABC"[Game.story_stage()], Game.has_camper, Game.camper.get("region", ""), Game.camper.get("pos", ""),
+		Game.narrative.get_flag("story.camper_received"), Game.narrative.event_done("story.camper_wish")])
+	await _seconds(0.6)
+	var s3: PackedStringArray = await talk.call("", {})
+	print("[wish] talk 3:   %s" % " | ".join(s3))
+	# out of the castle: the camper waits in front of it
+	_place_player(Vector3(0, 0, 8.6), PI)
+	await _seconds(1.2)
+	await _wait_travel()
+	await _seconds(0.8)
+	print("[wish] castle -> %s at (%.1f, %.1f): camper here %s, visible %s at (%.1f, %.1f), cat %s" % [Game.region, world.player.global_position.x,
+		world.player.global_position.z, world.camper_here(), world.vehicle.visible, world.vehicle.global_position.x, world.vehicle.global_position.z,
+		world.cat != null])
+	_place_player(Vector3(-4.0, 0, -16.0), PI)
+	await _seconds(1.0)
+	await _p1_shot("wish_05_camper_at_castle", "the camper on the plaza in front of the castle", true)
+	world.enter_vehicle()
+	await _frames(4)
+	print("[wish] driver's seat: driving %s, power %.2f, %s" % [world.vehicle.driving, world.vehicle.power, Game.camper_status_text()])
 	get_tree().quit()
 
 

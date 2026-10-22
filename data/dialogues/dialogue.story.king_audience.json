@@ -7,13 +7,141 @@
       "story",
       "main"
     ],
-    "notes": "GDD 2.1 [확정]: 세계에 온 직후 혼자 여행 → 왕에게 드래곤 처치 퀘스트를 받고 모험을 떠난다 → 그 뒤 고양이가 나타남. 처치 후 소원(→ 캠핑카). 대사는 임시."
+    "notes": "GDD 2.1 [확정]: 세계에 온 직후 혼자 여행 → 왕에게 드래곤 처치 퀘스트를 받고 모험을 떠난다 → 그 뒤 고양이가 나타남. 처치 후 소원(→ 캠핑카). 대사는 임시. 드래곤 처치 후(퀘스트 '목표 달성') 보고 → 소원 선택 → 컷씬 → 퀘스트 완료 → 캠핑카 받기."
   },
   "start_node_id": "start",
   "nodes": [
     {
       "id": "start",
       "type": "start"
+    },
+    {
+      "id": "cond_ready",
+      "type": "condition",
+      "check": {
+        "kind": "quest",
+        "quest_id": "quest.main.dragon",
+        "state": "ready"
+      }
+    },
+    {
+      "id": "r1",
+      "type": "line",
+      "speaker_id": "king",
+      "text": "돌아왔는가…! 북쪽 하늘의 연기가 걷혔다는 보고가 들어왔다.\n정말로 드래곤을 쓰러뜨렸단 말인가! (임시 대사)"
+    },
+    {
+      "id": "r2",
+      "type": "line",
+      "speaker_id": "player",
+      "text": "네… 어떻게든 해냈어요. 솔직히 아직도 실감이 안 나지만요. (임시 대사)"
+    },
+    {
+      "id": "r3",
+      "type": "line",
+      "speaker_id": "king",
+      "text": "예언이 옳았구나. 약속대로 무엇이든 소원 하나를 들어주겠다. 말해 보아라. (임시 대사)"
+    },
+    {
+      "id": "wish",
+      "type": "choice",
+      "options": [
+        {
+          "port": "camper",
+          "text": "캠핑카를 주세요!"
+        },
+        {
+          "port": "later",
+          "text": "조금만 생각해 볼게요."
+        }
+      ]
+    },
+    {
+      "id": "r_later",
+      "type": "line",
+      "speaker_id": "king",
+      "text": "서두를 것 없다. 소원이 정해지면 다시 오너라. (임시 대사)"
+    },
+    {
+      "id": "end_later",
+      "type": "end",
+      "complete_event": ""
+    },
+    {
+      "id": "r4",
+      "type": "line",
+      "speaker_id": "king",
+      "text": "캠핑…카? 처음 듣는 물건이로구나. (임시 대사)"
+    },
+    {
+      "id": "r5",
+      "type": "line",
+      "speaker_id": "player",
+      "text": "바퀴 달린 집이에요. 잠도 자고, 밥도 해 먹고, 어디든 달려갈 수 있는… (임시 대사)"
+    },
+    {
+      "id": "r6",
+      "type": "line",
+      "speaker_id": "king",
+      "text": "허허, 기묘한 소원이로군. 좋다 — 궁정 마법사들을 불러라! (임시 대사)"
+    },
+    {
+      "id": "cut_wish",
+      "type": "cutscene",
+      "cutscene_id": "cutscene.camper_wish"
+    },
+    {
+      "id": "act_report",
+      "type": "action",
+      "action": "quest_complete",
+      "args": {
+        "quest_id": "quest.main.dragon",
+        "outcome": ""
+      }
+    },
+    {
+      "id": "act_camper",
+      "type": "action",
+      "action": "receive_camper",
+      "args": {}
+    },
+    {
+      "id": "r7",
+      "type": "line",
+      "speaker_id": "king",
+      "text": "그대의 '캠핑카'는 성 앞 광장에 두었다. 이제 그대의 것이다.\n이 나라를 구해 주어 고맙다, 이방의 여행자여. (임시 대사)"
+    },
+    {
+      "id": "r8",
+      "type": "line",
+      "speaker_id": "player",
+      "text": "진짜… 캠핑카다…! (임시 대사)",
+      "expression": "surprised"
+    },
+    {
+      "id": "end_wish",
+      "type": "end",
+      "complete_event": "story.camper_wish"
+    },
+    {
+      "id": "cond_done",
+      "type": "condition",
+      "check": {
+        "kind": "quest",
+        "quest_id": "quest.main.dragon",
+        "state": "completed"
+      }
+    },
+    {
+      "id": "line_done",
+      "type": "line",
+      "speaker_id": "king",
+      "text": "그 바퀴 달린 집은 잘 쓰고 있는가? 언제든 들르게. (임시 대사)"
+    },
+    {
+      "id": "end_done",
+      "type": "end",
+      "complete_event": ""
     },
     {
       "id": "cond_taken",
@@ -135,7 +263,7 @@
     {
       "from": "start",
       "port": "next",
-      "to": "cond_taken"
+      "to": "cond_ready"
     },
     {
       "from": "cond_taken",
@@ -216,6 +344,101 @@
       "from": "act_met",
       "port": "next",
       "to": "act_audience"
+    },
+    {
+      "from": "cond_ready",
+      "port": "true",
+      "to": "r1"
+    },
+    {
+      "from": "r1",
+      "port": "next",
+      "to": "r2"
+    },
+    {
+      "from": "r2",
+      "port": "next",
+      "to": "r3"
+    },
+    {
+      "from": "r3",
+      "port": "next",
+      "to": "wish"
+    },
+    {
+      "from": "wish",
+      "port": "later",
+      "to": "r_later"
+    },
+    {
+      "from": "r_later",
+      "port": "next",
+      "to": "end_later"
+    },
+    {
+      "from": "wish",
+      "port": "camper",
+      "to": "r4"
+    },
+    {
+      "from": "r4",
+      "port": "next",
+      "to": "r5"
+    },
+    {
+      "from": "r5",
+      "port": "next",
+      "to": "r6"
+    },
+    {
+      "from": "r6",
+      "port": "next",
+      "to": "cut_wish"
+    },
+    {
+      "from": "cut_wish",
+      "port": "next",
+      "to": "act_report"
+    },
+    {
+      "from": "act_report",
+      "port": "next",
+      "to": "act_camper"
+    },
+    {
+      "from": "act_camper",
+      "port": "next",
+      "to": "r7"
+    },
+    {
+      "from": "r7",
+      "port": "next",
+      "to": "r8"
+    },
+    {
+      "from": "r8",
+      "port": "next",
+      "to": "end_wish"
+    },
+    {
+      "from": "cond_ready",
+      "port": "false",
+      "to": "cond_done"
+    },
+    {
+      "from": "cond_done",
+      "port": "true",
+      "to": "line_done"
+    },
+    {
+      "from": "line_done",
+      "port": "next",
+      "to": "end_done"
+    },
+    {
+      "from": "cond_done",
+      "port": "false",
+      "to": "cond_taken"
     }
   ],
   "editor_positions": {
@@ -224,68 +447,144 @@
       0
     ],
     "cond_taken": [
+      720,
+      400
+    ],
+    "line_again": [
+      980,
+      220
+    ],
+    "end_again": [
+      1240,
+      220
+    ],
+    "l1": [
+      980,
+      460
+    ],
+    "l2": [
+      1240,
+      460
+    ],
+    "l3": [
+      1500,
+      460
+    ],
+    "l4": [
+      1760,
+      460
+    ],
+    "choice": [
+      2020,
+      460
+    ],
+    "l_me": [
+      2280,
+      340
+    ],
+    "act_audience": [
+      2540,
+      460
+    ],
+    "act_dragon": [
+      2800,
+      460
+    ],
+    "l5": [
+      3060,
+      460
+    ],
+    "l6": [
+      3320,
+      460
+    ],
+    "l7": [
+      3580,
+      460
+    ],
+    "end": [
+      3840,
+      460
+    ],
+    "act_met": [
+      2410,
+      620
+    ],
+    "cond_ready": [
       240,
       0
     ],
-    "line_again": [
-      500,
-      -180
+    "cond_done": [
+      480,
+      400
     ],
-    "end_again": [
-      760,
-      -180
-    ],
-    "l1": [
-      500,
-      60
-    ],
-    "l2": [
-      760,
-      60
-    ],
-    "l3": [
-      1020,
-      60
-    ],
-    "l4": [
-      1280,
-      60
-    ],
-    "choice": [
-      1540,
-      60
-    ],
-    "l_me": [
-      1800,
-      -60
-    ],
-    "act_audience": [
-      2060,
-      60
-    ],
-    "act_dragon": [
-      2320,
-      60
-    ],
-    "l5": [
-      2580,
-      60
-    ],
-    "l6": [
-      2840,
-      60
-    ],
-    "l7": [
-      3100,
-      60
-    ],
-    "end": [
-      3360,
-      60
-    ],
-    "act_met": [
-      1930,
+    "line_done": [
+      740,
       220
+    ],
+    "end_done": [
+      1000,
+      220
+    ],
+    "r1": [
+      500,
+      -420
+    ],
+    "r2": [
+      760,
+      -420
+    ],
+    "r3": [
+      1020,
+      -420
+    ],
+    "wish": [
+      1280,
+      -420
+    ],
+    "r4": [
+      1540,
+      -420
+    ],
+    "r5": [
+      1800,
+      -420
+    ],
+    "r6": [
+      2060,
+      -420
+    ],
+    "cut_wish": [
+      2320,
+      -420
+    ],
+    "act_report": [
+      2580,
+      -420
+    ],
+    "act_camper": [
+      2840,
+      -420
+    ],
+    "r7": [
+      3100,
+      -420
+    ],
+    "r8": [
+      3360,
+      -420
+    ],
+    "end_wish": [
+      3620,
+      -420
+    ],
+    "r_later": [
+      1540,
+      -640
+    ],
+    "end_later": [
+      1800,
+      -640
     ]
   }
 }

@@ -229,8 +229,11 @@ static func _cutscene_checks(dpanel: DialogueEditorPanel, shot: Callable) -> int
 				st["key"] = "test.cutscene_editor"
 			"image":
 				st["path"] = "res://assets/ui/title_background.webp"
+			"quest":
+				st["quest_id"] = "quest.main.audience"
 	cp._commit()
-	fails += 0 if _check(cp.validate(false) == 0, "after fixes: 0 errors (%d warnings)" % (cp.issues.size())) else 1
+	var cut_errs := cp.validate(false)
+	fails += 0 if _check(cut_errs == 0, "after fixes: %d errors (%d warnings)" % [cut_errs, cp.issues.size()]) else 1
 	# reorder + undo / redo
 	var first := str(cp.doc["steps"][0]["type"])
 	cp.move_step(0, 1)

@@ -1,0 +1,57 @@
+{
+  "version": 1,
+  "cutscene_id": "cutscene.camper_wish",
+  "title": "(임시 문안) 왕의 소원 — 캠핑카가 나타나다",
+  "notes": "왕 알현 대화(dialogue.story.king_audience)에서 소원으로 캠핑카를 고르면 재생. 삽화 camper_wish_01.png 자리.",
+  "skippable": true,
+  "steps": [
+    {
+      "type": "letterbox",
+      "on": true
+    },
+    {
+      "type": "fade",
+      "to": "black",
+      "seconds": 1.0
+    },
+    {
+      "type": "image",
+      "path": "res://assets/cutscenes/camper_wish_01.png",
+      "seconds": 0.0
+    },
+    {
+      "type": "fade",
+      "to": "clear",
+      "seconds": 1.0
+    },
+    {
+      "type": "narration",
+      "text": "궁정 마법사들이 주인공이 그린 서툰 그림을 둘러싸고 머리를 맞댔다.\n바퀴 달린 집… 침대와 부엌이 있고, 말 없이 달리는 수레.",
+      "seconds": 0
+    },
+    {
+      "type": "narration",
+      "text": "사흘 밤낮의 주문 끝에 — 성 앞 광장에, 이 세계에 없던 물건이 나타났다.",
+      "seconds": 0
+    },
+    {
+      "type": "fade",
+      "to": "black",
+      "seconds": 0.8
+    },
+    {
+      "type": "image",
+      "path": "",
+      "seconds": 0.0
+    },
+    {
+      "type": "fade",
+      "to": "clear",
+      "seconds": 1.0
+    },
+    {
+      "type": "letterbox",
+      "on": false
+    }
+  ]
+}

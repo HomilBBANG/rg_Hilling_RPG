@@ -46,4 +46,12 @@ func _apply(action: String, args: Dictionary) -> String:
 			if first and Game.hud:
 				Game.hud.toast_quest("레시피 습득: " + RecipeDB.recipe_name(rid))
 			return "레시피 습득: %s%s" % [RecipeDB.recipe_name(rid), "" if first else " (이미 알고 있음)"]
+		"receive_camper":
+			if not Game.receive_camper():
+				return "캠핑카: 이미 가지고 있다"
+			var where := RegionDB.region_name(str(Game.camper.get("region", "")))
+			Game.combat_log.add("캠핑카를 얻었다", "왕의 소원 — %s 성 앞 광장에 세워져 있다. 이제 캠핑카가 여행의 거점이 된다." % where, "info")
+			if Game.hud:
+				Game.hud.toast_quest("캠핑카를 얻었다! — %s 성 앞 광장" % where)
+			return "캠핑카 받음 (%s)" % where
 	return "지원하지 않는 액션 %s — 무시" % action

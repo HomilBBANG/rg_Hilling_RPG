@@ -3,5 +3,14 @@
   "new_game": [
     "cutscene.intro",
     "cutscene.opening"
-  ]
+  ],
+  "camper_wish": {
+    "_comment": "왕의 소원으로 받은 캠핑카가 처음 세워지는 자리 (dialogue action receive_camper)",
+    "region": "capital",
+    "pos": [
+      -6.3,
+      -12.0
+    ],
+    "yaw": 0.0
+  }
 }
