@@ -1354,12 +1354,20 @@ func _run_p1_tour() -> void:
 	var target := _nearest_monster(p.global_position)
 	var swings := 0
 	var shot_taken := false
-	while is_instance_valid(target) and swings < 40:
+	var walk_t := 0.0
+	while is_instance_valid(target) and swings < 40 and walk_t < 20.0:
 		var d := target.global_position - p.global_position
 		d.y = 0
-		if d.length() > 1.2:
+		# slimes are solid now: one that joined the fight can stand in the way — hit whatever is closest
+		var near := _nearest_monster(p.global_position)
+		if near and Vector2(near.global_position.x - p.global_position.x, near.global_position.z - p.global_position.z).length() < 1.3:
+			d = near.global_position - p.global_position
+			d.y = 0
+			target = near if d.length() < 1.3 else target
+		if d.length() > 1.3:
 			p.scripted_move = Vector2(d.x, d.z).normalized()
 			await get_tree().physics_frame
+			walk_t += get_physics_process_delta_time()
 			continue
 		p.scripted_move = Vector2.ZERO
 		p.start_attack(target.global_position)
