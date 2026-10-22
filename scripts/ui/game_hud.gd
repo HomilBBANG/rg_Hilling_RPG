@@ -38,6 +38,11 @@ var cutscene: CutsceneRunner
 var _caption: Label
 var _tracker: Label
 var _tracker_t := 0.0
+## Boss HP bar across the top (the dragon): the boss node it follows, or null when hidden.
+var boss: Node
+var _boss_box: Control
+var _boss_fill: ColorRect
+var _boss_name: Label
 var _save_note: Label
 var _save_note_t := 0.0
 
@@ -109,6 +114,7 @@ func _ready() -> void:
 	_caption.size = Vector2(1920, 50)
 	_caption.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_caption.add_theme_color_override("font_color", Color(0.95, 0.93, 0.86))
+	_build_boss_bar()
 	_save_note = _label("", 20, Vector2(24, 912))
 	_save_note.add_theme_color_override("font_color", Color(0.7, 1.0, 0.65))
 	move_child(_fade, -1)
@@ -914,6 +920,45 @@ func show_caption(text: String) -> void:
 	_caption.text = text
 
 
+func _build_boss_bar() -> void:
+	_boss_box = Control.new()
+	_boss_box.position = Vector2(560, 22)
+	_boss_box.size = Vector2(800, 60)
+	_boss_box.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_boss_box.visible = false
+	add_child(_boss_box)
+	_boss_name = Label.new()
+	_boss_name.size = Vector2(800, 30)
+	_boss_name.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_boss_name.add_theme_font_size_override("font_size", 24)
+	_boss_name.add_theme_color_override("font_color", Color(1.0, 0.86, 0.7))
+	_boss_box.add_child(_boss_name)
+	var back := ColorRect.new()
+	back.color = Color(0.08, 0.04, 0.04, 0.85)
+	back.position = Vector2(0, 34)
+	back.size = Vector2(800, 18)
+	_boss_box.add_child(back)
+	_boss_fill = ColorRect.new()
+	_boss_fill.color = Color(0.82, 0.18, 0.12)
+	_boss_fill.position = Vector2(2, 36)
+	_boss_fill.size = Vector2(796, 14)
+	_boss_box.add_child(_boss_fill)
+
+
+## Shows the boss bar for a monster with hp / max_hp / display_name (null hides it).
+func show_boss(node: Node) -> void:
+	boss = node
+
+
+func _update_boss_bar() -> void:
+	var on := boss != null and is_instance_valid(boss) and int(boss.hp) > 0
+	_boss_box.visible = on
+	if on:
+		var ratio := clampf(float(boss.hp) / float(boss.max_hp), 0.0, 1.0)
+		_boss_fill.size.x = 796.0 * ratio
+		_boss_name.text = "%s   %d / %d%s" % [boss.display_name, maxi(int(boss.hp), 0), int(boss.max_hp), "  · 격노" if boss.get("phase") == 2 else ""]
+
+
 ## Small "saved" note above the log button (doesn't take over the toast line).
 func show_save_note(text: String) -> void:
 	_save_note.text = "● " + text
@@ -1243,6 +1288,7 @@ func _on_player_changed() -> void:
 
 
 func _process(delta: float) -> void:
+	_update_boss_bar()
 	var st := Game.player_state
 	_set_bar("hp", st.hp, st.max_hp())
 	_set_bar("sp", st.sp, st.max_sp())

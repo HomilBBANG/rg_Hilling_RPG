@@ -528,6 +528,8 @@ func _parse_args() -> void:
 		_run_king_tour()
 	elif tour == "dragonroad":
 		_run_dragon_road_tour()
+	elif tour == "dragon":
+		_run_dragon_tour()
 	elif tour == "drive":
 		_run_drive_compare()
 	elif tour == "wind":
@@ -867,7 +869,7 @@ func travel(to_region: String, entry_id: String, driving: bool) -> void:
 		info.get("name", to_region), RegionDB.danger_text(to_region)], "info")
 	await game_hud.fade_to(0.0, 0.6)
 	var arrive := "%s — 위험도 %s" % [info.get("name", to_region), RegionDB.danger_text(to_region)]
-	if RegionDB.is_dungeon(to_region) and not Game.lantern_on and str(info.get("style", "")) != "hall":
+	if RegionDB.is_dungeon(to_region) and not Game.lantern_on and str(info.get("style", "")) not in ["hall", "lair"]:
 		arrive += (" · 어둡다 — L로 등불을 켜자" if Game.player_state.has_lantern() else " · 어둡다 — 횃불 빛을 따라가자")
 	hud.toast(arrive)
 	_busy = false
@@ -2182,7 +2184,7 @@ func _run_king_tour() -> void:
 
 ## The road to the dragon's nest: with the king's quest active, out of the highland's north pass,
 ## along the whole 잿빛 산길 on foot (monsters held still), past the burnt cart to the nest mouth;
-## checks the quest flags, the map marks, the nest prompt and the way back.
+## checks the quest flags, the map marks, the prompt to go down into the nest and the way back.
 func _run_dragon_road_tour() -> void:
 	Game.clock_running = false
 	Game.minute_of_day = 11.0 * 60.0
@@ -2237,10 +2239,7 @@ func _run_dragon_road_tour() -> void:
 	Game.minute_of_day = 11.0 * 60.0
 	_place_player(Vector3(0, 0, -98.0), 0.0)
 	await _frames(6)
-	print("[dragonroad] prompt at the nest: '%s'" % (world.player.focus.prompt_text() if world.player.focus else ""))
-	await _key(KEY_E)
-	await _frames(3)
-	print("[dragonroad] nest says: '%s'" % hud._toast.text)
+	print("[dragonroad] prompt at the nest: '%s' (going in: --tour=dragon)" % (world.player.focus.prompt_text() if world.player.focus else ""))
 	# ember slimes awake again
 	for m in world.monsters:
 		m.process_mode = Node.PROCESS_MODE_INHERIT
@@ -2272,6 +2271,197 @@ func _run_dragon_road_tour() -> void:
 	await _seconds(1.2)
 	await _wait_travel()
 	print("[dragonroad] south road -> %s at (%.1f, %.1f)" % [Game.region, world.player.global_position.x, world.player.global_position.z])
+	get_tree().quit()
+
+
+## The nest and the dragon fight: down the pit into the lair, the sleeping dragon, waking it,
+## each attack (its red area first, a step out of the bite circle dodges), backing off to the
+## safe spot, half HP rage + the dive, the kill (EXP, corpse, quest, victory scene) and coming back
+## to its remains. Player AC is lowered and HP topped up between attacks so every hit lands.
+func _run_dragon_tour() -> void:
+	Game.clock_running = false
+	Game.minute_of_day = 11.0 * 60.0
+	await wait_for_sprites()
+	var st := Game.player_state
+	var cerr := CutsceneData.validate(CutsceneData.load_cutscene("cutscene.dragon_defeated"))
+	print("[dragon] victory cutscene data: %d issues %s" % [cerr.size(), cerr])
+	Game.narrative.set_flag("story.new_game_seen")
+	Game.quests.accept("quest.main.dragon")
+	Game.narrative.set_flag("story.pass_reached")
+	Game.narrative.set_flag("story.nest_found")
+	travel("ashen_pass", "south_road", false)
+	await _wait_travel()
+	_place_player(Vector3(0, 0, -97.6), 0.0)
+	await _frames(6)
+	print("[dragon] at the pit: '%s'" % (world.player.focus.prompt_text() if world.player.focus else ""))
+	await _key(KEY_E)
+	await _seconds(1.0)
+	await _wait_travel()
+	var dr: DragonBoss = null
+	for m in world.monsters:
+		if m is DragonBoss:
+			dr = m
+	print("[dragon] pit -> %s (%s) at (%.1f, %.1f); dragon %s, mode %s, HP %d, arena %s r%.0f" % [Game.region, world.world_title(),
+		world.player.global_position.x, world.player.global_position.z, dr != null, dr.mode if dr else "-", dr.max_hp if dr else 0,
+		dr.arena_center if dr else Vector3.ZERO, dr.arena_radius if dr else 0.0])
+	await _seconds(0.6)
+	await _p1_shot("dragon_10_nest_entrance", "nest entrance + safe spot", true)
+	_place_player(Vector3(0, 0, 6), 0.0)
+	await _seconds(0.5)
+	_place_player(Vector3(0, 0, -6.2), 0.0)
+	await _seconds(0.8)
+	print("[dragon] lair flag %s, still asleep %s at %.1f m" % [Game.narrative.get_flag("story.nest_entered"), dr.mode, world.player.global_position.distance_to(dr.global_position)])
+	dr.set_physics_process(false)  # (shot only) hold it asleep while the camera gets close enough to see it
+	_place_player(Vector3(-2.5, 0, -10.5), 0.0)
+	await _seconds(0.6)
+	await _p1_shot("dragon_11_sleeping", "dragon asleep on its hoard", true)
+	_place_player(Vector3(0, 0, -6.2), 0.0)
+	await _frames(3)
+	dr.set_physics_process(true)
+	await _walk_to(world.player, Vector2(0, -8.5))
+	world.player.scripted_move = Vector2.ZERO
+	await _frames(4)
+	print("[dragon] walked close -> mode %s, boss bar %s, caption '%s'" % [dr.mode, game_hud._boss_box.visible, game_hud._caption.text])
+	await _seconds(0.5)
+	await _p1_shot("dragon_12_wakes", "the dragon wakes", true)
+	await _seconds(1.6)
+	st.armor_class = 1  # every hit lands (except a natural 1)
+	var hold := func(pos: Vector3) -> void:
+		dr._cd = 99.0
+		_place_player(pos, 0.0)
+		st.hp = st.max_hp()
+	# --- bite: stay in the circle, then dodge one by stepping out
+	for dodge in [false, true]:
+		hold.call(dr.global_position + dr._forward() * 3.4)
+		await _frames(2)
+		dr._spot = dr.global_position + dr._forward() * DragonBoss.BITE_REACH
+		dr._set_mode("bite")
+		var hp0 := st.hp
+		await _seconds(0.4)
+		if not dodge:
+			await _p1_shot("dragon_13_bite_warning", "bite: red circle first", true)
+		else:
+			_place_player(dr.global_position + dr._forward() * 3.4 + dr._forward().cross(Vector3.UP) * 4.0, 0.0)
+		await _seconds(1.4)
+		print("[dragon] bite (%s): HP %d -> %d" % ["stepped out" if dodge else "stayed in", hp0, st.hp])
+	# --- tail sweep from behind: hit + shove
+	hold.call(dr.global_position - dr._forward() * 3.0)
+	await _frames(2)
+	var at0: Vector3 = world.player.global_position
+	var hp1 := st.hp
+	dr._set_mode("tail")
+	await _seconds(0.5)
+	await _p1_shot("dragon_14_tail_warning", "tail: red ring", true)
+	await _seconds(1.4)
+	print("[dragon] tail: HP %d -> %d, shoved %.1f m" % [hp1, st.hp, world.player.global_position.distance_to(at0)])
+	# --- fire breath at mid range
+	hold.call(dr.global_position + dr._forward() * 8.0)
+	await _frames(2)
+	var hp2 := st.hp
+	dr._set_mode("breath")
+	dr._show_cone()
+	await _seconds(0.7)
+	await _p1_shot("dragon_15_fire_warning", "fire: red cone", true)
+	await _seconds(0.9)
+	await _p1_shot("dragon_16_fire", "fire breath", true)
+	await _seconds(1.6)
+	print("[dragon] fire: HP %d -> %d (ticks while standing in the cone)" % [hp2, st.hp])
+	dr._end_attack(1.0)
+	# --- the player's own sword reaches the big body
+	hold.call(dr.global_position + dr._forward() * 3.8)
+	await _frames(3)
+	var dhp := dr.hp
+	var log0 := Game.combat_log.entries.size()
+	for i in 6:
+		st.sp = st.max_sp()
+		world.player.start_attack(dr.global_position + Vector3(0, 1, 0))
+		await _seconds(0.7)
+	var swings := PackedStringArray()
+	for e: Dictionary in Game.combat_log.entries.slice(log0):
+		if str(e.get("short", "")).begins_with("주인공") or str(e.get("short", "")).begins_with("치명타! 주인공"):
+			swings.append(str(e["short"]))
+	print("[dragon] 6 sword swings (hit bonus %+d vs AC %d): dragon HP %d -> %d  %s" % [st.total_hit_bonus(), dr.profile["ac"], dhp, dr.hp, swings])
+	# --- back off to the safe spot: it goes home and lies down again (no healing)
+	_place_player(Vector3(0, 0, 19), PI)
+	var hp_before := dr.hp
+	await _seconds(7.0)
+	print("[dragon] player at the safe spot -> dragon %s, boss bar %s, HP kept %s" % [dr.mode, game_hud._boss_box.visible, dr.hp == hp_before])
+	# --- half HP: rage, then the dive
+	hold.call(dr.global_position + dr._forward() * 9.0)
+	dr.engage()
+	await _seconds(2.0)
+	var strong := {"name": "시험 일격", "hit_bonus": 99, "crit_chance": 0, "phys": "1d1", "str_mult": 1.0, "phys_bonus": 0, "ac": 0}
+	while dr.hp > dr.max_hp / 2:
+		strong["phys"] = "%dd1" % maxi(1, dr.hp - dr.max_hp / 2)
+		dr.receive_attack(strong, world.player)
+	dr._cd = 99.0
+	await _frames(4)
+	print("[dragon] HP %d/%d -> phase %d, mode %s, caption '%s'" % [dr.hp, dr.max_hp, dr.phase, dr.mode, game_hud._caption.text])
+	await _p1_shot("dragon_17_rage", "rage", true)
+	await _seconds(1.6)
+	hold.call(dr.global_position + dr._forward() * 9.0)
+	await _frames(2)
+	var hp3 := st.hp
+	dr._from = dr.global_position
+	dr._set_mode("dive")
+	for s2 in dr._shapes:
+		s2.disabled = true
+	await _seconds(1.5)
+	await _p1_shot("dragon_18_dive_warning", "dive: circle follows the player", true)
+	await _seconds(2.0)
+	await _p1_shot("dragon_19_dive_impact", "dive impact", true)
+	print("[dragon] dive: HP %d -> %d, dragon landed at (%.1f, %.1f) inside the lair %s" % [hp3, st.hp, dr.global_position.x, dr.global_position.z,
+		dr._in_arena(dr.global_position)])
+	await _seconds(0.6)
+	# --- the kill
+	st.hp = st.max_hp()
+	var exp0 := st.gen_exp
+	strong["phys"] = "999d1"
+	dr.receive_attack(strong, world.player)
+	await _seconds(1.5)
+	await _p1_shot("dragon_20_down", "the dragon falls", true)
+	var corpse := ""
+	for d: Dictionary in Game.field["loot"]:
+		if str(d["id"]).begins_with("corpse_dragon"):
+			var parts := PackedStringArray()
+			for it: Dictionary in (d["inv"] as Inventory).items:
+				parts.append("%s×%d" % [ItemDB.item_name(str(it["id"])), int(it["count"])])
+			corpse = "%s: %s" % [d["title"], ", ".join(parts)]
+	print("[dragon] dead: flag %s, EXP +%d, quest %s (%s), corpse '%s', once %s" % [Game.narrative.get_flag("story.dragon_defeated"),
+		st.gen_exp - exp0 if st.gen_exp >= exp0 else -1, Game.quests.state("quest.main.dragon"), " / ".join(Game.quests.objectives_text("quest.main.dragon")),
+		corpse, Game.field.get("defeated", {}).keys()])
+	for i in 40:
+		if game_hud.cutscene.playing:
+			break
+		await _frames(5)
+	print("[dragon] victory cutscene playing %s (%s)" % [game_hud.cutscene.playing, game_hud.cutscene.current])
+	await _seconds(2.0)
+	await _p1_shot("dragon_21_victory", "victory scene", true)
+	for i in 12:
+		if not game_hud.cutscene.playing:
+			break
+		await _key(KEY_E)
+		await _seconds(0.4)
+	print("[dragon] cutscene over %s" % (not game_hud.cutscene.playing))
+	st.armor_class = 10
+	# --- out and back in: no dragon, its remains where it fell
+	_place_player(Vector3(0, 0, 25.6), PI)
+	await _seconds(1.5)
+	await _wait_travel()
+	print("[dragon] left -> %s" % Game.region)
+	_place_player(Vector3(0, 0, -97.6), 0.0)
+	await _frames(6)
+	await _key(KEY_E)
+	await _seconds(1.0)
+	await _wait_travel()
+	var again := 0
+	for m in world.monsters:
+		if m is DragonBoss:
+			again += 1
+	print("[dragon] back in the nest: dragons %d, remains %s" % [again, Game.field.get("remains", {})])
+	_place_player(Vector3(0, 0, -6), 0.0)
+	await _seconds(0.8)
+	await _p1_shot("dragon_22_remains", "remains in the lair", true)
 	get_tree().quit()
 
 

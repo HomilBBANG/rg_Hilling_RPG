@@ -515,6 +515,13 @@
         101
       ],
       "camper_yaw": 1.571
+    },
+    "nest_mouth": {
+      "pos": [
+        0,
+        -95.5
+      ],
+      "yaw": 3.1416
     }
   },
   "story_triggers": [
@@ -618,7 +625,9 @@
       "pos": [
         0,
         -101
-      ]
+      ],
+      "to_region": "dragon_nest",
+      "to_entry": "entrance"
     }
   ],
   "tips": [

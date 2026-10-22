@@ -19,6 +19,7 @@ static var CAMP_XF := Transform3D(Basis(Vector3.UP, deg_to_rad(CAMPER_YAW_DEG)),
 ## Monster spawns, checkpoints, exits: data/regions/*.json (meadow = the original layout).
 const MONSTER_RESPAWN_MIN := 120.0  # game minutes [미정]
 const CORPSE_LIFETIME_MIN := 60.0  # game minutes [미정]
+const BOSS_CORPSE_MULT := 24.0  # bosses keep their corpse longer (GDD 8.2): a game day [미정]
 ## Seconds after arriving before road exits react (never bounce straight back).
 const EXIT_GRACE := 1.5
 const RAM_MIN_SPEED := 1.5      # m/s: slower bumps don't count
@@ -620,7 +621,7 @@ func sprite_targets() -> Array:
 	var g := Game.player_state.visual_gear()
 	var out := [[player, PrototypePlayer.sprite_bake_spec(g), "player|" + PlayerState.gear_key(g)]]
 	for m in monsters:
-		if is_instance_valid(m):
+		if is_instance_valid(m) and not m is DragonBoss:  # the dragon stays a 3D model
 			out.append([m, SlimeMonster.sprite_bake_spec(m.kind), "slime" if m.kind in ["meadow_slime", "forest_slime"] else "slime|" + m.kind])
 	if camper_here():
 		out.append([camper, CamperExterior.sprite_bake_spec(CAMPER_YAW_DEG), "camper"])
@@ -692,10 +693,11 @@ func _build_dungeon() -> void:
 	var c := float(region.get("cell", 2.0))
 	var h := float(region.get("wall_height", 1.5))
 	var hall := str(region.get("style", "")) == "hall"
+	var lair := str(region.get("style", "")) == "lair"
 	# dark rock mass with a slightly lighter rim on top: the lit floor reads as the walkable space
-	# (a hall: pale dressed stone with a darker coping)
-	var stone := ProtoMesh.mat(Color(0.62, 0.6, 0.56) if hall else Color(0.22, 0.21, 0.25))
-	var cap := ProtoMesh.mat(Color(0.42, 0.4, 0.38) if hall else Color(0.3, 0.29, 0.33))
+	# (a hall: pale dressed stone with a darker coping; the dragon's lair: scorched red rock)
+	var stone := ProtoMesh.mat(Color(0.62, 0.6, 0.56) if hall else (Color(0.24, 0.13, 0.11) if lair else Color(0.22, 0.21, 0.25)))
+	var cap := ProtoMesh.mat(Color(0.42, 0.4, 0.38) if hall else (Color(0.36, 0.17, 0.12) if lair else Color(0.3, 0.29, 0.33)))
 	var cols := int(region["_cols"])
 	var rows := int(region["_rows"])
 	var wall := {}
@@ -739,6 +741,9 @@ func _build_dungeon() -> void:
 		_block(p.x, p.z, 1.0)
 	if hall:
 		_build_hall_props(c)
+		return
+	if lair:
+		_build_lair_props(c)
 		return
 	# rubble + glowing mushrooms on free floor cells (fixed seed: the layout never changes)
 	var glow := ProtoMesh.mat(Color(0.5, 0.95, 0.9), 0.4, Color(0.4, 0.95, 0.85), 1.6)
@@ -823,9 +828,9 @@ func _build_story_prop(pr: Dictionary) -> void:
 				AmbientParticles.embers(self, root.position + Vector3(x, 0.4, -0.6))
 			ProtoMesh.static_cylinder_collider(root, 2.4, 3.0, Vector3(0, 1.0, -0.6))
 			_block(p.x, p.z, 7.0)
-			var ip := InteractPoint.make(self, p + Vector3(0, 0, 1.6), "E 둥지 안을 살핀다 — 드래곤의 둥지", Callable(), 2.0)
+			var ip := InteractPoint.make(self, p + Vector3(0, 0, 1.6), "E 구덩이 아래로 내려간다 — 드래곤의 둥지", Callable(), 2.0)
 			ip.action = func(_pl: Node) -> void:
-				Game.boot.hud.toast("뜨거운 바람과 함께 낮은 숨소리가 들린다… (둥지 안은 아직 만들어지지 않았다)")
+				Game.boot.travel(str(pr.get("to_region", "dragon_nest")), str(pr.get("to_entry", "entrance")), false)
 
 
 ## Throne room furnishing from grid letters: 'c' red carpet, 'P' pillars, 'Q' the throne on a dais,
@@ -875,6 +880,64 @@ func _build_hall_props(c: float) -> void:
 		root.add_child(light)
 		ProtoMesh.static_cylinder_collider(root, 0.4, 2.0, Vector3(0, 1, 0))
 		_block(float(p[0]), float(p[1]), 0.8)
+
+
+## Dragon's lair from grid letters: 'v' glowing lava cracks (blocked), 'g' heaps of gold around the
+## hoard, 'P' rock pillars, 'b' bones; once the dragon is dead its body lies where it slept ('D').
+func _build_lair_props(c: float) -> void:
+	var marks: Dictionary = region.get("_marks", {})
+	var crust := ProtoMesh.mat(Color(0.14, 0.08, 0.07))
+	var lava := ProtoMesh.mat(Color(0.95, 0.38, 0.1), 0.6, Color(1.0, 0.36, 0.08), 1.1)
+	var n := 0
+	for p: Array in marks.get("v", []):
+		var x := float(p[0])
+		var z := float(p[1])
+		var y := ground_height(x, z)
+		var rim := ProtoMesh.box(self, Vector3(c * 1.05, 0.14, c * 1.05), Vector3(x, y + 0.05, z), crust)
+		rim.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		var pool := ProtoMesh.box(self, Vector3(c * 0.8, 0.06, c * 0.8), Vector3(x, y + 0.12, z), lava)
+		pool.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		for i in 2:
+			var cr := ProtoMesh.box(self, Vector3(_rng.randf_range(0.3, 0.7), 0.08, _rng.randf_range(0.2, 0.5)),
+				Vector3(x + _rng.randf_range(-0.5, 0.5), y + 0.15, z + _rng.randf_range(-0.5, 0.5)), crust, Vector3(0, _rng.randf() * 180.0, 0))
+			cr.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		if n % 2 == 0:
+			var light := OmniLight3D.new()
+			light.position = Vector3(x, y + 1.2, z)
+			light.light_color = Color(1.0, 0.45, 0.18)
+			light.light_energy = 2.4
+			light.omni_range = 7.0
+			add_child(light)
+			AmbientParticles.embers(self, Vector3(x, y + 0.3, z))
+		n += 1
+		ProtoMesh.static_box_collider(self, Vector3(c, 2.0, c), Vector3(x, y + 1.0, z))
+		_block(x, z, c * 0.7)
+	var gold := ProtoMesh.mat(Color(0.96, 0.76, 0.26), 0.35, Color(0.6, 0.42, 0.1), 0.3)
+	var gem := ProtoMesh.mat(Color(0.3, 0.8, 0.9), 0.3, Color(0.2, 0.7, 0.9), 0.8)
+	for p: Array in marks.get("g", []):
+		var root := _on_ground(Node3D.new(), float(p[0]), float(p[1]))
+		ProtoMesh.sphere(root, 0.9, Vector3(0, 0.05, 0), gold, Vector3(1.1, 0.4, 1.0), 10, 5)
+		for i in 5:
+			ProtoMesh.cylinder(root, 0.12, 0.03, Vector3(_rng.randf_range(-0.9, 0.9), 0.04, _rng.randf_range(-0.9, 0.9)), gold, Vector3(_rng.randf_range(-30, 30), 0, 0), 8)
+		if _rng.randf() < 0.5:
+			ProtoMesh.box(root, Vector3(0.18, 0.18, 0.18), Vector3(_rng.randf_range(-0.4, 0.4), 0.38, _rng.randf_range(-0.3, 0.3)), gem, Vector3(45, 30, 0))
+	for p: Array in marks.get("P", []):
+		var rk := _on_ground(NatureProps.rock(true, 2.2, _rng), float(p[0]), float(p[1]))
+		rk.scale = Vector3(1.6, 2.6, 1.6)
+		ProtoMesh.static_cylinder_collider(self, 1.1, 4.0, rk.position + Vector3(0, 2, 0))
+		_block(float(p[0]), float(p[1]), 1.6)
+	var bone := ProtoMesh.mat(Color(0.9, 0.86, 0.76))
+	for p: Array in marks.get("b", []):
+		var root := _on_ground(Node3D.new(), float(p[0]), float(p[1]))
+		for i in 4:
+			ProtoMesh.capsule(root, 0.07, 0.7, Vector3(_rng.randf_range(-0.6, 0.6), 0.08, _rng.randf_range(-0.6, 0.6)), bone, Vector3(90, _rng.randf() * 180.0, 0))
+		ProtoMesh.sphere(root, 0.22, Vector3(0.2, 0.18, 0.1), bone, Vector3(1.2, 0.9, 1.0), 8, 5)
+	var rm: Dictionary = Game.field.get("remains", {})  # where the dragon fell (DragonBoss._die)
+	if not rm.is_empty():
+		var remains := DragonRig.new()
+		remains.dead = 1.0
+		_on_ground(remains, float(rm["pos"][0]), float(rm["pos"][1]))
+		remains.rotation.y = float(rm.get("yaw", 0.0))
 
 
 ## Story NPCs from region data ("npcs": [{"look", "pos", "yaw", "speaker"}]): they stay put and
@@ -967,8 +1030,9 @@ func _build_dungeon_exit(c: Vector3) -> void:
 # ---------------------------------------------------------------- P1: monsters, loot, safety
 
 func _spawn_monster(spec: Dictionary) -> SlimeMonster:
-	var m := SlimeMonster.new()
-	m.name = "Slime_" + str(spec["id"])
+	var dragon: bool = MonsterDB.info(str(spec.get("kind", ""))).get("class", "") == "dragon"
+	var m: SlimeMonster = DragonBoss.new() if dragon else SlimeMonster.new()
+	m.name = ("Dragon_" if dragon else "Slime_") + str(spec["id"])
 	m.monster_id = str(spec["id"])
 	m.kind = str(spec.get("kind", "meadow_slime"))
 	m.set_meta("once", bool(spec.get("once", false)))
@@ -1006,7 +1070,7 @@ func on_monster_killed(m: SlimeMonster) -> void:
 	var p := m.global_position
 	var d := {"id": "corpse_%s_%d" % [m.monster_id, int(Game.total_minutes())], "kind": "corpse",
 		"title": "%s 시체" % m.display_name, "pos": Vector3(p.x, ground_height(p.x, p.z), p.z),
-		"inv": m.roll_loot(), "expires": Game.total_minutes() + CORPSE_LIFETIME_MIN}
+		"inv": m.roll_loot(), "expires": Game.total_minutes() + CORPSE_LIFETIME_MIN * (BOSS_CORPSE_MULT if m.get_meta("once", false) else 1)}
 	Game.field["loot"].append(d)
 	LootContainer.create(self, d)
 

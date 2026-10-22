@@ -23,9 +23,10 @@
     },
     {
       "id": "dragon",
-      "type": "count",
+      "type": "kill",
+      "target": "dragon_nest_D",
       "count": 1,
-      "text": "드래곤 쓰러뜨리기 (둥지 안은 아직 없음)"
+      "text": "둥지 안의 드래곤 쓰러뜨리기"
     }
   ],
   "consume_items": false,

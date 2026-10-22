@@ -274,6 +274,11 @@ func receive_attack(attacker_profile: Dictionary, from: Node3D) -> void:
 			Game.hud.float_text(top, "회피", Color(0.75, 0.78, 0.82))
 
 
+## Extra push from a heavy blow (the dragon's tail / dive), on top of the usual hit knockback.
+func shove(v: Vector3) -> void:
+	_knock += Vector3(v.x, 0.0, v.z)
+
+
 func _on_died() -> void:
 	if dead or not is_inside_tree():
 		return

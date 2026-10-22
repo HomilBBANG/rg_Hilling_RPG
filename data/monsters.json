@@ -394,6 +394,67 @@
           "chance": 0.35
         }
       ]
+    },
+    "dragon": {
+      "name": "드래곤",
+      "class": "dragon",
+      "aggressive": true,
+      "boss": true,
+      "hp": 150,
+      "exp": 300,
+      "arena_radius": 18.0,
+      "profile": {
+        "hit_bonus": 6,
+        "crit_chance": 5,
+        "phys": "2d6",
+        "str_mult": 1.0,
+        "ac": 12,
+        "armor": 1
+      },
+      "attacks": {
+        "bite": {
+          "windup": 0.75,
+          "hit_bonus": 6,
+          "phys": "2d6+2"
+        },
+        "tail": {
+          "windup": 0.9,
+          "hit_bonus": 5,
+          "phys": "1d8+1"
+        },
+        "fire": {
+          "windup": 1.1,
+          "hit_bonus": 6,
+          "phys": "1d2",
+          "elem": [
+            {
+              "type": "화염",
+              "dice": "1d4"
+            }
+          ]
+        },
+        "slam": {
+          "windup": 1.0,
+          "hit_bonus": 7,
+          "phys": "3d6"
+        }
+      },
+      "loot": [
+        {
+          "item": "dragon_scale",
+          "chance": 1.0,
+          "dice": "1d3+2"
+        },
+        {
+          "item": "dragon_fang",
+          "chance": 1.0
+        },
+        {
+          "item": "mana_shard",
+          "chance": 1.0,
+          "dice": "1d3"
+        }
+      ]
     }
   }
 }

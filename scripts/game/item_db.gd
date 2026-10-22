@@ -14,6 +14,8 @@ const ITEMS := {
 	"slime_jelly": {"name": "슬라임 젤리", "value": 3, "weight": 0.4, "desc": "말랑한 몬스터 재료."},
 	"slime_core": {"name": "슬라임 핵", "cat": "rare", "value": 20, "weight": 1.2, "desc": "슬라임 속 단단한 핵."},
 	"mana_shard": {"name": "작은 마석 조각", "cat": "rare", "value": 30, "weight": 0.5, "desc": "마력이 남아 있는 결정 조각."},
+	"dragon_scale": {"name": "드래곤 비늘", "cat": "rare", "value": 120, "weight": 1.5, "desc": "불에도 그을리지 않는 붉은 비늘. 드래곤을 쓰러뜨린 증거."},
+	"dragon_fang": {"name": "드래곤 송곳니", "cat": "rare", "value": 200, "weight": 0.8, "desc": "아직도 뜨거운 기운이 남아 있는 커다란 송곳니."},
 	"cat_snack": {"name": "고양이 간식", "value": 4, "weight": 0.1, "desc": "검은 고양이가 좋아하는 간식."},
 	"firewood": {"name": "장작", "value": 3, "weight": 2.0, "desc": "잘 마른 장작."},
 	"iron_ore": {"name": "철광석", "value": 12, "weight": 4.0, "desc": "무거운 광석 덩어리."},
