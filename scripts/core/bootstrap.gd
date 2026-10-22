@@ -526,6 +526,8 @@ func _parse_args() -> void:
 		_run_camper_tour()
 	elif tour == "king":
 		_run_king_tour()
+	elif tour == "dragonroad":
+		_run_dragon_road_tour()
 	elif tour == "drive":
 		_run_drive_compare()
 	elif tour == "wind":
@@ -658,6 +660,8 @@ func _run_walk_tour() -> void:
 
 func _walk_to(p: PrototypePlayer, goal: Vector2) -> void:
 	for i in 900:
+		if not is_instance_valid(p):  # walked through an exit: that world is gone
+			return
 		var d := goal - Vector2(p.global_position.x, p.global_position.z)
 		if d.length() < 0.4:
 			return
@@ -2173,6 +2177,101 @@ func _run_king_tour() -> void:
 	travel("meadow", "north_road", false)
 	await _wait_travel()
 	print("[king] meadow: roadside cat %s (mode %s)" % [world.cat != null, world.cat.mode if world.cat else -1])
+	get_tree().quit()
+
+
+## The road to the dragon's nest: with the king's quest active, out of the highland's north pass,
+## along the whole 잿빛 산길 on foot (monsters held still), past the burnt cart to the nest mouth;
+## checks the quest flags, the map marks, the nest prompt and the way back.
+func _run_dragon_road_tour() -> void:
+	Game.clock_running = false
+	Game.minute_of_day = 11.0 * 60.0
+	await wait_for_sprites()
+	Game.narrative.set_flag("story.new_game_seen")
+	Game.quests.accept("quest.main.dragon")
+	print("[dragonroad] dragon quest %s: %s" % [Game.quests.state("quest.main.dragon"), " / ".join(Game.quests.objectives_text("quest.main.dragon"))])
+	travel("highland", "north_pass", false)
+	await _wait_travel()
+	print("[dragonroad] highland entry north_pass at (%.1f, %.1f)" % [world.player.global_position.x, world.player.global_position.z])
+	_place_player(Vector3(40, 0, -72), 0.0)
+	await _seconds(0.8)
+	await _p1_shot("dragon_01_highland_north", "highland north pass", true)
+	await _walk_to(world.player, Vector2(40, -81.5))
+	await _seconds(1.2)
+	await _wait_travel()
+	print("[dragonroad] north pass -> %s (%s) at (%.1f, %.1f), danger %s" % [Game.region, world.world_title(), world.player.global_position.x,
+		world.player.global_position.z, RegionDB.danger_text(Game.region)])
+	var kinds := {}
+	for m in world.monsters:
+		kinds[m.kind] = int(kinds.get(m.kind, 0)) + 1
+	print("[dragonroad] monsters %s, pass flag %s" % [kinds, Game.narrative.get_flag("story.pass_reached")])
+	await _seconds(0.6)
+	await _p1_shot("dragon_02_pass_foot", "foot of the pass", true)
+	# walk the whole road with the monsters held still (is it open end to end?)
+	for m in world.monsters:
+		m.process_mode = Node.PROCESS_MODE_DISABLED
+	var road: Array = world.region["terrain"]["paths"][0]
+	var t0 := Time.get_ticks_msec()
+	var stuck := 0
+	for i in range(1, road.size()):
+		var goal := Vector2(float(road[i][0]), float(road[i][1]))
+		if i == road.size() - 1:
+			goal.y += 3.0  # stop in front of the nest mouth
+		await _walk_to(world.player, goal)
+		var at := Vector2(world.player.global_position.x, world.player.global_position.z)
+		if at.distance_to(goal) > 1.0:
+			stuck += 1
+			print("[dragonroad]   stuck before waypoint %d %s at %s" % [i, goal, at])
+			_place_player(Vector3(goal.x, 0, goal.y), 0.0)
+		if i == 7:
+			await _p1_shot("dragon_03_burnt_cart", "burnt cart", true)
+	world.player.scripted_move = Vector2.ZERO
+	print("[dragonroad] walked the road in %.1f s, stuck %d, signs flag %s, nest flag %s" % [(Time.get_ticks_msec() - t0) / 1000.0, stuck,
+		Game.narrative.get_flag("story.dragon_signs"), Game.narrative.get_flag("story.nest_found")])
+	print("[dragonroad] quest now: %s" % " / ".join(Game.quests.objectives_text("quest.main.dragon")))
+	await _seconds(0.6)
+	await _p1_shot("dragon_04_nest_mouth", "nest mouth", true)
+	Game.minute_of_day = 21.5 * 60.0
+	await _seconds(0.6)
+	await _p1_shot("dragon_05_nest_night", "nest mouth at night", true)
+	Game.minute_of_day = 11.0 * 60.0
+	_place_player(Vector3(0, 0, -98.0), 0.0)
+	await _frames(6)
+	print("[dragonroad] prompt at the nest: '%s'" % (world.player.focus.prompt_text() if world.player.focus else ""))
+	await _key(KEY_E)
+	await _frames(3)
+	print("[dragonroad] nest says: '%s'" % hud._toast.text)
+	# ember slimes awake again
+	for m in world.monsters:
+		m.process_mode = Node.PROCESS_MODE_INHERIT
+	var em: SlimeMonster = null
+	for m in world.monsters:
+		if m.kind == "ember_slime":
+			em = m
+			break
+	if em:
+		_place_player(em.global_position + Vector3(0, 0, 4.5), 0.0)
+		await _seconds(0.7)
+		await _p1_shot("dragon_06_ember_slime", "ember slime", true)
+		print("[dragonroad] %s HP %d, aggressive %s" % [em.display_name, em.hp, em.state])
+	game_hud.toggle_map()
+	await _frames(4)
+	game_hud.map_view.center_on_player()
+	await _frames(4)
+	await _p1_shot("dragon_07_map", "map with the pass", true)
+	game_hud.toggle_map()
+	# discovered marks are saved
+	var keys := PackedStringArray()
+	for k in Game.discovered:
+		if str(k).begins_with("trig:"):
+			keys.append(str(k))
+	print("[dragonroad] discovered %s" % [keys])
+	# back down the south road
+	_place_player(Vector3(0, 0, 104), PI)
+	await _walk_to(world.player, Vector2(0, 107.6))
+	await _seconds(1.2)
+	await _wait_travel()
+	print("[dragonroad] south road -> %s at (%.1f, %.1f)" % [Game.region, world.player.global_position.x, world.player.global_position.z])
 	get_tree().quit()
 
 

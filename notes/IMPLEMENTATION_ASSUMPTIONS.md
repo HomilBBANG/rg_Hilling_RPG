@@ -442,5 +442,17 @@ GDD 17은 저장/불러오기(저장 지점, 자동 저장, 사망 시 저장 �
 | 알현실 | 왕도 성 정문(성벽 안 북쪽)으로 걸어 들어가면 별도 실내 지역 **왕의 알현실**(손으로 그린 격자: 붉은 카펫·기둥·깃발·화로·옥좌). 지도에는 표시하지 않음, 몬스터 없음 | `data/regions/throne_room.json`, `visual_lab.gd` `_build_hall_props()` |
 | 왕 | NPC 외형은 임시(왕관·흰 수염·붉은 옷·보라 망토), 옥좌에 계속 앉아 있음, 앞에서 `E` 대화. 초상화 그림은 아직 없음(자리표시) | `npc_rig.gd`, `data/regions/throne_room.json` `npcs` |
 | 대화 | `dialogue.story.king_audience`: 드래곤 위기·점술사의 예언 → 선택("제가요?" / "해 보겠습니다", 둘 다 수락으로 이어짐) → "왕을 만나라" 완료(일반 EXP 10, 50골드, 빵 3, 회복 물약 2) → "드래곤 토벌" 수락 → 소원 약속. 다시 말 걸면 짧은 재촉 대사. **모든 대사는 임시 문안** | `data/dialogues/dialogue.story.king_audience.json` |
-| 드래곤 퀘스트 | 목표 "드래곤 쓰러뜨리기"만 있음 — 드래곤·둥지·가는 길은 아직 없음(GDD 미정) | `data/quests/quest.main.dragon.json` |
+| 드래곤 퀘스트 | 목표 3개: 잿빛 산길에 가기 → 둥지 입구 찾기 → 드래곤 쓰러뜨리기(둥지 안·드래곤은 아직 없음). 앞의 둘은 장소에 닿으면 켜지는 이야기 플래그로 완료 | `data/quests/quest.main.dragon.json` |
 | 고양이 등장 조건 | 이야기를 본 캐릭터(새 게임)는 드래곤 퀘스트를 받은 뒤에만 초원 길가에 고양이가 나타남. 자동 투어·옛 테스트는 예전처럼 바로 나타남 | `visual_lab.gd` `cat_may_appear()` |
+
+## 드래곤의 둥지 가는 길 — [미정]에 대한 개발용 가정 (GDD 2.1 "북쪽 산맥에 둥지"는 대사에만 있음)
+
+| 항목 | 가정 | 위치 |
+|---|---|---|
+| 위치 | 솔바람 고원 북동쪽 길 끝(이끼 동굴과 다른 갈래) → 새 지역 **잿빛 산길**(위험도 ★★★, 160×220 m). 지도에서는 고원 바로 위 | `data/regions/ashen_pass.json`, `data/regions/highland.json` 출구·입구 `north_pass` |
+| 길 | 남쪽 입구에서 북쪽 끝까지 굽은 길 하나, 양옆은 바위 언덕 능선. 체크포인트 2곳(산길 입구·중턱 야영 터). 캠핑카로도 들어갈 수 있음 | 같은 파일 `terrain.paths` / `mounds` / `checkpoints` |
+| 몬스터 | 아래쪽 바위 슬라임 5, 위쪽 새 몬스터 **불씨 슬라임** 7(선공, HP 24, 공격 높음, EXP 24, 주황색). 수치는 임시 | `data/monsters.json` `ember_slime` |
+| 이야기 지점 | 지역 데이터 `story_triggers`: 닿으면 플래그를 한 번 켜고 안내 문구를 띄움, `map_name`이 있으면 지도에 붉은 ◆로 표시(저장됨). 산길 도착 `story.pass_reached`, 불탄 짐수레 `story.dragon_signs`, 둥지 입구 `story.nest_found` | `visual_lab.gd` `_discover()`, `world_map.gd` |
+| 소품 | 지역 데이터 `props`: 불탄 짐수레(불씨), 그을음 자국, 뼈 무더기, 둥지 입구(바위로 둘러싼 검은 구덩이 + 붉은 빛 + 불씨). 입구 앞 `E` = "뜨거운 바람… 둥지 안은 아직 없음" 안내 | `visual_lab.gd` `_build_story_prop()` |
+| 왕의 대사 | 둥지 위치를 알려 주는 한 줄을 넣음(임시 문안) | `data/dialogues/dialogue.story.king_audience.json` `l6`, 다시 말 걸 때 대사 |
+

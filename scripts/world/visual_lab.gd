@@ -336,6 +336,8 @@ func _build_camp_props() -> void:
 func _build_landmarks() -> void:
 	for ct in cities:
 		CityBuilder.build(self, ct["data"])
+	for pr: Dictionary in region.get("props", []):
+		_build_story_prop(pr)
 	if has_feature("farm"):
 		_build_farm()
 	if has_feature("trade_post"):
@@ -757,6 +759,73 @@ func _build_dungeon() -> void:
 				ProtoMesh.cylinder(m, 0.025, 0.14, o + Vector3(0, 0.07, 0), stem, Vector3.ZERO, 5)
 				var capm := ProtoMesh.sphere(m, 0.07, o + Vector3(0, 0.15, 0), glow, Vector3(1, 0.55, 1), 6, 3)
 				capm.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+
+
+## Set pieces from region data ("props"): the dragon road's burnt cart, scorch marks, bones and
+## the nest mouth at the end of the pass.
+func _build_story_prop(pr: Dictionary) -> void:
+	var p := RegionDB.v3(pr["pos"])
+	var char_mat := ProtoMesh.mat(Color(0.16, 0.13, 0.12))
+	var bone := ProtoMesh.mat(Color(0.9, 0.86, 0.76))
+	match str(pr.get("kind", "")):
+		"scorch":
+			# a few overlapping soot blotches, each on the ground under it (one flat disc cuts into slopes)
+			var r := float(pr.get("radius", 2.5))
+			var soot := ProtoMesh.mat(Color(0.14, 0.11, 0.1))
+			for i in 6:
+				var o := Vector2(_rng.randf_range(-0.5, 0.5), _rng.randf_range(-0.5, 0.5)) * r
+				var br := r * _rng.randf_range(0.35, 0.6)
+				var x := p.x + o.x
+				var z := p.z + o.y
+				var d := ProtoMesh.cylinder(self, br, 0.03, Vector3(x, ground_height(x, z) + 0.05 + i * 0.004, z), soot, Vector3.ZERO, 9)
+				d.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+			var e := ProtoMesh.cylinder(self, r * 0.18, 0.03, Vector3(p.x, ground_height(p.x, p.z) + 0.09, p.z), ProtoMesh.mat(Color(0.35, 0.14, 0.07), 0.9, Color(0.8, 0.25, 0.08), 0.5), Vector3.ZERO, 8)
+			e.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		"burnt_cart":
+			var root := _on_ground(Node3D.new(), p.x, p.z)
+			root.rotation.y = float(pr.get("yaw", 0.0))
+			ProtoMesh.box(root, Vector3(2.4, 0.5, 1.4), Vector3(0, 0.6, 0), char_mat, Vector3(0, 0, 9))
+			ProtoMesh.box(root, Vector3(0.12, 0.7, 1.4), Vector3(-1.1, 1.0, 0), char_mat, Vector3(0, 0, 20))
+			for spec in [[-0.8, 0.75, 0.0], [0.8, 0.75, 0.0], [0.9, -0.75, 70.0]]:
+				ProtoMesh.cylinder(root, 0.42, 0.12, Vector3(spec[0], 0.42 if spec[2] == 0.0 else 0.1, spec[1]), ProtoMesh.mat(Color(0.22, 0.17, 0.14)), Vector3(90 - spec[2], 0, 0), 10)
+			ProtoMesh.static_box_collider(root, Vector3(2.4, 1.2, 1.4), Vector3(0, 0.6, 0))
+			AmbientParticles.embers(self, root.position + Vector3(0, 0.8, 0))
+			_block(p.x, p.z, 2.0)
+		"bones":
+			var root := _on_ground(Node3D.new(), p.x, p.z)
+			for i in 4:
+				ProtoMesh.capsule(root, 0.07, 0.7, Vector3(_rng.randf_range(-0.6, 0.6), 0.08, _rng.randf_range(-0.6, 0.6)), bone, Vector3(90, _rng.randf() * 180.0, 0))
+			ProtoMesh.sphere(root, 0.22, Vector3(0.2, 0.18, 0.1), bone, Vector3(1.2, 0.9, 1.0), 8, 5)
+		"nest_mouth":
+			# the mouth of the nest seen from above: a black pit glowing red deep inside, ringed by
+			# scorched boulders on its far side, embers drifting up out of it
+			var root := _on_ground(Node3D.new(), p.x, p.z)
+			for spec in [[-5.2, 0.6, 2.4], [5.2, 0.8, 2.6], [-3.6, -2.6, 2.8], [3.8, -2.4, 2.7], [0.0, -4.2, 3.2], [-6.4, -2.2, 2.0], [6.6, -1.8, 2.0]]:
+				var rk := NatureProps.rock(true, spec[2], _rng)
+				rk.position = Vector3(spec[0], 0, spec[1])
+				root.add_child(rk)
+				ProtoMesh.static_cylinder_collider(root, spec[2] * 0.7, 4.0, Vector3(spec[0], 1.5, spec[1]))
+			var rim := ProtoMesh.cylinder(root, 3.4, 0.05, Vector3(0, 0.05, -0.4), ProtoMesh.mat(Color(0.12, 0.09, 0.08)), Vector3.ZERO, 14)
+			rim.scale = Vector3(1.0, 1.0, 0.7)
+			var pit := ProtoMesh.cylinder(root, 2.6, 0.05, Vector3(0, 0.08, -0.5), ProtoMesh.mat(Color(0.02, 0.015, 0.015)), Vector3.ZERO, 14)
+			pit.scale = Vector3(1.0, 1.0, 0.65)
+			var deep := ProtoMesh.cylinder(root, 1.2, 0.05, Vector3(0, 0.11, -0.7), ProtoMesh.mat(Color(0.25, 0.05, 0.02), 0.9, Color(0.85, 0.2, 0.05), 0.9), Vector3.ZERO, 12)
+			deep.scale = Vector3(1.0, 1.0, 0.6)
+			for m: MeshInstance3D in [rim, pit, deep]:
+				m.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+			var glow := OmniLight3D.new()
+			glow.position = Vector3(0, 0.8, -0.6)
+			glow.light_color = Color(1.0, 0.4, 0.18)
+			glow.light_energy = 2.2
+			glow.omni_range = 8.0
+			root.add_child(glow)
+			for x in [-1.0, 0.0, 1.0]:
+				AmbientParticles.embers(self, root.position + Vector3(x, 0.4, -0.6))
+			ProtoMesh.static_cylinder_collider(root, 2.4, 3.0, Vector3(0, 1.0, -0.6))
+			_block(p.x, p.z, 7.0)
+			var ip := InteractPoint.make(self, p + Vector3(0, 0, 1.6), "E 둥지 안을 살핀다 — 드래곤의 둥지", Callable(), 2.0)
+			ip.action = func(_pl: Node) -> void:
+				Game.boot.hud.toast("뜨거운 바람과 함께 낮은 숨소리가 들린다… (둥지 안은 아직 만들어지지 않았다)")
 
 
 ## Throne room furnishing from grid letters: 'c' red carpet, 'P' pillars, 'Q' the throne on a dais,
@@ -1358,6 +1427,20 @@ func _exit_near(pos: Vector3, margin: float) -> Dictionary:
 
 ## Visiting a checkpoint or road exit marks it on the world map (GDD 11.3).
 func _discover(pos: Vector3) -> void:
+	# story spots (data "story_triggers"): walking there sets a flag (quest objectives read it),
+	# says what you found and, with "map_name", puts it on the map
+	for tr: Dictionary in region.get("story_triggers", []):
+		var tk := "trig:%s:%s" % [region_id, tr["id"]]
+		if Game.discovered.has(tk):
+			continue
+		var tp := RegionDB.v3(tr["pos"])
+		if Vector2(pos.x - tp.x, pos.z - tp.z).length() < float(tr.get("radius", 6.0)):
+			Game.discovered[tk] = true
+			if str(tr.get("flag", "")) != "":
+				Game.narrative.set_flag(str(tr["flag"]))
+			if str(tr.get("toast", "")) != "":
+				Game.boot.hud.toast(str(tr["toast"]))
+				Game.combat_log.add(str(tr["toast"]), "", "info")
 	for ct in cities:
 		var ck := "city:" + str(ct["id"])
 		if not Game.discovered.has(ck) and (ct["rect"] as Rect2).grow(4.0).has_point(Vector2(pos.x, pos.z)):

@@ -368,6 +368,12 @@ func _draw() -> void:
 				draw_polyline(PackedVector2Array([c + Vector2(0, -8), c + Vector2(7, 5), c + Vector2(-7, 5), c + Vector2(0, -8)]), Color(0, 0, 0, 0.7), 1.5)
 				if _zoom > _fit_zoom * 1.6:
 					_text(c + Vector2(10, 5), str(cp["name"]), 15, Color(0.85, 0.95, 0.92))
+		for tr: Dictionary in reg.get("story_triggers", []):  # found story spots (the nest...)
+			if str(tr.get("map_name", "")) != "" and Game.discovered.has("trig:%s:%s" % [rid, tr["id"]]):
+				var c6 := to_screen(RegionDB.map_pos(rid, tr["pos"]))
+				draw_colored_polygon(PackedVector2Array([c6 + Vector2(0, -8), c6 + Vector2(8, 0), c6 + Vector2(0, 8), c6 + Vector2(-8, 0)]), Color(0.95, 0.35, 0.2))
+				draw_polyline(PackedVector2Array([c6 + Vector2(0, -8), c6 + Vector2(8, 0), c6 + Vector2(0, 8), c6 + Vector2(-8, 0), c6 + Vector2(0, -8)]), Color(0, 0, 0, 0.8), 1.5)
+				_text(c6 + Vector2(11, 5), str(tr["map_name"]), 15, Color(1.0, 0.85, 0.75))
 		for ex: Dictionary in reg.get("exits", []):
 			var st := str(ex.get("style", ""))
 			if (st == "cave" or st == "rift") and Game.discovered.has("%s:%s" % [rid, ex["id"]]):

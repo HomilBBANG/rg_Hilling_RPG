@@ -15,7 +15,7 @@
 > 영화 띠·인물 이동)을 단계 목록으로 만들고 미리보기하며, 새 게임 때 재생할 순서도 정합니다 → [`notes/DIALOGUE_EDITOR.md`](notes/DIALOGUE_EDITOR.md)
 
 > **새 게임 컷씬:** `새 게임` → **인트로**(삽화+내레이션, 현실에서 TRPG 세계로 — 임시 문안·삽화 자리표시) → **오프닝**(게임 화면 안,
-> 영화 띠, 주인공 놀람 표정) → 조작 시작. 새 캐릭터는 **진행 단계 A(혼자, 고양이·캠핑카 없음)**로 시작하고, 퀘스트 **"왕을 만나라"**가 붙음 → 교역소에서 북쪽 길로 **왕도** → 북쪽 **성 정문**으로 들어가면 **왕의 알현실** → 옥좌 앞에서 `E`로 왕과 대화 → 보상(골드·빵·물약)과 함께 **"드래곤 토벌"** 퀘스트 수락. 그 뒤 초원 길가에 **검은 고양이**가 나타나 기다리고, 다가가면 동행 시작(GDD 2.3 순서). 대사는 모두 임시 문안 `E`/`Space`/클릭 다음, `ESC` 건너뛰기. 삽화는 `assets/cutscenes/intro_01~04.png`
+> 영화 띠, 주인공 놀람 표정) → 조작 시작. 새 캐릭터는 **진행 단계 A(혼자, 고양이·캠핑카 없음)**로 시작하고, 퀘스트 **"왕을 만나라"**가 붙음 → 교역소에서 북쪽 길로 **왕도** → 북쪽 **성 정문**으로 들어가면 **왕의 알현실** → 옥좌 앞에서 `E`로 왕과 대화 → 보상(골드·빵·물약)과 함께 **"드래곤 토벌"** 퀘스트 수락. 그 뒤 초원 길가에 **검은 고양이**가 나타나 기다리고, 다가가면 동행 시작(GDD 2.3 순서). **드래곤의 둥지로 가는 길**: 고원 북쪽 길(솔방울 마을 근처 갈림길에서 북쪽) 끝 → **잿빛 산길**(★★★, 160×220 m, 재 덮인 굽잇길·바위 슬라임·**불씨 슬라임**) → 도착하면 퀘스트 목표 1 완료, 중간의 **불탄 짐수레**(흔적), 길 끝 **드래곤의 둥지 입구**(붉게 빛나는 구덩이)에 닿으면 목표 2 완료·지도에 표시. 둥지 안(드래곤 전투)은 아직 없음 대사는 모두 임시 문안 `E`/`Space`/클릭 다음, `ESC` 건너뛰기. 삽화는 `assets/cutscenes/intro_01~04.png`
 
 ## P1에서 해 볼 수 있는 것
 
@@ -185,7 +185,7 @@ captures/cutscene/           새 게임 컷씬: 인트로 내레이션·삽화 �
 captures/dialogue_editor/   실제 Godot 에디터 안의 대화 에디터 자동 점검 캡처
 captures/world/              넓어진 월드·왕도·마을·지도·빠른 이동 (--tour=world)
 captures/camper/             캠핑카 들이받기·고장·대장간 수리·정제 시설 (--tour=camper)
-captures/story/              왕의 퀘스트: 퀘스트 기록·성 정문·알현실·왕과의 대화 (--tour=king)
+captures/story/              왕의 퀘스트: 퀘스트 기록·성 정문·알현실·왕과의 대화 (--tour=king), 드래곤의 둥지 가는 길 dragon_* (--tour=dragonroad)
 captures/p3/                P3-1 지역 이동(region_*), P3-2 고정 던전(dungeon_*), P3-3 랜덤 던전(rift_*), P3-4 채집·낚시(life_*, --tour=life), P3-5 요리·제작(craft_*, --tour=craft), 저장 슬롯(save_*, --tour=save)
 notes/             VISUAL_DIRECTION.md, VISUAL_COMPARISON.md, IMPLEMENTATION_ASSUMPTIONS.md, DIALOGUE_EDITOR.md, DRIVING.md
 docs/              GDD.md(v10.2), CAT_COMPANION_HANDOFF.md, DIALOGUE_EDITOR_HANDOFF.md(v10.5), GRAPHICS_PROTOTYPE.md, CLAUDE_CODE_HANDOFF.md
@@ -211,6 +211,8 @@ Godot.exe --path C:/Game/denial -- --tour=quest --capture-dir=C:/Game/denial/cap
 Godot.exe --path C:/Game/denial -- --tour=world --capture-dir=C:/Game/denial/captures/world
 :: 왕의 퀘스트: 새 캐릭터 상태 → 왕도 → 성 정문 → 알현실 → 왕 대화 → 퀘스트 완료/수락 → 길가 고양이 (콘솔에 [king] 결과)
 Godot.exe --path C:/Game/denial -- --tour=king --capture-dir=C:/Game/denial/captures/story
+:: 드래곤의 둥지 가는 길: 고원 북쪽 길 → 잿빛 산길 → 길 전체 걷기(막힌 곳 검사) → 불탄 짐수레 → 둥지 입구 → 퀘스트 목표·지도 표시 → 되돌아오기 (콘솔에 [dragonroad] 결과)
+Godot.exe --path C:/Game/denial -- --tour=dragonroad --capture-dir=C:/Game/denial/captures/story
 :: 캠핑카 연료·내구도: 주행 연료, 슬라임 들이받기→고장, 응급 수리·대장간 수리, 주유, 정제 시설, 빠른 이동 조건, 저장 (콘솔에 [camper] 결과)
 Godot.exe --path C:/Game/denial -- --tour=camper --capture-dir=C:/Game/denial/captures/camper
 :: P3-1 지역 이동: 걸어서/운전해서 지역 이동, 지역별 난이도·기억, 사망 후 캠핑카 지역 복귀, 월드맵
