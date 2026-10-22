@@ -1,9 +1,11 @@
 class_name CamperVehicle
 extends CharacterBody3D
 ## Drivable camper (GDD 9.1 [확정]; driving feel per CAMPERVAN_DRIVING_HANDOFF / GDD 9.7).
-## HEADING control (default, user's choice): relative to the camper's nose. W drives forward,
-## S brakes and then reverses, A/D turn the nose left/right (also while stopped). Nothing moves
-## on its own: let go and it stops quickly. Velocity always points along the body: no sideways slip.
+## HEADING control (default, user's choice — GTA-style car driving relative to the camper's nose):
+## W = gas; S = brake while rolling forward, then (held after a short stop) a slow reverse; W + S
+## together = brake and stay put; A/D steer left/right like a car — only while rolling, sharper the
+## faster it goes up to a limit, and reversing swings the back toward the A/D side as a real car
+## does. Let go and it rolls to a stop. Velocity always points along the body: no sideways slip.
 ## Kept for comparison: ARCADE (WASD = screen direction, auto back-off when wedged) and LEGACY
 ## (first P1 version: slow car-style W/S throttle + A/D steering wheel).
 ## The physics body turns smoothly; the visible model (baked 16-direction sprite + its shadow-only
@@ -14,11 +16,15 @@ enum DriveMode { HEADING, ARCADE, LEGACY }
 @export var control := DriveMode.HEADING
 @export_group("Heading tuning (temporary values)")
 @export var heading_max_speed := 6.0      ## m/s, W
-@export var heading_reverse_speed := 3.0  ## m/s, S after stopping
-@export var heading_accel := 12.0         ## m/s^2
-@export var heading_brake := 30.0         ## m/s^2, S while rolling forward / W while reversing
-@export var heading_coast := 16.0         ## m/s^2, no W/S
-@export var heading_turn_deg := 110.0     ## deg/s, A/D
+@export var heading_reverse_speed := 2.2  ## m/s, S after stopping (slow reverse)
+@export var heading_accel := 8.0          ## m/s^2, W
+@export var heading_reverse_accel := 3.0  ## m/s^2, reversing
+@export var heading_brake := 16.0         ## m/s^2, S while rolling forward / W while reversing / W+S
+@export var heading_coast := 7.0          ## m/s^2, no W/S
+@export var heading_reverse_delay := 0.3  ## s standing still with S held before it backs up
+@export var heading_turn_radius := 4.6    ## m, tightest turn at full lock (yaw rate = speed / radius)
+@export var heading_turn_deg := 80.0      ## deg/s, cap on the turn rate at speed
+@export var heading_steer_rate := 6.0     ## how fast the wheel follows A/D (lock per second)
 @export_group("")
 @export_group("Arcade tuning (temporary values)")
 @export var max_speed := 6.0          ## m/s
@@ -56,6 +62,7 @@ var turn_mult := 1.0
 var scripted := {}
 
 var _steer := 0.0
+var _stopped_t := 0.0  # time standing still with S held (GTA-style: brake, pause, then reverse)
 var _shape: BoxShape3D
 var _blocked_t := 0.0
 var _unstick_t := 0.0
@@ -120,20 +127,51 @@ func _wheel_input() -> Vector2:
 	return Vector2(Input.get_axis("move_right", "move_left"), Input.get_axis("move_down", "move_up"))
 
 
+## Gas / brake-reverse keys separately (W + S together means "hold still", which an axis hides).
+## Tours: {"throttle": 1 / -1, "steer", "brake": true = both held}.
+func _pedals() -> Vector2i:
+	if not scripted.is_empty():
+		if scripted.get("brake", false):
+			return Vector2i(1, 1)
+		var th := float(scripted.get("throttle", 0.0))
+		return Vector2i(1 if th > 0.05 else 0, 1 if th < -0.05 else 0)
+	return Vector2i(1 if Input.is_action_pressed("move_up") else 0, 1 if Input.is_action_pressed("move_down") else 0)
+
+
 func _drive_heading(delta: float) -> void:
-	var input := _wheel_input()
-	var throttle := input.y
-	if throttle > 0.0 and power > 0.0:
-		var rate := heading_brake if speed < 0.0 else heading_accel
-		speed = move_toward(speed, heading_max_speed * throttle * power, rate * delta)
-	elif throttle < 0.0 and power > 0.0:
-		var rate := heading_brake if speed > 0.0 else heading_accel
-		speed = move_toward(speed, -heading_reverse_speed * -throttle * power, rate * delta)
+	var pedals := _pedals()
+	var gas := pedals.x == 1
+	var back := pedals.y == 1
+	if gas and back:
+		speed = move_toward(speed, 0.0, heading_brake * delta)  # both: brake and stay put
+		_stopped_t = 0.0
+	elif gas:
+		_stopped_t = 0.0
+		if speed < -0.05:
+			speed = move_toward(speed, 0.0, heading_brake * delta)  # reversing: brake first
+		elif power > 0.0:
+			speed = move_toward(speed, heading_max_speed * power, heading_accel * delta)
+		else:
+			speed = move_toward(speed, 0.0, heading_coast * delta)
+	elif back:
+		if speed > 0.05:
+			speed = move_toward(speed, 0.0, heading_brake * delta)  # rolling forward: brake
+			_stopped_t = 0.0
+		else:
+			_stopped_t += delta
+			if _stopped_t >= heading_reverse_delay and power > 0.0:
+				speed = move_toward(speed, -heading_reverse_speed * minf(power, 1.0), heading_reverse_accel * delta)
 	else:
 		speed = move_toward(speed, 0.0, heading_coast * delta)
-	# A/D turn the nose left / right at a steady rate, the same way when reversing.
-	if absf(input.x) > 0.05:
-		_try_rotate(input.x * deg_to_rad(heading_turn_deg) * turn_mult * delta)
+		_stopped_t = 0.0
+	# Steering like a car: the wheel eases toward A/D, the body only turns while rolling (yaw rate =
+	# speed / turn radius, capped), and the sign follows the motion so reversing swings the back
+	# toward the steered side.
+	var want := _wheel_input().x
+	_steer = move_toward(_steer, want, heading_steer_rate * delta)
+	if absf(_steer) > 0.01 and absf(speed) > 0.05:
+		var rate := minf(absf(speed) / heading_turn_radius, deg_to_rad(heading_turn_deg) * turn_mult)
+		_try_rotate(signf(speed) * _steer * rate * delta)
 
 
 func _arcade_input() -> Dictionary:

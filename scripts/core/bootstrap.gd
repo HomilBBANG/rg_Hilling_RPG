@@ -540,6 +540,8 @@ func _parse_args() -> void:
 		_run_upgrades_tour()
 	elif tour == "drive":
 		_run_drive_compare()
+	elif tour == "drivegta":
+		_run_drive_gta_tour()
 	elif tour == "wind":
 		_run_wind_check()
 	elif tour == "catfollow":
@@ -1684,6 +1686,83 @@ func _drive_reset(v: CamperVehicle, pos: Vector3, yaw: float, mask: int) -> void
 	v.rotation.y = yaw
 	await get_tree().physics_frame
 	await get_tree().physics_frame
+
+
+## GTA-style driving check (the default HEADING control): gas, W+S hold, S brake → pause →
+## slow reverse, W out of reverse, no turning at a standstill, steering forward / in reverse
+## (the back swings toward A), letting go.
+func _run_drive_gta_tour() -> void:
+	Game.clock_running = false
+	Game.minute_of_day = 10.5 * 60.0
+	await wait_for_sprites()
+	Game.camper_mods["owned"].append("drive_offroad")  # same grip everywhere for clean numbers
+	var v: CamperVehicle = world.vehicle
+	world.enter_vehicle()
+	await _frames(3)
+	var pos := Vector3(20.0, 0.0, 30.0)
+	var run := func(input: Dictionary, secs: float, until: Callable = Callable()) -> float:
+		v.scripted = input
+		var t := 0.0
+		while t < secs:
+			await get_tree().physics_frame
+			t += get_physics_process_delta_time()
+			if until.is_valid() and until.call():
+				break
+		return t
+	var W := {"throttle": 1.0, "steer": 0.0}
+	var S := {"throttle": -1.0, "steer": 0.0}
+	var BOTH := {"brake": true}
+	var NONE := {"throttle": 0.0, "steer": 0.0}
+	# 1 gas
+	await _drive_reset(v, pos, 0.0, 0)
+	var t5: float = await run.call(W, 4.0, func() -> bool: return v.speed >= 5.0)
+	print("[gta] W from rest: 5 m/s after %.2f s" % t5)
+	# 2 W+S: stops and stays put
+	await run.call(W, 2.0)
+	var tb: float = await run.call(BOTH, 3.0, func() -> bool: return absf(v.speed) <= 0.01)
+	var p0 := v.global_position
+	await run.call(BOTH, 2.0)
+	print("[gta] W+S from %.1f m/s: stopped in %.2f s, then held 2 s -> moved %.2f m" % [v.heading_max_speed, tb, v.global_position.distance_to(p0)])
+	# 3 S: brake, pause, slow reverse
+	await _drive_reset(v, pos, 0.0, 0)
+	await run.call(W, 3.0)
+	var ts: float = await run.call(S, 3.0, func() -> bool: return v.speed <= 0.05)
+	var tr: float = await run.call(S, 3.0, func() -> bool: return v.speed < -0.05)
+	await run.call(S, 2.5)
+	print("[gta] S while driving: stopped in %.2f s, reverse starts %.2f s later, reverse speed %.2f m/s" % [ts, tr, -v.speed])
+	# 4 W while reversing: brake then forward
+	var tw: float = await run.call(W, 3.0, func() -> bool: return v.speed >= -0.05)
+	await run.call(W, 1.0)
+	print("[gta] W while reversing: stopped in %.2f s, then forward %.2f m/s after 1 s" % [tw, v.speed])
+	# 5 standstill steering does nothing
+	await _drive_reset(v, pos, 0.0, 0)
+	await run.call({"throttle": 0.0, "steer": 1.0}, 1.0)
+	print("[gta] A at a standstill 1 s -> heading %.1f deg" % rad_to_deg(v.rotation.y))
+	# 6 forward + A: nose turns left
+	await run.call(W, 3.0)
+	var y0 := v.rotation.y
+	await run.call({"throttle": 1.0, "steer": 1.0}, 2.0)
+	var rate := absf(angle_difference(y0, v.rotation.y)) / 2.0
+	print("[gta] W+A 2 s at %.1f m/s: heading %+.0f deg (left = +), radius %.1f m" % [v.speed, rad_to_deg(angle_difference(y0, v.rotation.y)), v.speed / maxf(rate, 0.001)])
+	# 7 reverse + A: the back swings left (toward A), the nose to the right
+	await _drive_reset(v, pos, 0.0, 0)
+	await run.call(S, 2.5)
+	var start := v.global_position
+	var left := Vector3(-sin(v.rotation.y), 0, -cos(v.rotation.y))
+	y0 = v.rotation.y
+	await run.call({"throttle": -1.0, "steer": 1.0}, 2.5)
+	await _p1_shot("drive_gta_reverse_left", "reversing with A", true)
+	var moved := v.global_position - start
+	print("[gta] S+A 2.5 s reversing: heading %+.0f deg, back went %.2f m to the left side (+ = left), %.2f m back" % [
+		rad_to_deg(angle_difference(y0, v.rotation.y)), moved.dot(left), -moved.dot(Vector3(cos(y0), 0, -sin(y0)))])
+	# 8 let go
+	await _drive_reset(v, pos, 0.0, 0)
+	await run.call(W, 3.0)
+	p0 = v.global_position
+	var tc: float = await run.call(NONE, 4.0, func() -> bool: return absf(v.speed) <= 0.01)
+	print("[gta] let go at full speed: stops in %.2f s, rolls %.1f m" % [tc, v.global_position.distance_to(p0)])
+	v.scripted = {}
+	get_tree().quit()
 
 
 ## Same W/S/A/D manoeuvres with the legacy car controller and the heading controller (the

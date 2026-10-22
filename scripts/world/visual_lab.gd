@@ -1431,7 +1431,7 @@ func enter_vehicle() -> void:
 	_last_drive_pos = vehicle.global_position
 	vehicle.power = Game.camper_power()
 	Game.boot.hud.toast("연료가 없다 — 휘발유 통으로 주유해야 움직인다" if Game.camper_out_of_fuel() else
-		"운전 중 — W 전진 · S 후진 · A/D 머리 좌/우 · 키를 놓으면 정지 · 멈춘 뒤 E 내리기")
+		"운전 중 — W 가속 · S 브레이크→멈추면 천천히 후진 · W+S 제자리 정지 · A/D 핸들(달리는 동안) · 멈춘 뒤 E 내리기")
 
 
 func exit_vehicle() -> void:
@@ -1792,7 +1792,7 @@ func try_toggle_camper_lights() -> String:
 
 func context_hint() -> String:
 	if vehicle.driving:
-		return "운전 중 — W 전진 · S 후진 · A/D 머리 좌/우 · E 내리기(정지 시) · F 라이트"
+		return "운전 중 — W 가속 · S 브레이크/후진 · W+S 정지 · A/D 핸들 · E 내리기(정지 시) · F 라이트"
 	if is_random_dungeon() and Game.in_run():
 		var n := 0
 		var gained := Game.run_gained()
