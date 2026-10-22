@@ -1,0 +1,268 @@
+{
+  "version": 1,
+  "dialogue_id": "dialogue.story.cat_meeting",
+  "metadata": {
+    "title": "(임시 문안) 길에서 만난 검은 고양이",
+    "tags": [
+      "story",
+      "cat"
+    ],
+    "notes": "GDD 2.3 [확정]: 왕의 드래곤 토벌 의뢰를 받고 길을 나선 뒤 고양이가 나타난다(간택). 동행이 되는 정확한 계기는 [미정] — 여기서는 길에서 만나 대화 후 따라오게 함(사용자 요청). 어느 선택지든 동행 시작, 쓰다듬으면 호감도 +5. 대사는 임시."
+  },
+  "start_node_id": "start",
+  "nodes": [
+    {
+      "id": "start",
+      "type": "start"
+    },
+    {
+      "id": "cut_meet",
+      "type": "cutscene",
+      "cutscene_id": "cutscene.cat.meeting"
+    },
+    {
+      "id": "l1",
+      "type": "line",
+      "speaker_id": "cat",
+      "text": "…야옹."
+    },
+    {
+      "id": "l2",
+      "type": "line",
+      "speaker_id": "player",
+      "text": "어? 너 혼자야? 이런 길 한복판에서 뭐 해.",
+      "expression": "surprised"
+    },
+    {
+      "id": "l3",
+      "type": "line",
+      "speaker_id": "narrator",
+      "text": "고양이는 대답 대신 주인공의 발치를 한 바퀴 빙 돌더니, 신발 위에 털썩 엉덩이를 붙이고 앉아 버렸다."
+    },
+    {
+      "id": "choice",
+      "type": "choice",
+      "options": [
+        {
+          "port": "pet",
+          "text": "조심스럽게 쓰다듬어 본다."
+        },
+        {
+          "port": "go",
+          "text": "\"미안, 갈 길이 멀어.\""
+        }
+      ]
+    },
+    {
+      "id": "p1",
+      "type": "line",
+      "speaker_id": "narrator",
+      "text": "손을 내밀자 고양이가 먼저 머리를 들이민다. 작고, 따뜻하다."
+    },
+    {
+      "id": "p2",
+      "type": "line",
+      "speaker_id": "cat",
+      "text": "골골골…"
+    },
+    {
+      "id": "act_pet",
+      "type": "action",
+      "action": "cat_join",
+      "args": {
+        "affection": 5
+      }
+    },
+    {
+      "id": "g1",
+      "type": "line",
+      "speaker_id": "player",
+      "text": "나 드래곤 잡으러 가는 길이거든. 따라오면 위험해."
+    },
+    {
+      "id": "g2",
+      "type": "line",
+      "speaker_id": "narrator",
+      "text": "몇 걸음 걷다 돌아보니, 고양이가 꼬리를 바짝 세우고 졸졸 따라오고 있다."
+    },
+    {
+      "id": "g3",
+      "type": "line",
+      "speaker_id": "cat",
+      "text": "야옹!"
+    },
+    {
+      "id": "act_go",
+      "type": "action",
+      "action": "cat_join",
+      "args": {
+        "affection": 0
+      }
+    },
+    {
+      "id": "l4",
+      "type": "line",
+      "speaker_id": "player",
+      "text": "…알았어, 알았어. 같이 가자."
+    },
+    {
+      "id": "l5",
+      "type": "line",
+      "speaker_id": "narrator",
+      "text": "그렇게, 혼자였던 여행에 작은 발소리 하나가 더해졌다."
+    },
+    {
+      "id": "end",
+      "type": "end",
+      "complete_event": "story.cat_meeting"
+    }
+  ],
+  "connections": [
+    {
+      "from": "start",
+      "port": "next",
+      "to": "cut_meet"
+    },
+    {
+      "from": "cut_meet",
+      "port": "next",
+      "to": "l1"
+    },
+    {
+      "from": "l1",
+      "port": "next",
+      "to": "l2"
+    },
+    {
+      "from": "l2",
+      "port": "next",
+      "to": "l3"
+    },
+    {
+      "from": "l3",
+      "port": "next",
+      "to": "choice"
+    },
+    {
+      "from": "p1",
+      "port": "next",
+      "to": "p2"
+    },
+    {
+      "from": "p2",
+      "port": "next",
+      "to": "act_pet"
+    },
+    {
+      "from": "act_pet",
+      "port": "next",
+      "to": "l4"
+    },
+    {
+      "from": "g1",
+      "port": "next",
+      "to": "g2"
+    },
+    {
+      "from": "g2",
+      "port": "next",
+      "to": "g3"
+    },
+    {
+      "from": "g3",
+      "port": "next",
+      "to": "act_go"
+    },
+    {
+      "from": "act_go",
+      "port": "next",
+      "to": "l4"
+    },
+    {
+      "from": "l4",
+      "port": "next",
+      "to": "l5"
+    },
+    {
+      "from": "l5",
+      "port": "next",
+      "to": "end"
+    },
+    {
+      "from": "choice",
+      "port": "pet",
+      "to": "p1"
+    },
+    {
+      "from": "choice",
+      "port": "go",
+      "to": "g1"
+    }
+  ],
+  "editor_positions": {
+    "start": [
+      0,
+      0
+    ],
+    "cut_meet": [
+      280,
+      0
+    ],
+    "l1": [
+      560,
+      0
+    ],
+    "l2": [
+      840,
+      0
+    ],
+    "l3": [
+      1120,
+      0
+    ],
+    "choice": [
+      1400,
+      0
+    ],
+    "p1": [
+      1680,
+      -140
+    ],
+    "p2": [
+      1960,
+      -140
+    ],
+    "act_pet": [
+      2240,
+      -140
+    ],
+    "g1": [
+      1680,
+      140
+    ],
+    "g2": [
+      1960,
+      140
+    ],
+    "g3": [
+      2240,
+      140
+    ],
+    "act_go": [
+      2520,
+      140
+    ],
+    "l4": [
+      2800,
+      0
+    ],
+    "l5": [
+      3080,
+      0
+    ],
+    "end": [
+      3360,
+      0
+    ]
+  }
+}

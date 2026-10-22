@@ -1,0 +1,51 @@
+{
+  "version": 1,
+  "cutscene_id": "cutscene.cat.meeting",
+  "title": "(임시 문안) 길에서 만난 검은 고양이",
+  "notes": "GDD 2.3: 왕의 의뢰를 받고 길을 나선 뒤, 시작 지역 길가에서 고양이와 처음 만난다. dialogue.story.cat_meeting 맨 앞에서 재생 (인게임 연출: 고양이가 다가와 마주 봄).",
+  "skippable": true,
+  "steps": [
+    {
+      "type": "letterbox",
+      "on": true
+    },
+    {
+      "type": "caption",
+      "text": "…길가 풀숲이 바스락거린다.",
+      "seconds": 1.8
+    },
+    {
+      "type": "actor_face",
+      "actor": "player",
+      "target": "cat"
+    },
+    {
+      "type": "actor_move",
+      "actor": "cat",
+      "to": "player",
+      "offset": [
+        1.1,
+        0.6
+      ],
+      "speed": 1.6
+    },
+    {
+      "type": "actor_face",
+      "actor": "cat",
+      "target": "player"
+    },
+    {
+      "type": "wait",
+      "seconds": 0.5
+    },
+    {
+      "type": "caption",
+      "text": "검은 고양이 한 마리가 길 한가운데 앉아 이쪽을 올려다본다.",
+      "seconds": 2.4
+    },
+    {
+      "type": "letterbox",
+      "on": false
+    }
+  ]
+}

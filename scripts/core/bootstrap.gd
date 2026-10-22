@@ -548,6 +548,8 @@ func _parse_args() -> void:
 		_run_collide_tour()
 	elif tour == "monsterai":
 		_run_monster_ai_tour()
+	elif tour == "catmeet":
+		_run_cat_meet_tour()
 	elif tour == "wind":
 		_run_wind_check()
 	elif tour == "catfollow":
@@ -1484,6 +1486,9 @@ func _run_p1_tour() -> void:
 	for i in 240:
 		if Game.cat_joined:
 			break
+		if game_hud.dialogue_active():  # the roadside meeting scene + dialogue
+			await _talk_through(["pet"], "[p1]", 400)
+			continue
 		p.scripted_move = Vector2(1, -0.2)
 		await get_tree().physics_frame
 	p.scripted_move = Vector2.ZERO
@@ -1705,6 +1710,97 @@ func _drive_reset(v: CamperVehicle, pos: Vector3, yaw: float, mask: int) -> void
 ## Bodies that must not be walked through (user request): the hero pushes for 2 s straight at a
 ## villager, a slime, the cat, the camper, a tree, a big rock and a building and must stop at
 ## its surface; a slime hopping at the hero stops too; the cat steps aside.
+## Stage A on the road: the hero walks up to the waiting cat -> in-game scene (letterbox, the cat
+## walks over, they face each other) + dialogue; the hero can't move while it runs; afterwards
+## the cat follows. Meeting it again doesn't replay the scene.
+func _run_cat_meet_tour() -> void:
+	Game.clock_running = false
+	Game.minute_of_day = 10.0 * 60.0
+	Game.set_story_stage(0)
+	await _frames(5)
+	_place_player(Vector3(1.0, 0, 5.4), -PI * 0.5)
+	await wait_for_sprites()
+	await _frames(5)
+	var p: PrototypePlayer = world.player
+	var cat: CatCompanion = world.cat
+	print("[catmeet] stage A: cat mode %s, joined %s, meeting seen %s" % [CatCompanion.Mode.keys()[cat.mode], Game.cat_joined, Game.narrative.event_done(CatCompanion.MEET_EVENT)])
+	await _p1_shot("catmeet_01_waiting", "the cat waits on the road", true)
+	var aff0 := Game.cat_affection
+	var t := 0.0
+	while not game_hud.dialogue_active() and t < 6.0:
+		p.scripted_move = Vector2(1, -0.2)
+		await get_tree().physics_frame
+		t += get_physics_process_delta_time()
+	p.scripted_move = Vector2.ZERO
+	print("[catmeet] walked %.1f s -> dialogue '%s' open %s at %.1f m from the cat" % [t, game_hud.dialogue.dialogue_id, game_hud.dialogue_active(),
+		Vector2(cat.global_position.x - p.global_position.x, cat.global_position.z - p.global_position.z).length()])
+	# held still: the movement keys do nothing while the scene / dialogue runs
+	await _frames(20)
+	var p0 := p.global_position
+	Input.action_press("move_right")
+	Input.action_press("move_up")
+	await _seconds(1.2)
+	var cut_on: bool = game_hud.cutscene.playing
+	await _p1_shot("catmeet_02_scene", "in-game scene: letterbox, the cat walks over", true)
+	Input.action_release("move_right")
+	Input.action_release("move_up")
+	print("[catmeet] during the scene (cutscene playing %s): controls %s, hero moved %.2f m holding W+D -> %s" % [cut_on, p.controls_enabled,
+		Vector2(p.global_position.x - p0.x, p.global_position.z - p0.z).length(), "정지 ✔" if not p.controls_enabled and p.global_position.distance_to(p0) < 0.05 else "움직임 ✘"])
+	var shots := 0
+	var said := PackedStringArray()
+	for i in 600:
+		if not game_hud.dialogue_active():
+			break
+		var ev: Dictionary = game_hud.dialogue.event
+		match ev.get("type", ""):
+			"line":
+				if shots < 1:
+					Input.action_press("move_left")
+					await _seconds(0.5)
+					Input.action_release("move_left")
+					print("[catmeet] dialogue line, holding A 0.5 s: controls %s, hero moved %.2f m" % [p.controls_enabled, Vector2(p.global_position.x - p0.x, p.global_position.z - p0.z).length()])
+					await _p1_shot("catmeet_03_line", "dialogue: the cat's first line", true)
+					shots += 1
+				said.append("%s: %s" % [ev["name"], str(ev["text"]).split("\n")[0]])
+				await _key(KEY_E)
+			"choice":
+				await _p1_shot("catmeet_04_choice", "choice: pet it / say sorry", true)
+				said.append("[선택 쓰다듬기]")
+				var idx := 0
+				for j in ev["options"].size():
+					if ev["options"][j]["port"] == "pet":
+						idx = j
+				await _key(KEY_1 + idx)
+			_:
+				await _frames(5)
+	print("[catmeet]   %s" % " | ".join(said))
+	await _frames(10)
+	print("[catmeet] after: joined %s, affection %d -> %d, event done %s, cat mode %s, controls %s" % [Game.cat_joined, aff0, Game.cat_affection,
+		Game.narrative.event_done(CatCompanion.MEET_EVENT), CatCompanion.Mode.keys()[cat.mode], p.controls_enabled])
+	# walk off: it follows
+	t = 0.0
+	while t < 3.0:
+		p.scripted_move = Vector2(-1, 0.3)
+		await get_tree().physics_frame
+		t += get_physics_process_delta_time()
+	p.scripted_move = Vector2.ZERO
+	await _seconds(1.0)
+	print("[catmeet] walked off 3 s: cat %.1f m behind, mode %s" % [Vector2(cat.global_position.x - p.global_position.x, cat.global_position.z - p.global_position.z).length(),
+		CatCompanion.Mode.keys()[cat.mode]])
+	await _p1_shot("catmeet_05_following", "the cat follows", true)
+	# the meeting is once: back on the road with a fresh roadside cat, no dialogue
+	Game.cat_joined = false
+	world._spawn_cat(false)
+	await _frames(5)
+	_place_player(VisualLab.CAT_ENCOUNTER_POS + Vector3(-2.0, 0, 0.5), 0.0)
+	await _seconds(2.0)
+	print("[catmeet] met again (meeting seen): dialogue %s, joined %s (walks up and joins)" % [game_hud.dialogue_active(), Game.cat_joined])
+	var dv := DialogueData.validate(DialogueData.load_dialogue(CatCompanion.MEET_DIALOGUE))
+	var cv := CutsceneData.validate(CutsceneData.load_cutscene("cutscene.cat.meeting"))
+	print("[catmeet] data check: dialogue issues %d %s, cutscene issues %d" % [dv.size(), dv.map(func(e: Dictionary) -> String: return str(e.get("message", ""))), cv.size()])
+	get_tree().quit()
+
+
 ## Monster AI graphs: slimes are 비선공 by default — they leave the hero alone, fight back when hit,
 ## and their own species doesn't answer the call; the 선공 graph (old behaviour) still works.
 func _run_monster_ai_tour() -> void:
@@ -3437,10 +3533,10 @@ func _run_dialogue_tour() -> void:
 # ---------------------------------------------------------------- P2-5 quests / dialogue
 
 ## Presses keys through an open dialogue: E for lines, the number key for choices (by port).
-func _talk_through(picks: Array, log_prefix := "[quest]") -> PackedStringArray:
+func _talk_through(picks: Array, log_prefix := "[quest]", max_steps := 40) -> PackedStringArray:
 	var said := PackedStringArray()
 	var pi := 0
-	for i in 40:
+	for i in max_steps:
 		if not game_hud.dialogue_active():
 			break
 		var ev: Dictionary = game_hud.dialogue.event

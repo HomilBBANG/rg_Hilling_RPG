@@ -54,4 +54,15 @@ func _apply(action: String, args: Dictionary) -> String:
 			if Game.hud:
 				Game.hud.toast_quest("캠핑카를 얻었다! — %s 성 앞 광장" % where)
 			return "캠핑카 받음 (%s)" % where
+		"cat_join":
+			var aff := int(args.get("affection", 0))
+			var first := not Game.cat_joined
+			Game.join_cat()
+			if aff > 0:
+				Game.add_cat_affection(aff)
+			if first:
+				Game.combat_log.add("검은 고양이가 따라오기 시작했다", "길에서 만난 검은 고양이가 주인공을 따라오기로 했다 — 동행 시작", "info")
+				if Game.hud:
+					Game.hud.toast_quest("검은 고양이가 함께하게 되었다")
+			return "고양이 동행 시작%s%s" % ["" if first else " (이미 함께)", " · 호감도 +%d" % aff if aff > 0 else ""]
 	return "지원하지 않는 액션 %s — 무시" % action

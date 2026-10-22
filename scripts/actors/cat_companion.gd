@@ -2,7 +2,7 @@ class_name CatCompanion
 extends CharacterBody3D
 ## The black cat (신수). One cat whose state follows the scene (GDD 2.5 [확정]: outdoor follow and
 ## indoor stay are the same animal, never two): each world spawns at most one, from Game flags.
-##   ENCOUNTER  stage A: waits on the path, approaches the player and starts following (간택)
+##   ENCOUNTER  stage A: waits on the path; meeting scene + dialogue, then starts following (간택)
 ##   FOLLOW     outside: trails the player, warps back when left far behind
 ##   RESCUE     right after a checkpoint wake-up: circles the player, then sits beside them
 ##   HOME       inside the camper: wanders between spots; pet (E) and snack (R) here
@@ -21,6 +21,11 @@ const FOLLOW_GAIN := 2.4
 const ACCEL := 14.0
 ## Stopped this long before sitting down (short pauses keep the walk pose).
 const SIT_DELAY := 0.4
+## The first meeting on the road (stage A): starts this dialogue (with its in-game scene) when the
+## hero comes this close; without the dialogue file the cat just walks up and joins (old rule).
+const MEET_DIALOGUE := "dialogue.story.cat_meeting"
+const MEET_EVENT := "story.cat_meeting"
+const MEET_DISTANCE := 4.0
 
 var mode := Mode.FOLLOW
 var player: PrototypePlayer
@@ -182,7 +187,16 @@ func _physics_process(delta: float) -> void:
 			_happy_t = -1.0
 	match mode:
 		Mode.ENCOUNTER:
-			if dist < 3.5 and player.is_targetable():
+			var talking: bool = Game.hud != null and Game.hud.dialogue_active()
+			if Game.cat_joined:
+				if not talking:
+					mode = Mode.FOLLOW  # joined in the meeting dialogue: follows once it closes
+			elif talking:
+				pass  # the meeting scene moves it (CutsceneRunner)
+			elif dist < MEET_DISTANCE and player.is_targetable() and not Game.narrative.event_done(MEET_EVENT) \
+					and Game.hud != null and Game.hud.start_dialogue(MEET_DIALOGUE):
+				pass  # the roadside meeting: in-game scene + dialogue (player held still while it runs)
+			elif dist < 3.5 and player.is_targetable():  # no meeting dialogue: walks up and joins
 				goal = player.global_position
 				speed = WALK_SPEED
 				if dist < 1.4:
