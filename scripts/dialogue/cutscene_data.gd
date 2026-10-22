@@ -21,7 +21,8 @@ const STORY_PATH := "res://data/story.json"
 const ILLUSTRATION_DIR := "res://assets/cutscenes"
 
 ## Field types: text (multi-line), line (one line), float, bool, enum (options), speaker,
-## expression (of the step's speaker), actor, target (actor id or a [x, z] point), vec2, image.
+## expression (of the step's speaker), actor, target (actor id or a [x, z] point), vec2, image,
+## quest (data/quests id).
 const STEPS := {
 	"fade": {"label": "화면 페이드", "fields": [
 		{"name": "to", "type": "enum", "label": "방향", "default": "black",
@@ -52,11 +53,15 @@ const STEPS := {
 	"actor_face": {"label": "인물 바라보기", "fields": [
 		{"name": "actor", "type": "actor", "label": "누가", "default": "cat"},
 		{"name": "target", "type": "actor", "label": "누구를", "default": "player"}]},
+	"quest": {"label": "퀘스트 시작/완료", "fields": [
+		{"name": "action", "type": "enum", "label": "할 일", "default": "accept",
+			"options": [["accept", "퀘스트 시작 (수락)"], ["complete", "퀘스트 완료 (보상)"]]},
+		{"name": "quest_id", "type": "quest", "label": "퀘스트", "default": ""}]},
 	"set_flag": {"label": "플래그 설정", "fields": [
 		{"name": "key", "type": "line", "label": "플래그 키", "default": ""},
 		{"name": "value", "type": "bool", "label": "값 (켜기)", "default": true}]},
 }
-const ORDER := ["fade", "image", "narration", "line", "caption", "wait", "letterbox", "actor_move", "actor_face", "set_flag"]
+const ORDER := ["fade", "image", "narration", "line", "caption", "wait", "letterbox", "actor_move", "actor_face", "quest", "set_flag"]
 const ACTOR_NAMES := {"player": "주인공", "cat": "검은 고양이", "rosa": "로사", "bron": "브론"}
 
 
@@ -194,6 +199,8 @@ static func step_text(s: Dictionary) -> String:
 			return "%s → %s 이동" % [actor_name(str(s.get("actor", "?"))), actor_name(str(to)) + " 옆" if to is String else "(%.1f, %.1f)" % [float(to[0]), float(to[1])]]
 		"actor_face":
 			return "%s → %s 바라보기" % [actor_name(str(s.get("actor", "?"))), actor_name(str(s.get("target", "player")))]
+		"quest":
+			return "퀘스트 %s: %s" % ["시작" if s.get("action", "accept") == "accept" else "완료", QuestDB.info(str(s.get("quest_id", ""))).get("title", s.get("quest_id", ""))]
 		"set_flag":
 			return "플래그 %s = %s" % [s.get("key", ""), bool(s.get("value", true))]
 	return "알 수 없는 단계 '%s'" % t
@@ -241,6 +248,8 @@ static func validate(doc: Dictionary) -> Array[Dictionary]:
 			var target: Variant = s.get("to", "player") if t == "actor_move" else s.get("target", "player")
 			if target is String and not target in actors:
 				add.call("error", i, "알 수 없는 대상 '%s'" % target)
+		if t == "quest" and QuestDB.info(str(s.get("quest_id", ""))).is_empty():
+			add.call("error", i, "존재하지 않는 퀘스트 '%s' (data/quests)" % s.get("quest_id", ""))
 		if t == "set_flag" and str(s.get("key", "")).strip_edges() == "":
 			add.call("error", i, "플래그 키가 비어 있다")
 		if s.has("seconds") and float(s.get("seconds", 0.0)) < 0.0:

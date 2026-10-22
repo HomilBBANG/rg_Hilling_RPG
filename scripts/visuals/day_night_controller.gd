@@ -7,6 +7,8 @@ extends Node
 @export var interior := false
 ## Underground (fixed dungeon): no sun or sky, dim cool ambient - torches and lanterns do the rest.
 var cave := false
+var cave_ambient := Color(0.22, 0.21, 0.3)  ## lit halls (throne room) override the dark cave light
+var cave_ambient_energy := 0.55
 
 var sun: DirectionalLight3D
 var environment: Environment
@@ -77,8 +79,8 @@ func _process(_delta: float) -> void:
 func apply(d: float, tw: float) -> void:
 	if cave:
 		if environment:
-			environment.ambient_light_color = Color(0.22, 0.21, 0.3)
-			environment.ambient_light_energy = 0.55
+			environment.ambient_light_color = cave_ambient
+			environment.ambient_light_energy = cave_ambient_energy
 			environment.background_color = Color(0.01, 0.01, 0.015)
 			environment.fog_enabled = false
 			environment.ssao_enabled = style_ssao

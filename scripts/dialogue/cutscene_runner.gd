@@ -149,6 +149,12 @@ func _step(s: Dictionary) -> void:
 					(a as PrototypePlayer).face_direction(atan2(-d.x, -d.z))
 				elif a.has_method("face"):
 					a.face(b.global_position)
+		"quest":
+			var qid := str(s.get("quest_id", ""))
+			if s.get("action", "accept") == "complete":
+				Game.quests.complete(qid, "")
+			else:
+				Game.quests.accept(qid)
 		"set_flag":
 			Game.narrative.set_flag(str(s.get("key", "")), bool(s.get("value", true)))
 	if dialogue and s.get("type", "") != "line":

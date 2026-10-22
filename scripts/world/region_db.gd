@@ -53,6 +53,7 @@ static func _expand_dungeon(src: Dictionary) -> Dictionary:
 	var torches := []
 	var chests := []
 	var floor := []
+	var marks := {}  # other letters (hall props: pillars, carpet, throne...) -> [[x, z], ...]
 	var counts := {}
 	for r in rows:
 		var line := str(grid[r])
@@ -75,6 +76,10 @@ static func _expand_dungeon(src: Dictionary) -> Dictionary:
 					checkpoints.append({"id": "safe_room", "name": sr.get("name", "쉼터"), "pos": [w.x, w.y],
 						"radius": float(sr.get("radius", 6.0)), "marker": true})
 				_:
+					if not kinds.has(ch) and ch != "." and ch != "+":
+						if not marks.has(ch):
+							marks[ch] = []
+						marks[ch].append([w.x, w.y])
 					if kinds.has(ch):
 						counts[ch] = int(counts.get(ch, 0)) + 1
 						monsters.append({"id": "%s_%s%d" % [d["region_id"], ch, counts[ch]], "kind": kinds[ch], "pos": [w.x, w.y],
@@ -96,6 +101,7 @@ static func _expand_dungeon(src: Dictionary) -> Dictionary:
 		d["default_spawn"] = entries.values()[0]
 	d["_walls"] = walls
 	d["_floor"] = floor
+	d["_marks"] = marks
 	d["_torches"] = torches
 	d["_chests"] = chests
 	d["_cols"] = cols
@@ -146,7 +152,8 @@ static func region_name(region_id: String) -> String:
 
 
 static func danger_text(region_id: String) -> String:
-	return "★".repeat(int(info(region_id).get("danger", 1)))
+	var n := int(info(region_id).get("danger", 1))
+	return "★".repeat(n) if n > 0 else "없음"
 
 
 static func v3(a: Variant) -> Vector3:

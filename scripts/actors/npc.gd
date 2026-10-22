@@ -3,6 +3,7 @@ extends Node3D
 ## Merchant NPC with a simple daily routine (GDD 10.4 [확정]: works at the stall during opening
 ## hours, goes home at night; no detailed life simulation). Walks between the house door and the
 ## counter at opening / closing time and is hidden while at home. Times are [미정] (ShopDB).
+## Without a shop (shop_id "") the NPC simply stays at its spot (e.g. the king on his throne).
 
 enum Where { COUNTER, HOME, TO_COUNTER, TO_HOME }
 
@@ -30,7 +31,7 @@ func _ready() -> void:
 	for mi in _rig.find_children("*", "MeshInstance3D", true, false):
 		_meshes.append(mi as MeshInstance3D)
 	# Start where the clock says, without walking there.
-	if ShopDB.is_open(shop_id):
+	if _on_duty():
 		_set_at(Where.COUNTER)
 	else:
 		_set_at(Where.HOME)
@@ -69,6 +70,10 @@ func use_sprite_sheet(sheet: SpriteSheet) -> void:
 			mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON
 
 
+func _on_duty() -> bool:
+	return shop_id == "" or ShopDB.is_open(shop_id)
+
+
 func is_working() -> bool:
 	return where == Where.COUNTER
 
@@ -86,7 +91,7 @@ func _ground(p: Vector3) -> float:
 
 
 func _process(delta: float) -> void:
-	var open := ShopDB.is_open(shop_id)
+	var open := _on_duty()
 	if open and where == Where.HOME:
 		_set_at(Where.HOME)
 		where = Where.TO_COUNTER

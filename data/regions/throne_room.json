@@ -1,0 +1,118 @@
+{
+  "version": 1,
+  "region_id": "throne_room",
+  "kind": "dungeon",
+  "style": "hall",
+  "no_map": true,
+  "name": "왕의 알현실",
+  "danger": 0,
+  "desc": "(임시) 왕도 루미나 성 안의 알현실. 왕이 옥좌에 앉아 있다.",
+  "map": {
+    "origin": [
+      0,
+      0
+    ],
+    "color": [
+      0.6,
+      0.58,
+      0.52
+    ]
+  },
+  "ambient": [
+    0.82,
+    0.74,
+    0.62,
+    0.95
+  ],
+  "ground": {
+    "grass_dark": [
+      0.56,
+      0.54,
+      0.5
+    ],
+    "grass_mid": [
+      0.62,
+      0.6,
+      0.56
+    ],
+    "grass_light": [
+      0.68,
+      0.66,
+      0.62
+    ],
+    "grass_warm": [
+      0.66,
+      0.62,
+      0.56
+    ],
+    "grass_cool": [
+      0.58,
+      0.58,
+      0.58
+    ],
+    "dirt_dark": [
+      0.5,
+      0.48,
+      0.45
+    ],
+    "dirt_mid": [
+      0.58,
+      0.56,
+      0.52
+    ],
+    "dirt_light": [
+      0.66,
+      0.64,
+      0.6
+    ]
+  },
+  "_legend": "# 벽 · . 바닥 · S 도착 · E 나가는 문 · c 붉은 카펫 · Q 옥좌 · P 기둥 · B 깃발 · L 화로 · T 횃불",
+  "grid": [
+    "#################",
+    "#L..B..BcB..B..L#",
+    "#......cQc......#",
+    "#..P...ccc...P..#",
+    "#......ccc......#",
+    "#..P...ccc...P..#",
+    "#T.....ccc.....T#",
+    "#..P...ccc...P..#",
+    "#......ccc......#",
+    "#L.....cSc.....L#",
+    "#......cEc......#",
+    "#################"
+  ],
+  "cell": 2.0,
+  "wall_height": 2.4,
+  "spawn_kinds": {},
+  "once": [],
+  "exit_tiles": {
+    "E": {
+      "id": "hall_exit",
+      "name": "성 밖으로",
+      "to_region": "capital",
+      "to_entry": "castle_door"
+    }
+  },
+  "entry_tiles": {
+    "entrance": {
+      "tile": "S",
+      "yaw": 0.0
+    }
+  },
+  "chests": [],
+  "npcs": [
+    {
+      "look": "king",
+      "speaker": "king",
+      "pos": [
+        0.0,
+        -7.8
+      ],
+      "yaw": 3.1416,
+      "talk_distance": 2.4
+    }
+  ],
+  "tips": [
+    "왕의 알현실 — 옥좌 앞에서 E로 왕과 이야기할 수 있다."
+  ]
+}

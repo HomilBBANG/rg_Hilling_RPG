@@ -524,6 +524,8 @@ func _parse_args() -> void:
 		_run_world_tour()
 	elif tour == "camper":
 		_run_camper_tour()
+	elif tour == "king":
+		_run_king_tour()
 	elif tour == "drive":
 		_run_drive_compare()
 	elif tour == "wind":
@@ -861,7 +863,7 @@ func travel(to_region: String, entry_id: String, driving: bool) -> void:
 		info.get("name", to_region), RegionDB.danger_text(to_region)], "info")
 	await game_hud.fade_to(0.0, 0.6)
 	var arrive := "%s — 위험도 %s" % [info.get("name", to_region), RegionDB.danger_text(to_region)]
-	if RegionDB.is_dungeon(to_region) and not Game.lantern_on:
+	if RegionDB.is_dungeon(to_region) and not Game.lantern_on and str(info.get("style", "")) != "hall":
 		arrive += (" · 어둡다 — L로 등불을 켜자" if Game.player_state.has_lantern() else " · 어둡다 — 횃불 빛을 따라가자")
 	hud.toast(arrive)
 	_busy = false
@@ -2088,6 +2090,89 @@ func _run_shop_tour() -> void:
 	Game.minute_of_day = 8.0 * 60.0 + 1.0
 	await _seconds(4.0)
 	print("[shop] 08:00 -> rosa %s, visible %s" % [Npc.Where.keys()[rosa.where], rosa.visible])
+	get_tree().quit()
+
+
+# ---------------------------------------------------------------- the king's quest (main story)
+
+## A fresh character right after the opening (stage A, story seen, "meet the king" active): no cat
+## yet, the north road to the capital, the castle door, the throne room, the king's dialogue,
+## the dragon quest accepted, and the cat waiting by the road afterwards.
+func _run_king_tour() -> void:
+	Game.clock_running = false
+	Game.minute_of_day = 11.0 * 60.0
+	await wait_for_sprites()
+	Game.set_story_stage(0)
+	Game.narrative.set_flag("story.new_game_seen")
+	Game.quests.accept("quest.main.audience")
+	Game.request_world(Game.WORLD_EXTERIOR)
+	await _frames(3)
+	await wait_for_sprites()
+	await _frames(5)
+	var derr := DialogueData.validate(DialogueData.load_dialogue("dialogue.story.king_audience"))
+	var cerr := CutsceneData.validate(CutsceneData.load_cutscene("cutscene.opening"))
+	print("[king] data check: king dialogue %d issues %s, opening cutscene %d issues %s" % [derr.size(), derr, cerr.size(), cerr])
+	print("[king] new character: stage %s, audience %s, dragon %s, roadside cat %s" % ["ABC"[Game.story_stage()], Game.quests.state("quest.main.audience"),
+		Game.quests.state("quest.main.dragon"), world.cat != null])
+	game_hud.toggle_journal()
+	await _frames(4)
+	await _p1_shot("king_01_journal", "main quest in the journal", true)
+	game_hud.toggle_journal()
+	# north road -> capital, castle door -> throne room
+	travel("capital", "south_road", false)
+	await _wait_travel()
+	_place_player(Vector3(0, 0, -31), 0.0)
+	await _seconds(1.0)
+	await _p1_shot("king_02_castle_door", "castle door", true)
+	_place_player(Vector3(0, 0, -34.6), 0.0)
+	await _seconds(1.2)
+	await _wait_travel()
+	print("[king] castle door -> %s (%s), player (%.1f, %.1f), king here %s" % [Game.region, world.world_title(), world.player.global_position.x,
+		world.player.global_position.z, world._npc_for("") != null])
+	await _seconds(0.8)
+	await _p1_shot("king_03_throne_room", "throne room", true)
+	_place_player(Vector3(0, 0, -5.2), 0.0)
+	await _frames(6)
+	print("[king] prompt in front of the throne: '%s'" % (world.player.focus.prompt_text() if world.player.focus else ""))
+	await _key(KEY_E)
+	await _frames(4)
+	print("[king] dialogue open %s '%s'" % [game_hud.dialogue_active(), game_hud.dialogue.dialogue_id])
+	var shots_at := {"l2": "king_04_player_surprised", "choice": "king_05_choice"}
+	var said := PackedStringArray()
+	for i in 30:
+		if not game_hud.dialogue_active():
+			break
+		var ev: Dictionary = game_hud.dialogue.event
+		await _seconds(0.2)
+		if shots_at.has(ev.get("node", "")):
+			await _p1_shot(shots_at[ev["node"]], ev["node"], true)
+		match ev.get("type", ""):
+			"line":
+				said.append("%s: %s" % [ev["name"], str(ev["text"]).split("\n")[0]])
+				await _key(KEY_E)
+			"choice":
+				said.append("[선택: 제가요?]" if not said.has("[선택: 제가요?]") else "")
+				game_hud.dialogue.choose("me")
+				await _frames(3)
+			_:
+				await _frames(3)
+	print("[king]   %s" % " | ".join(said))
+	print("[king] after: audience %s, dragon %s, event %s, gold %d, bread %d" % [Game.quests.state("quest.main.audience"), Game.quests.state("quest.main.dragon"),
+		Game.narrative.event_done("story.king_audience"), Game.player_state.gold, Game.player_state.inventory.count("bread")])
+	await _seconds(1.0)
+	await _key(KEY_E)
+	await _frames(4)
+	print("[king] talk again -> '%s'" % (str(game_hud.dialogue.event.get("text", "")).substr(0, 30)))
+	await _key(KEY_E)
+	await _frames(6)
+	# out of the castle and back to the meadow: the cat is waiting by the road now
+	_place_player(Vector3(0, 0, 8.6), PI)
+	await _seconds(1.2)
+	await _wait_travel()
+	print("[king] hall exit -> %s at (%.1f, %.1f)" % [Game.region, world.player.global_position.x, world.player.global_position.z])
+	travel("meadow", "north_road", false)
+	await _wait_travel()
+	print("[king] meadow: roadside cat %s (mode %s)" % [world.cat != null, world.cat.mode if world.cat else -1])
 	get_tree().quit()
 
 

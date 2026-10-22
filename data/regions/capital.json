@@ -285,6 +285,19 @@
       "radius": 2.6,
       "to_region": "meadow",
       "to_entry": "north_road"
+    },
+    {
+      "id": "castle_door",
+      "name": "왕의 성",
+      "pos": [
+        0,
+        -35.0
+      ],
+      "radius": 1.5,
+      "to_region": "throne_room",
+      "to_entry": "entrance",
+      "no_vehicle": true,
+      "style": "door"
     }
   ],
   "entries": {
@@ -299,9 +312,17 @@
         50
       ],
       "camper_yaw": 0.0
+    },
+    "castle_door": {
+      "pos": [
+        0,
+        -31.5
+      ],
+      "yaw": 3.1416
     }
   },
   "tips": [
+    "왕도 북쪽의 성 정문으로 들어가면 왕의 알현실이다.",
     "왕도는 몬스터가 없는 안전한 도시다.",
     "가 본 주요 도시(왕도·솔방울 마을)끼리는 지도(M)에서 빠른 이동을 할 수 있다.",
     "캠핑카가 없으면 빠른 이동은 마차 삯(골드)을 낸다."

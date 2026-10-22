@@ -11,7 +11,7 @@ extends Control
 signal play_requested(cutscene_id: String)
 signal saved(path: String)
 
-const TYPE_COLORS := {"fade": Color(0.55, 0.55, 0.6), "image": Color(0.75, 0.55, 0.3), "narration": Color(0.85, 0.8, 0.6),
+const TYPE_COLORS := {"quest": Color(0.95, 0.8, 0.4), "fade": Color(0.55, 0.55, 0.6), "image": Color(0.75, 0.55, 0.3), "narration": Color(0.85, 0.8, 0.6),
 	"line": Color(0.45, 0.62, 0.9), "caption": Color(0.7, 0.75, 0.8), "wait": Color(0.5, 0.5, 0.5),
 	"letterbox": Color(0.6, 0.6, 0.65), "actor_move": Color(0.45, 0.78, 0.5), "actor_face": Color(0.45, 0.7, 0.6),
 	"set_flag": Color(0.8, 0.5, 0.45)}
@@ -942,6 +942,14 @@ func _field_widget(f: Dictionary, s: Dictionary) -> Control:
 			for ex: String in exs:
 				opts.append([ex, "%s (%s)" % [exs[ex], ex]])
 			return _options(opts, str(val), func(v: Variant) -> void:
+				s[key] = str(v)
+				_edited(key))
+		"quest":
+			var qopts := []
+			var qs: Dictionary = QuestDB.all()
+			for qid: String in qs:
+				qopts.append([qid, "%s (%s)" % [qs[qid].get("title", qid), qid]])
+			return _options(qopts, str(val), func(v: Variant) -> void:
 				s[key] = str(v)
 				_edited(key))
 		"actor":

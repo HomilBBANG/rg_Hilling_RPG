@@ -1,0 +1,291 @@
+{
+  "version": 1,
+  "dialogue_id": "dialogue.story.king_audience",
+  "metadata": {
+    "title": "(임시 문안) 왕의 알현 — 드래곤 토벌 의뢰",
+    "tags": [
+      "story",
+      "main"
+    ],
+    "notes": "GDD 2.1 [확정]: 세계에 온 직후 혼자 여행 → 왕에게 드래곤 처치 퀘스트를 받고 모험을 떠난다 → 그 뒤 고양이가 나타남. 처치 후 소원(→ 캠핑카). 대사는 임시."
+  },
+  "start_node_id": "start",
+  "nodes": [
+    {
+      "id": "start",
+      "type": "start"
+    },
+    {
+      "id": "cond_taken",
+      "type": "condition",
+      "check": {
+        "kind": "quest",
+        "quest_id": "quest.main.dragon",
+        "state": "active"
+      }
+    },
+    {
+      "id": "line_again",
+      "type": "line",
+      "speaker_id": "king",
+      "text": "드래곤의 일은 그대에게 달려 있다. 남문을 나서 초원으로 가라. (임시 대사)"
+    },
+    {
+      "id": "end_again",
+      "type": "end",
+      "complete_event": ""
+    },
+    {
+      "id": "l1",
+      "type": "line",
+      "speaker_id": "king",
+      "text": "그대가 바로 하늘에서 떨어졌다는 여행자인가. (임시 대사)"
+    },
+    {
+      "id": "l2",
+      "type": "line",
+      "speaker_id": "player",
+      "text": "어… 네. 아마도요. 정신을 차려 보니 들판이었어요. (임시 대사)",
+      "expression": "surprised"
+    },
+    {
+      "id": "l3",
+      "type": "line",
+      "speaker_id": "king",
+      "text": "이 나라는 지금 북쪽 산맥에 둥지를 튼 드래곤 때문에 큰 위기에 처해 있다.\n마을이 불타고, 기사단도 손을 쓰지 못했지. (임시 대사)"
+    },
+    {
+      "id": "l4",
+      "type": "line",
+      "speaker_id": "king",
+      "text": "궁정 점술사가 말하길, 다른 세상에서 온 자가 드래곤을 쓰러뜨릴 것이라 하였다. (임시 대사)"
+    },
+    {
+      "id": "choice",
+      "type": "choice",
+      "options": [
+        {
+          "port": "me",
+          "text": "제가요…? 저는 그냥 평범한 아저씨인데요."
+        },
+        {
+          "port": "yes",
+          "text": "…해 보겠습니다."
+        }
+      ]
+    },
+    {
+      "id": "l_me",
+      "type": "line",
+      "speaker_id": "king",
+      "text": "평범한 자가 세상을 구하는 이야기도 있는 법이다. 그대 말고는 없다. (임시 대사)"
+    },
+    {
+      "id": "act_met",
+      "type": "action",
+      "action": "quest_advance",
+      "args": {
+        "quest_id": "quest.main.audience",
+        "objective": "audience",
+        "amount": 1
+      }
+    },
+    {
+      "id": "act_audience",
+      "type": "action",
+      "action": "quest_complete",
+      "args": {
+        "quest_id": "quest.main.audience",
+        "outcome": ""
+      }
+    },
+    {
+      "id": "act_dragon",
+      "type": "action",
+      "action": "quest_accept",
+      "args": {
+        "quest_id": "quest.main.dragon"
+      }
+    },
+    {
+      "id": "l5",
+      "type": "line",
+      "speaker_id": "king",
+      "text": "드래곤을 쓰러뜨리고 돌아온다면, 무엇이든 소원 하나를 들어주겠다. (임시 대사)"
+    },
+    {
+      "id": "l6",
+      "type": "line",
+      "speaker_id": "king",
+      "text": "여정에 보탬이 되도록 약간의 물자를 내리겠다. 남문을 나서면 초원으로 이어진다. (임시 대사)"
+    },
+    {
+      "id": "l7",
+      "type": "line",
+      "speaker_id": "player",
+      "text": "드래곤이라니… 일단, 가 보는 수밖에 없겠지. (임시 대사)"
+    },
+    {
+      "id": "end",
+      "type": "end",
+      "complete_event": "story.king_audience"
+    }
+  ],
+  "connections": [
+    {
+      "from": "start",
+      "port": "next",
+      "to": "cond_taken"
+    },
+    {
+      "from": "cond_taken",
+      "port": "true",
+      "to": "line_again"
+    },
+    {
+      "from": "line_again",
+      "port": "next",
+      "to": "end_again"
+    },
+    {
+      "from": "cond_taken",
+      "port": "false",
+      "to": "l1"
+    },
+    {
+      "from": "l1",
+      "port": "next",
+      "to": "l2"
+    },
+    {
+      "from": "l2",
+      "port": "next",
+      "to": "l3"
+    },
+    {
+      "from": "l3",
+      "port": "next",
+      "to": "l4"
+    },
+    {
+      "from": "l4",
+      "port": "next",
+      "to": "choice"
+    },
+    {
+      "from": "choice",
+      "port": "me",
+      "to": "l_me"
+    },
+    {
+      "from": "choice",
+      "port": "yes",
+      "to": "act_met"
+    },
+    {
+      "from": "l_me",
+      "port": "next",
+      "to": "act_met"
+    },
+    {
+      "from": "act_audience",
+      "port": "next",
+      "to": "act_dragon"
+    },
+    {
+      "from": "act_dragon",
+      "port": "next",
+      "to": "l5"
+    },
+    {
+      "from": "l5",
+      "port": "next",
+      "to": "l6"
+    },
+    {
+      "from": "l6",
+      "port": "next",
+      "to": "l7"
+    },
+    {
+      "from": "l7",
+      "port": "next",
+      "to": "end"
+    },
+    {
+      "from": "act_met",
+      "port": "next",
+      "to": "act_audience"
+    }
+  ],
+  "editor_positions": {
+    "start": [
+      0,
+      0
+    ],
+    "cond_taken": [
+      240,
+      0
+    ],
+    "line_again": [
+      500,
+      -180
+    ],
+    "end_again": [
+      760,
+      -180
+    ],
+    "l1": [
+      500,
+      60
+    ],
+    "l2": [
+      760,
+      60
+    ],
+    "l3": [
+      1020,
+      60
+    ],
+    "l4": [
+      1280,
+      60
+    ],
+    "choice": [
+      1540,
+      60
+    ],
+    "l_me": [
+      1800,
+      -60
+    ],
+    "act_audience": [
+      2060,
+      60
+    ],
+    "act_dragon": [
+      2320,
+      60
+    ],
+    "l5": [
+      2580,
+      60
+    ],
+    "l6": [
+      2840,
+      60
+    ],
+    "l7": [
+      3100,
+      60
+    ],
+    "end": [
+      3360,
+      60
+    ],
+    "act_met": [
+      1930,
+      220
+    ]
+  }
+}

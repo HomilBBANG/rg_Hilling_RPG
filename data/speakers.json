@@ -6,7 +6,7 @@
     "player": {"name": "주인공", "expressions": {"surprised": "놀람"}},
     "rosa": {"name": "로사", "talk": "dialogue.npc.rosa.main"},
     "bron": {"name": "브론", "talk": "dialogue.npc.bron.main"},
-    "king": {"name": "왕"},
+    "king": {"name": "왕", "talk": "dialogue.story.king_audience"},
     "cat": {"name": "검은 고양이"}
   }
 }

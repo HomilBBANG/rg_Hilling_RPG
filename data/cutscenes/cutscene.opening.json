@@ -5,15 +5,71 @@
   "notes": "새 게임 인게임 컷씬 임시안. 화면은 인트로의 암전에서 이어서 시작. 새 게임은 진행 단계 A(혼자, 고양이·캠핑카 없음)로 시작.",
   "skippable": true,
   "steps": [
-    {"type": "letterbox", "on": true},
-    {"type": "fade", "to": "clear", "seconds": 2.0},
-    {"type": "caption", "text": "…바람 냄새가 다르다.", "seconds": 2.2},
-    {"type": "line", "speaker_id": "player", "expression": "surprised", "text": "여, 여긴 어디야?"},
-    {"type": "actor_move", "actor": "player", "to": "player", "offset": [1.6, 0.4], "speed": 2.0},
-    {"type": "wait", "seconds": 0.4},
-    {"type": "line", "speaker_id": "player", "expression": "", "text": "꿈은… 아닌 것 같은데."},
-    {"type": "line", "speaker_id": "player", "expression": "", "text": "일단 주변부터 둘러보자."},
-    {"type": "letterbox", "on": false},
-    {"type": "set_flag", "key": "story.arrived", "value": true}
+    {
+      "type": "letterbox",
+      "on": true
+    },
+    {
+      "type": "fade",
+      "to": "clear",
+      "seconds": 2.0
+    },
+    {
+      "type": "caption",
+      "text": "…바람 냄새가 다르다.",
+      "seconds": 2.2
+    },
+    {
+      "type": "line",
+      "speaker_id": "player",
+      "expression": "surprised",
+      "text": "여, 여긴 어디야?"
+    },
+    {
+      "type": "actor_move",
+      "actor": "player",
+      "to": "player",
+      "offset": [
+        1.6,
+        0.4
+      ],
+      "speed": 2.0
+    },
+    {
+      "type": "wait",
+      "seconds": 0.4
+    },
+    {
+      "type": "line",
+      "speaker_id": "player",
+      "expression": "",
+      "text": "꿈은… 아닌 것 같은데."
+    },
+    {
+      "type": "line",
+      "speaker_id": "player",
+      "expression": "",
+      "text": "일단 주변부터 둘러보자."
+    },
+    {
+      "type": "letterbox",
+      "on": false
+    },
+    {
+      "type": "line",
+      "speaker_id": "player",
+      "expression": "",
+      "text": "아까 길가의 표지판에 '북쪽 — 왕도'라고 적혀 있었지… 사람을 만나 보자."
+    },
+    {
+      "type": "set_flag",
+      "key": "story.arrived",
+      "value": true
+    },
+    {
+      "type": "quest",
+      "action": "accept",
+      "quest_id": "quest.main.audience"
+    }
   ]
 }

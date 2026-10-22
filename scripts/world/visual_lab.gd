@@ -156,6 +156,10 @@ func _build_environment() -> void:
 	day_night.sun = sun
 	day_night.environment = we.environment
 	day_night.cave = is_dungeon()
+	var amb: Array = region.get("ambient", [])
+	if amb.size() >= 4:  # lit interiors (throne room) instead of the dark cave light
+		day_night.cave_ambient = Color(float(amb[0]), float(amb[1]), float(amb[2]))
+		day_night.cave_ambient_energy = float(amb[3])
 	add_child(day_night)
 	day_night.apply(Game.daylight(), Game.twilight())
 
@@ -595,6 +599,7 @@ func _spawn_actors() -> void:
 	_spawn_cat(ov.get("kind", "") == "checkpoint" and Game.cat_joined)
 	if has_feature("trade_post"):
 		_spawn_npcs()
+	_spawn_region_npcs()
 
 	camera = TopdownCamera.new()
 	camera.name = "Camera"
@@ -684,9 +689,11 @@ func _grid_world(col: int, row: int) -> Vector3:
 func _build_dungeon() -> void:
 	var c := float(region.get("cell", 2.0))
 	var h := float(region.get("wall_height", 1.5))
+	var hall := str(region.get("style", "")) == "hall"
 	# dark rock mass with a slightly lighter rim on top: the lit floor reads as the walkable space
-	var stone := ProtoMesh.mat(Color(0.22, 0.21, 0.25))
-	var cap := ProtoMesh.mat(Color(0.3, 0.29, 0.33))
+	# (a hall: pale dressed stone with a darker coping)
+	var stone := ProtoMesh.mat(Color(0.62, 0.6, 0.56) if hall else Color(0.22, 0.21, 0.25))
+	var cap := ProtoMesh.mat(Color(0.42, 0.4, 0.38) if hall else Color(0.3, 0.29, 0.33))
 	var cols := int(region["_cols"])
 	var rows := int(region["_rows"])
 	var wall := {}
@@ -728,6 +735,9 @@ func _build_dungeon() -> void:
 		root.add_child(light)
 		AmbientParticles.embers(self, root.position + Vector3(0, 1.4, 0))
 		_block(p.x, p.z, 1.0)
+	if hall:
+		_build_hall_props(c)
+		return
 	# rubble + glowing mushrooms on free floor cells (fixed seed: the layout never changes)
 	var glow := ProtoMesh.mat(Color(0.5, 0.95, 0.9), 0.4, Color(0.4, 0.95, 0.85), 1.6)
 	var stem := ProtoMesh.mat(Color(0.75, 0.78, 0.7))
@@ -747,6 +757,76 @@ func _build_dungeon() -> void:
 				ProtoMesh.cylinder(m, 0.025, 0.14, o + Vector3(0, 0.07, 0), stem, Vector3.ZERO, 5)
 				var capm := ProtoMesh.sphere(m, 0.07, o + Vector3(0, 0.15, 0), glow, Vector3(1, 0.55, 1), 6, 3)
 				capm.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+
+
+## Throne room furnishing from grid letters: 'c' red carpet, 'P' pillars, 'Q' the throne on a dais,
+## 'B' banners on the wall behind it, 'L' standing braziers (extra light).
+func _build_hall_props(c: float) -> void:
+	var marks: Dictionary = region.get("_marks", {})
+	var carpet := ProtoMesh.mat(Color(0.62, 0.14, 0.16))
+	var trim := ProtoMesh.mat(Color(0.86, 0.68, 0.3), 0.4)
+	for p: Array in marks.get("c", []):
+		var m := ProtoMesh.box(self, Vector3(c, 0.04, c), Vector3(float(p[0]), ground_height(float(p[0]), float(p[1])) + 0.02, float(p[1])), carpet)
+		m.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	var pillar := ProtoMesh.mat(Color(0.74, 0.72, 0.68))
+	for p: Array in marks.get("P", []):
+		var root := _on_ground(Node3D.new(), float(p[0]), float(p[1]))
+		ProtoMesh.cylinder(root, 0.45, 3.2, Vector3(0, 1.6, 0), pillar, Vector3.ZERO, 10)
+		ProtoMesh.box(root, Vector3(1.1, 0.25, 1.1), Vector3(0, 0.12, 0), trim)
+		ProtoMesh.box(root, Vector3(1.1, 0.25, 1.1), Vector3(0, 3.25, 0), trim)
+		ProtoMesh.static_cylinder_collider(root, 0.5, 3.0, Vector3(0, 1.5, 0))
+		_block(float(p[0]), float(p[1]), 1.0)
+	var gold := ProtoMesh.mat(Color(0.95, 0.76, 0.26), 0.35)
+	var velvet := ProtoMesh.mat(Color(0.5, 0.12, 0.2))
+	for p: Array in marks.get("Q", []):
+		var root := _on_ground(Node3D.new(), float(p[0]), float(p[1]))
+		ProtoMesh.box(root, Vector3(4.0, 0.3, 3.0), Vector3(0, 0.15, -0.3), ProtoMesh.mat(Color(0.7, 0.68, 0.64)))  # dais
+		ProtoMesh.box(root, Vector3(1.3, 0.5, 1.0), Vector3(0, 0.55, -0.8), gold)                   # seat
+		ProtoMesh.box(root, Vector3(1.3, 1.9, 0.25), Vector3(0, 1.4, -1.25), gold)                  # back
+		ProtoMesh.box(root, Vector3(0.9, 1.4, 0.1), Vector3(0, 1.4, -1.1), velvet)
+		ProtoMesh.sphere(root, 0.16, Vector3(0, 2.45, -1.25), gold, Vector3.ONE, 8, 5)
+		_block(float(p[0]), float(p[1]), 2.0)
+	var banner := ProtoMesh.mat(Color(0.7, 0.16, 0.2))
+	for p: Array in marks.get("B", []):
+		var root := _on_ground(Node3D.new(), float(p[0]), float(p[1]))
+		ProtoMesh.box(root, Vector3(1.2, 2.6, 0.08), Vector3(0, 2.0, 0.6), banner)
+		ProtoMesh.box(root, Vector3(0.5, 0.5, 0.1), Vector3(0, 2.4, 0.66), gold, Vector3(0, 0, 45))
+	var flame := ProtoMesh.mat(Color(1.0, 0.7, 0.3), 0.6, Color(1.0, 0.6, 0.25), 3.0)
+	for p: Array in marks.get("L", []):
+		var root := _on_ground(Node3D.new(), float(p[0]), float(p[1]))
+		ProtoMesh.cylinder(root, 0.08, 1.1, Vector3(0, 0.55, 0), gold, Vector3.ZERO, 6)
+		ProtoMesh.cylinder(root, 0.35, 0.25, Vector3(0, 1.15, 0), gold, Vector3.ZERO, 8, 0.45)
+		var f := ProtoMesh.sphere(root, 0.22, Vector3(0, 1.4, 0), flame, Vector3(1, 1.4, 1), 6, 4)
+		f.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		var light := OmniLight3D.new()
+		light.position = Vector3(0, 1.8, 0)
+		light.light_color = Color(1.0, 0.78, 0.5)
+		light.light_energy = 2.6
+		light.omni_range = 11.0
+		root.add_child(light)
+		ProtoMesh.static_cylinder_collider(root, 0.4, 2.0, Vector3(0, 1, 0))
+		_block(float(p[0]), float(p[1]), 0.8)
+
+
+## Story NPCs from region data ("npcs": [{"look", "pos", "yaw", "speaker"}]): they stay put and
+## open their speaker's talk dialogue (data/speakers.json) with E.
+func _spawn_region_npcs() -> void:
+	for spec: Dictionary in region.get("npcs", []):
+		var n := Npc.new()
+		n.name = "Npc_" + str(spec["look"])
+		n.look = str(spec["look"])
+		n.shop_id = ""
+		n.counter_pos = RegionDB.v3(spec["pos"])
+		n.counter_yaw = float(spec.get("yaw", 0.0))
+		n.door_pos = n.counter_pos
+		n.height_func = Callable(self, "ground_height")
+		n.player = player
+		add_child(n)
+		npcs.append(n)
+		var sp := str(spec.get("speaker", spec["look"]))
+		var talk_at := n.counter_pos + Vector3(-sin(n.counter_yaw), 0, -cos(n.counter_yaw)) * float(spec.get("talk_distance", 1.6))
+		var ip := InteractPoint.make(self, talk_at, "E 대화 — %s" % DialogueData.speaker_name(sp), Callable(), 1.8)
+		ip.action = func(_pl: Node) -> void: Game.hud.start_dialogue(DialogueData.talk_dialogue(sp))
 
 
 ## Highland cave mouth: two big rocks around a dark opening, a lantern-less warning sign.
@@ -1147,8 +1227,8 @@ func _spawn_cat(rescue: bool) -> void:
 	cat.player = player
 	cat.height_func = Callable(self, "ground_height")
 	var p: Vector3
-	if not Game.cat_joined and not has_feature("camp"):
-		cat.free()  # the roadside encounter only happens in the starting region
+	if not Game.cat_joined and (not has_feature("camp") or not cat_may_appear()):
+		cat.free()  # the roadside encounter only happens in the starting region (after the king's quest)
 		cat = null
 		return
 	if not Game.cat_joined:
@@ -1163,6 +1243,13 @@ func _spawn_cat(rescue: bool) -> void:
 	if rescue:
 		cat.start_rescue()
 	Game.sprites_dirty = true
+
+
+## GDD 2.3 [확정]: the cat shows up once the hero has set out to fight the dragon. In a real game
+## (the new-game story was seen) that means after accepting the king's quest; test runs without
+## the story keep the old roadside encounter.
+func cat_may_appear() -> bool:
+	return not Game.narrative.get_flag("story.new_game_seen") or Game.quests.state("quest.main.dragon") != "none"
 
 
 func _apply_camper_owned() -> void:
@@ -1296,6 +1383,9 @@ func _build_exit_marker(ex: Dictionary) -> void:
 	if is_dungeon():
 		_build_dungeon_exit(c)
 		return
+	if ex.get("style", "") == "door":
+		_block(c.x, c.z, float(ex["radius"]) + 1.0)
+		return  # a building's own door (the castle gate): no road markers
 	if ex.get("style", "") == "cave":
 		_build_cave_mouth(c)
 		return

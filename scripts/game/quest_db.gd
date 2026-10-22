@@ -5,7 +5,7 @@ extends RefCounted
 ##
 ## { "version": 1, "quest_id": "quest.rosa.jelly", "title": "", "desc": "",
 ##   "giver": "rosa",            speaker id (data/speakers.json)
-##   "source": "npc" | "board" | "event",   GDD 13.1 acquisition routes
+##   "source": "npc" | "board" | "event" | "story",   GDD 13.1 acquisition routes (story = main line)
 ##   "accept": "direct" | "auto",           formal requests are accepted directly; field events start on their own
 ##   "repeatable": false,                   repeat requests can be retaken after success or failure (13.3)
 ##   "time_limit_hours": 0,                 0 = no limit (13.3: only urgent / special quests)
@@ -20,7 +20,7 @@ extends RefCounted
 ##   "test_only": true }                   placeholder data, not real story content
 
 const DIR := "res://data/quests"
-const SOURCE_NAMES := {"npc": "NPC 의뢰", "board": "게시판 의뢰", "event": "현장 사건"}
+const SOURCE_NAMES := {"npc": "NPC 의뢰", "board": "게시판 의뢰", "event": "현장 사건", "story": "메인 이야기"}
 
 static var _cache := {}
 static var _cache_time := -1
