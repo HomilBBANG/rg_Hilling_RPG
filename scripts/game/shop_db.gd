@@ -13,7 +13,7 @@ const SHOPS := {
 			["heal_potion", 25, 5, "consumable"], ["stamina_potion", 20, 3, "consumable"],
 			["mana_potion", 30, 3, "consumable"], ["bread", 6, 8, "consumable"],
 			["canned_food", 10, 4, "consumable"], ["cat_snack", 5, 10, "consumable"],
-			["firewood", 4, 6, "material"], ["fishing_rod", 35, 2, "equip"],
+			["firewood", 4, 6, "material"], ["fishing_rod", 35, 2, "equip"], ["fuel_can", 30, 4, "consumable"],
 		],
 		# share of the item value paid when the player sells; 0 = doesn't buy
 		"buy_rates": {"common": 0.5, "rare": 0.0, "equip": 0.2},
@@ -24,6 +24,7 @@ const SHOPS := {
 			["iron_sword", 70, 2, "equip"], ["wooden_shield", 55, 1, "equip"], ["leather_cap", 40, 2, "equip"],
 			["leather_gloves", 35, 2, "equip"], ["sturdy_boots", 45, 1, "equip"], ["leather_armor", 95, 1, "equip"],
 			["flame_longsword", 320, 1, "equip"], ["iron_ore", 18, 4, "material"], ["mana_shard", 45, 2, "rare"],
+			["repair_kit", 60, 2, "material"],
 		],
 		"buy_rates": {"common": 0.25, "rare": 0.6, "equip": 0.45},
 		"special_rates": {"iron_ore": 0.7},  # its own speciality pays better

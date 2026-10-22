@@ -522,6 +522,8 @@ func _parse_args() -> void:
 		_run_cutscene_tour()
 	elif tour == "world":
 		_run_world_tour()
+	elif tour == "camper":
+		_run_camper_tour()
 	elif tour == "drive":
 		_run_drive_compare()
 	elif tour == "wind":
@@ -908,7 +910,16 @@ func fast_travel_quote(city_id: String) -> Dictionary:
 		return {"ok": false, "why": "캠핑카에서 내려서 지도를 다시 열자"}
 	var dist: float = (cities[from]["map"] as Vector2).distance_to(cities[city_id]["map"])
 	var camper := Game.has_camper and str(Game.camper.get("region", "")) == Game.region
+	var fuel := 0.0 if Game.camper_infinite_power else dist * Game.CAMPER_FUEL_PER_M
+	var camper_note := ""
+	if camper and Game.camper_broken():  # GDD 9.5: broken -> no fast travel with the camper
+		camper = false
+		camper_note = "캠핑카가 고장나 함께 갈 수 없다 — 마차로"
+	elif camper and Game.camper_fuel < fuel:  # GDD 11.4: not enough fuel -> can't start with it
+		camper = false
+		camper_note = "캠핑카 연료가 모자란다 (필요 %.0f L, 남은 %.0f L) — 마차로" % [fuel, Game.camper_fuel]
 	var q := {"ok": true, "why": "", "from": from, "from_name": cities[from]["name"], "distance": dist, "with_camper": camper,
+		"fuel": fuel if camper else 0.0, "camper_note": camper_note,
 		"minutes": dist * (FAST_CAMPER_MIN_PER_M if camper else FAST_MIN_PER_M), "gold": 0 if camper else FAST_FARE_BASE + roundi(dist * FAST_FARE_PER_M)}
 	if not camper and Game.player_state.gold < int(q["gold"]):
 		q["ok"] = false
@@ -932,6 +943,8 @@ func fast_travel(city_id: String) -> String:
 %s" % [ct["name"], hours, "캠핑카와 함께" if q["with_camper"] else "마차 삯 %d 골드" % int(q["gold"])])
 	if not q["with_camper"]:
 		Game.player_state.gold -= int(q["gold"])
+	else:
+		Game.use_camper_fuel(float(q["fuel"]))
 	Game.advance_minutes(float(q["minutes"]))
 	var arr: Dictionary = ct["arrival"]
 	if q["with_camper"]:
@@ -951,6 +964,67 @@ func fast_travel(city_id: String) -> String:
 	_busy = false
 	_autosave()
 	return ""
+
+
+# ---------------------------------------------------------------- camper fuel / repair items (GDD 9.3 / 9.5)
+
+## Uses a camper item from the bag ("fuel_can" = refuel, "repair_kit" = emergency repair). It has
+## to be done beside the camper. Returns what happened (shown as a toast).
+func use_camper_item(id: String) -> String:
+	var info := ItemDB.info(id)
+	var st := Game.player_state
+	if st.inventory.count(id) <= 0:
+		return "가방에 없다"
+	if not Game.has_camper:
+		return "아직 캠핑카가 없다"
+	if not (world is VisualLab) or not world.camper_here() or not world.player_near_camper():
+		return "캠핑카 곁에서 써야 한다"
+	var amount := float(info.get("amount", 10.0))
+	match str(info.get("camper", "")):
+		"fuel":
+			if Game.camper_fuel >= Game.CAMPER_FUEL_MAX - 0.5:
+				return "연료 탱크가 가득 차 있다"
+			Game.camper_fuel = minf(Game.CAMPER_FUEL_MAX, Game.camper_fuel + amount)
+			st.inventory.remove(id, 1)
+			Game.combat_log.add("주유 +%d L" % roundi(amount), "휘발유 통 1개를 넣었다 — 연료 %d/%d L" % [roundi(Game.camper_fuel), roundi(Game.CAMPER_FUEL_MAX)], "info")
+			return "주유했다 — 연료 %d/%d L" % [roundi(Game.camper_fuel), roundi(Game.CAMPER_FUEL_MAX)]
+		"repair":
+			if Game.camper_durability >= amount:
+				return "응급 수리는 내구도가 %d 아래일 때만 — 완전 수리는 대장간에서" % roundi(amount)
+			Game.camper_durability = amount
+			st.inventory.remove(id, 1)
+			Game.combat_log.add("캠핑카 응급 복구", "응급 수리 공구로 캠핑카를 손봤다 — 내구도 %d/%d, 다시 달릴 수 있다" % [roundi(Game.camper_durability), roundi(Game.CAMPER_DURABILITY_MAX)], "info")
+			return "응급 복구 — 내구도 %d/%d, 다시 달릴 수 있다" % [roundi(Game.camper_durability), roundi(Game.CAMPER_DURABILITY_MAX)]
+	return "쓸 수 없는 물건"
+
+
+## Full repair by the smith (GDD 9.5: an NPC mechanic for gold). He comes out to the camper, so it
+## has to be parked in this region.
+const REPAIR_GOLD_PER_POINT := 2
+
+
+func camper_repair_quote() -> Dictionary:
+	var missing := ceili(Game.CAMPER_DURABILITY_MAX - Game.camper_durability)
+	if not Game.has_camper:
+		return {"ok": false, "why": "캠핑카가 없다", "gold": 0}
+	if missing <= 0:
+		return {"ok": false, "why": "고칠 곳이 없다", "gold": 0}
+	if str(Game.camper.get("region", "")) != Game.region:
+		return {"ok": false, "why": "캠핑카가 이 지역에 없다 (%s에 세워 둠)" % RegionDB.region_name(str(Game.camper.get("region", ""))), "gold": missing * REPAIR_GOLD_PER_POINT}
+	var gold := missing * REPAIR_GOLD_PER_POINT
+	if Game.player_state.gold < gold:
+		return {"ok": false, "why": "골드가 모자란다 (%d 골드)" % gold, "gold": gold}
+	return {"ok": true, "why": "", "gold": gold}
+
+
+func repair_camper() -> String:
+	var q := camper_repair_quote()
+	if not q["ok"]:
+		return str(q["why"])
+	Game.player_state.gold -= int(q["gold"])
+	Game.camper_durability = Game.CAMPER_DURABILITY_MAX
+	Game.combat_log.add("캠핑카 수리 (-%d 골드)" % int(q["gold"]), "대장간 브론이 캠핑카를 완전히 고쳤다 — 내구도 %d/%d" % [roundi(Game.camper_durability), roundi(Game.CAMPER_DURABILITY_MAX)], "info")
+	return "캠핑카를 완전히 고쳤다 (-%d 골드)" % int(q["gold"])
 
 
 ## Player HP reached 0 (GDD 2.4 / 12.3 [확정]): field loot is split (goblins take part, the rest
@@ -2014,6 +2088,145 @@ func _run_shop_tour() -> void:
 	Game.minute_of_day = 8.0 * 60.0 + 1.0
 	await _seconds(4.0)
 	print("[shop] 08:00 -> rosa %s, visible %s" % [Npc.Where.keys()[rosa.where], rosa.visible])
+	get_tree().quit()
+
+
+# ---------------------------------------------------------------- camper fuel / durability
+
+## Drives into meadow slimes until the camper breaks, then exercises fuel use, the emergency
+## repair kit, the smith's full repair, refuelling, the refinery recipe, fast-travel rules and saving.
+func _run_camper_tour() -> void:
+	Game.clock_running = false
+	Game.minute_of_day = 11.0 * 60.0
+	await wait_for_sprites()
+	var st := Game.player_state
+	var v: CamperVehicle = world.vehicle
+	print("[camper] start: %s" % Game.camper_status_text())
+	# --- fuel per metre: drive straight along the road for a while
+	world.enter_vehicle()
+	await _frames(3)
+	v.global_position = Vector3(46, 0, -3.6)
+	v.rotation.y = 0.0  # nose east
+	world._last_drive_pos = v.global_position
+	var fuel0 := Game.camper_fuel
+	var x0 := v.global_position.x
+	v.scripted = {"throttle": 1.0, "steer": 0.0}
+	await _seconds(4.0)
+	v.scripted = {"throttle": 0.0, "steer": 0.0}
+	await _seconds(1.0)
+	print("[camper] drove %.1f m -> fuel %.2f -> %.2f L (%.3f L/m)" % [v.global_position.x - x0, fuel0, Game.camper_fuel, (fuel0 - Game.camper_fuel) / maxf(v.global_position.x - x0, 0.01)])
+	# --- ram monsters until it breaks
+	var hits := 0
+	for i in 12:
+		var target: SlimeMonster = null
+		for m in world.monsters:
+			if is_instance_valid(m) and m.state != SlimeMonster.State.DEAD:
+				target = m
+				break
+		if target == null or Game.camper_broken():
+			break
+		var tp := target.global_position
+		v.global_position = Vector3(tp.x - 7.0, 0, tp.z)
+		v.rotation.y = 0.0
+		v.speed = 0.0
+		world._last_drive_pos = v.global_position
+		var hp0 := target.hp
+		var tname := target.display_name
+		var dur0 := Game.camper_durability
+		v.scripted = {"throttle": 1.0, "steer": 0.0}
+		var t := 0.0
+		while t < 3.0 and Game.camper_durability == dur0:
+			await _frames(1)
+			t += get_process_delta_time()
+		v.scripted = {"throttle": 0.0, "steer": 0.0}
+		if Game.camper_durability < dur0:
+			hits += 1
+			print("[camper] hit %d: %s HP %d -> %s, durability %.0f -> %.0f, power %.2f" % [hits, tname, hp0,
+				str(target.hp) if is_instance_valid(target) and target.state != SlimeMonster.State.DEAD else "쓰러짐", dur0, Game.camper_durability, v.power])
+			if hits == 1:
+				await _frames(2)
+				await _p1_shot("camper_01_ram", "camper rams a slime", true)
+		await _seconds(0.6)
+	print("[camper] broken %s after %d hits, power %.2f, status '%s'" % [Game.camper_broken(), hits, v.power, Game.camper_status_text()])
+	v.scripted = {"throttle": 1.0, "steer": 0.0}
+	var bx := v.global_position.x
+	await _seconds(1.5)
+	v.scripted = {}
+	print("[camper] broken + throttle -> moved %.2f m" % (v.global_position.x - bx))
+	await _seconds(0.5)
+	world.exit_vehicle()
+	await _frames(3)
+	world.enter_vehicle()
+	print("[camper] try to drive a broken camper -> driving %s" % v.driving)
+	await _p1_shot("camper_02_broken_hud", "broken camper, HUD status", true)
+	# --- emergency repair kit beside it, then the smith's full repair
+	st.inventory.add("repair_kit", 1)
+	print("[camper] repair kit -> '%s'" % use_camper_item("repair_kit"))
+	print("[camper] repair kit again -> '%s'" % use_camper_item("repair_kit"))
+	st.gold = 500
+	var q := camper_repair_quote()
+	print("[camper] smith quote: ok %s, %d gold" % [q["ok"], int(q["gold"])])
+	_place_player(VisualLab.TRADE_STALLS[1][0] + Vector3(0, 0, 1.5), 0.0)
+	await _frames(5)
+	game_hud.open_shop("bron", null)
+	await _frames(4)
+	await _p1_shot("camper_03_smith_repair", "smith offers camper repair", true)
+	game_hud.close_panel()
+	print("[camper] smith repair -> '%s', gold %d" % [repair_camper(), st.gold])
+	# --- out of fuel: no power; refuel with a can beside the camper
+	Game.camper_fuel = 0.0
+	_place_player(v.global_position + Vector3(0, 0, 3.5), 0.0)
+	await _frames(3)
+	world.enter_vehicle()
+	await _frames(2)
+	print("[camper] empty tank -> power %.2f" % v.power)
+	world.exit_vehicle()
+	await _frames(2)
+	st.inventory.add("fuel_can", 2)
+	print("[camper] refuel -> '%s'" % use_camper_item("fuel_can"))
+	_place_player(Vector3(-5, 0, 30), 0.0)
+	await _frames(3)
+	print("[camper] refuel far from the camper -> '%s'" % use_camper_item("fuel_can"))
+	# --- refinery: slime jelly -> gasoline can (NPC facility, GDD 9.3)
+	st.inventory.add("slime_jelly", 4)
+	_place_player(VisualLab.REFINERY_POS + Vector3(0, 0, 1.0), PI)
+	await _frames(5)
+	var cans := st.inventory.count("fuel_can")
+	print("[camper] refinery craft -> %s, fuel cans %d -> %d, jelly %d" % [await _craft_and_wait("fuel_can", "refinery"), cans, st.inventory.count("fuel_can"), st.inventory.count("slime_jelly")])
+	game_hud.open_crafting("refinery", null)
+	await _frames(4)
+	await _p1_shot("camper_04_refinery", "refinery recipe", true)
+	game_hud.close_panel()
+	# --- fast travel rules (GDD 11.4): low fuel / broken -> carriage
+	Game.discovered["city:capital"] = true
+	Game.discovered["city:pinecone"] = true
+	Game.region = "highland"
+	Game.camper = {"region": "highland", "pos": Vector3(57, 0, 14), "yaw": 0.0}
+	Game.spawn_override = {"kind": "load", "pos": Vector3(50, 0, 32), "yaw": 0.0}
+	Game.request_world(Game.WORLD_EXTERIOR)
+	await _frames(3)
+	await wait_for_sprites()
+	await _frames(5)
+	Game.camper_fuel = 5.0
+	var q1 := fast_travel_quote("capital")
+	print("[camper] fast travel, 5 L left -> with camper %s, note '%s', fare %d" % [q1["with_camper"], q1.get("camper_note", ""), int(q1["gold"])])
+	Game.camper_fuel = 60.0
+	Game.camper_durability = 0.0
+	var q2 := fast_travel_quote("capital")
+	print("[camper] fast travel, broken -> with camper %s, note '%s'" % [q2["with_camper"], q2.get("camper_note", "")])
+	Game.camper_durability = 100.0
+	var q3 := fast_travel_quote("capital")
+	print("[camper] fast travel, full tank -> with camper %s, fuel %.1f L" % [q3["with_camper"], float(q3["fuel"])])
+	await fast_travel("capital")
+	print("[camper]   arrived %s, fuel now %.1f L" % [Game.region, Game.camper_fuel])
+	# --- saved and restored
+	Game.camper_fuel = 33.0
+	Game.camper_durability = 47.0
+	var saved := SaveManager.capture_state()
+	Game.camper_fuel = 1.0
+	Game.camper_durability = 1.0
+	SaveManager.apply_state(saved)
+	print("[camper] save -> load: fuel %.0f, durability %.0f" % [Game.camper_fuel, Game.camper_durability])
 	get_tree().quit()
 
 

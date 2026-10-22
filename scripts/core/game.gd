@@ -45,6 +45,14 @@ var storage := Inventory.new()
 const STORAGE_CAPACITY := 100.0
 ## Story flags (GDD 2.3: the cat joins before the camper exists). F9 cycles the stages.
 var has_camper := true
+## Camper fuel and durability (GDD 9.3 / 9.5 [확정]; the numbers are [미정] placeholders).
+const CAMPER_FUEL_MAX := 60.0          # litres of gasoline in the tank
+const CAMPER_FUEL_PER_M := 0.04        # litres per metre driven (a full tank ≈ 1.5 km)
+const CAMPER_DURABILITY_MAX := 100.0
+const CAMPER_WEAK := 0.3               # below this share of durability it drives slower
+var camper_fuel := CAMPER_FUEL_MAX
+var camper_durability := CAMPER_DURABILITY_MAX
+var camper_infinite_power := false     # final power upgrade (9.3): no fuel used
 var cat_joined := true
 ## Cat affection: snacks raise it (GDD 2.5 [확정]); amount / cap [미정].
 var cat_affection := 0
@@ -308,6 +316,39 @@ func set_story_stage(stage: int) -> void:
 	cat_joined = stage >= 1
 	has_camper = stage >= 2
 	story_changed.emit()
+
+
+func camper_broken() -> bool:
+	return camper_durability <= 0.0
+
+
+func camper_out_of_fuel() -> bool:
+	return camper_fuel <= 0.0 and not camper_infinite_power
+
+
+## 0 = it can't move (broken / empty tank), below 1 = damaged and slower.
+func camper_power() -> float:
+	if camper_broken() or camper_out_of_fuel():
+		return 0.0
+	return 0.75 if camper_durability < CAMPER_DURABILITY_MAX * CAMPER_WEAK else 1.0
+
+
+func use_camper_fuel(litres: float) -> void:
+	if not camper_infinite_power:
+		camper_fuel = maxf(0.0, camper_fuel - litres)
+
+
+func damage_camper(amount: float) -> void:
+	camper_durability = maxf(0.0, camper_durability - amount)
+
+
+func camper_status_text() -> String:
+	var s := "캠핑카 연료 %d/%d L · 내구도 %d/%d" % [roundi(camper_fuel), roundi(CAMPER_FUEL_MAX), ceili(camper_durability), roundi(CAMPER_DURABILITY_MAX)]
+	if camper_broken():
+		s += " — 고장 (수리 필요)"
+	elif camper_out_of_fuel():
+		s += " — 연료 없음"
+	return s
 
 
 func join_cat() -> void:

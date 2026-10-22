@@ -283,6 +283,29 @@ func receive_attack(attacker_profile: Dictionary, from: Node3D) -> void:
 		engage()
 
 
+## Run over by the camper (VisualLab): no to-hit roll, a heavy shove; the camper pays in durability.
+func receive_ram(damage: int, from: Node3D) -> void:
+	if state == State.DEAD:
+		return
+	var dmg := maxi(1, damage - int(profile.get("armor", 0)))
+	hp -= dmg
+	Game.combat_log.add("캠핑카 들이받기 → %s %d" % [display_name, dmg], "캠핑카가 %s을(를) 들이받음 — 피해 %d (방어 %d 뺌) · 남은 HP %d/%d" % [
+		display_name, dmg, int(profile.get("armor", 0)), maxi(hp, 0), max_hp], "hit")
+	if Game.hud:
+		Game.hud.float_text(global_position + Vector3(0, 1.1, 0), "%d" % dmg, Color(1.0, 0.62, 0.2), true)
+	_flash = 1.0
+	_knock = _flat(global_position - from.global_position).normalized() * 8.0
+	if hp <= 0:
+		_die()
+		return
+	state = State.HURT
+	_hurt_t = 0.35
+	_hop_t = _hop_time
+	_hop_rest = true
+	if world and world.has_method("alert_species"):
+		world.alert_species(self)
+
+
 func _die() -> void:
 	state = State.DEAD
 	Game.player_state.add_exp(exp_reward)

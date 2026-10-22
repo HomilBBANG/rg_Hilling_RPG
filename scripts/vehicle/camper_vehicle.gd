@@ -47,6 +47,8 @@ var height_func: Callable
 var walk_bounds := Rect2(-1000, -1000, 2000, 2000)
 var driving := false
 var speed := 0.0
+## Engine power from fuel / durability (Game.camper_power): 0 = it only rolls to a stop.
+var power := 1.0
 ## Tours: heading / legacy -> {"throttle": -1..1 (W/S), "steer": -1..1 (A = +1, D = -1)};
 ## arcade -> {"dir": Vector2 screen dir}. Empty = read the keyboard.
 var scripted := {}
@@ -119,12 +121,12 @@ func _wheel_input() -> Vector2:
 func _drive_heading(delta: float) -> void:
 	var input := _wheel_input()
 	var throttle := input.y
-	if throttle > 0.0:
+	if throttle > 0.0 and power > 0.0:
 		var rate := heading_brake if speed < 0.0 else heading_accel
-		speed = move_toward(speed, heading_max_speed * throttle, rate * delta)
-	elif throttle < 0.0:
+		speed = move_toward(speed, heading_max_speed * throttle * power, rate * delta)
+	elif throttle < 0.0 and power > 0.0:
 		var rate := heading_brake if speed > 0.0 else heading_accel
-		speed = move_toward(speed, -heading_reverse_speed * -throttle, rate * delta)
+		speed = move_toward(speed, -heading_reverse_speed * -throttle * power, rate * delta)
 	else:
 		speed = move_toward(speed, 0.0, heading_coast * delta)
 	# A/D turn the nose left / right at a steady rate, the same way when reversing.
@@ -182,7 +184,7 @@ func _drive_arcade(delta: float) -> void:
 		speed = move_toward(speed, 0.0, coast_decel * delta)
 	# Facing well away from the target (U-turn, sharp corner): ease off while turning.
 	var align := cos(absf(angle_difference(rotation.y, target)))
-	var target_speed := max_speed * dir.limit_length(1.0).length()
+	var target_speed := max_speed * dir.limit_length(1.0).length() * power
 	if align < 0.7:
 		target_speed *= lerpf(sharp_turn_slowdown, 1.0, clampf(align / 0.7, 0.0, 1.0))
 	if speed < target_speed:

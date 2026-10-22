@@ -26,6 +26,7 @@
 | 시체 조사 | 처치한 자리의 시체 앞에서 `E` → 원하는 것만 "가져가기"/"모두"/"전부 가져가기". 게임 시간 60분 뒤 사라짐 |
 | 중량 | `Tab` 소지품(게임은 계속 진행). 30kg 초과 시 느려지고 45kg을 넘기는 획득은 거부. 캠프의 **보급 상자**(철광석)로 시험 |
 | 캠핑카 | 문 앞 `E` 실내, 운전석(앞바퀴 옆) `E` 운전: **차 머리 기준: `W` 전진, `S` 브레이크→후진, `A`/`D` 머리 좌/우**(키를 놓으면 정지), 멈춘 뒤 `E` 하차. `F` 외부 라이트 ([운전 조작 개선](notes/DRIVING.md)) |
+| 캠핑카 연료·내구도 (GDD 9.3·9.5) | HUD 정보 줄에 **연료 L · 내구도**. 달린 거리만큼 연료가 줄고(가득 60 L ≈ 1.5 km), 바닥나면 움직이지 않음 → **휘발유 통**(잡화점 30 g, 또는 교역소 대장간 옆 **정제 시설**에서 슬라임 젤리 4개로 제작)을 캠핑카 곁에서 가방의 `주유`로 10 L씩. **몬스터를 들이받으면** 몬스터는 큰 피해를 입고 밀려나지만 캠핑카 **내구도가 크게 깎임**(한 번에 약 17~25). 내구도 30 아래면 느려지고, **0이면 고장** — 운전·캠핑카 동반 빠른 이동 불가(실내·수면·요리·창고는 그대로). 수리: **대장간 브론** 완전 수리(1당 2 g, 캠핑카가 같은 지역에 있을 때) / **응급 수리 공구**(대장간 60 g) — 내구도 30까지 복구. 빠른 이동은 연료가 모자라거나 고장이면 마차로 |
 | 실내 | 문 매트 `E` 밖으로, 오른쪽 아래 선반 `E` **창고**(개별/모두/소지품 전체 옮기기), 간이침대 `E` **수면**(1~12시간, HP 10%) |
 | 고양이 | 실내에 항상 있음: `E` 쓰다듬기, `R` 간식(소지품의 고양이 간식 1개 → 호감도 +10). 창고에 간식 6개가 있음 |
 | 사망/복귀 | 캠핑카 보유(단계 C) → 실내 간이침대 옆에서 기상. 미보유(A/B) → 가장 가까운 안전 체크포인트(캠프 모닥불·갈림길 돌무지·호숫가 쉼터). B에서는 고양이가 곁을 돌다 앉음. 가방의 일부는 고블린이 가져가고 나머지는 쓰러진 자리의 "짐 꾸러미"로 남음 |
@@ -171,6 +172,7 @@ captures/dialogue/           대화창: HUD 숨김, 초상화 자리표시의 �
 captures/cutscene/           새 게임 컷씬: 인트로 내레이션·삽화 자리·대사, 오프닝 영화 띠·놀람 표정 (--tour=cutscene)
 captures/dialogue_editor/   실제 Godot 에디터 안의 대화 에디터 자동 점검 캡처
 captures/world/              넓어진 월드·왕도·마을·지도·빠른 이동 (--tour=world)
+captures/camper/             캠핑카 들이받기·고장·대장간 수리·정제 시설 (--tour=camper)
 captures/p3/                P3-1 지역 이동(region_*), P3-2 고정 던전(dungeon_*), P3-3 랜덤 던전(rift_*), P3-4 채집·낚시(life_*, --tour=life), P3-5 요리·제작(craft_*, --tour=craft), 저장 슬롯(save_*, --tour=save)
 notes/             VISUAL_DIRECTION.md, VISUAL_COMPARISON.md, IMPLEMENTATION_ASSUMPTIONS.md, DIALOGUE_EDITOR.md, DRIVING.md
 docs/              GDD.md(v10.2), CAT_COMPANION_HANDOFF.md, DIALOGUE_EDITOR_HANDOFF.md(v10.5), GRAPHICS_PROTOTYPE.md, CLAUDE_CODE_HANDOFF.md
@@ -194,6 +196,8 @@ Godot.exe --path C:/Game/denial -- --tour=shop --capture-dir=C:/Game/denial/capt
 Godot.exe --path C:/Game/denial -- --tour=quest --capture-dir=C:/Game/denial/captures/p2
 :: 넓어진 월드·지도: 초원 곳곳, 북쪽 길로 왕도(성문·광장·성), 고원 솔방울 마을, 지도·핀, 빠른 이동(마차/캠핑카) (콘솔에 [world]/[map] 결과)
 Godot.exe --path C:/Game/denial -- --tour=world --capture-dir=C:/Game/denial/captures/world
+:: 캠핑카 연료·내구도: 주행 연료, 슬라임 들이받기→고장, 응급 수리·대장간 수리, 주유, 정제 시설, 빠른 이동 조건, 저장 (콘솔에 [camper] 결과)
+Godot.exe --path C:/Game/denial -- --tour=camper --capture-dir=C:/Game/denial/captures/camper
 :: P3-1 지역 이동: 걸어서/운전해서 지역 이동, 지역별 난이도·기억, 사망 후 캠핑카 지역 복귀, 월드맵
 Godot.exe --path C:/Game/denial -- --tour=region --capture-dir=C:/Game/denial/captures/p3
 :: P3-2 고정 던전: 캠핑카 진입 불가, 동굴 입장, 보물 상자, 보스 1회 등장, 던전 사망 규칙, 지도 표시, 출구

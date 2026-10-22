@@ -81,6 +81,7 @@ static func capture_state() -> Dictionary:
 		"minute": Game.minute_of_day, "day": Game.day, "play_seconds": Game.play_seconds,
 		"lantern_on": Game.lantern_on, "camper_lights_on": Game.camper_lights_on,
 		"has_camper": Game.has_camper, "cat_joined": Game.cat_joined, "cat_affection": Game.cat_affection,
+		"camper_fuel": Game.camper_fuel, "camper_durability": Game.camper_durability, "camper_infinite_power": Game.camper_infinite_power,
 		"region": Game.region, "fields": _pack(Game.fields), "camper": Game.camper.duplicate(true),
 		"discovered": Game.discovered.duplicate(true), "map_pins": Game.map_pins.duplicate(true), "shops": Game.shops.duplicate(true),
 		"flags": Game.narrative.flags.duplicate(true), "quests": Game.quests.entries.duplicate(true),
@@ -116,6 +117,9 @@ static func apply_state(saved: Dictionary) -> void:
 	Game.lantern_on = bool(s["lantern_on"])
 	Game.camper_lights_on = bool(s["camper_lights_on"])
 	Game.has_camper = bool(s["has_camper"])
+	Game.camper_fuel = float(s.get("camper_fuel", Game.CAMPER_FUEL_MAX))
+	Game.camper_durability = float(s.get("camper_durability", Game.CAMPER_DURABILITY_MAX))
+	Game.camper_infinite_power = bool(s.get("camper_infinite_power", false))
 	Game.cat_joined = bool(s["cat_joined"])
 	Game.cat_affection = int(s["cat_affection"])
 	Game.region = str(s["region"])

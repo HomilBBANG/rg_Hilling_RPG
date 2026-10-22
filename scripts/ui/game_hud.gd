@@ -529,6 +529,12 @@ func toggle_inventory() -> void:
 			left.add_child(row)
 		right.add_child(_row_label("가방", 300, 22, Color(1.0, 0.9, 0.6)))
 		_items_list(right, st.inventory, func(h: HBoxContainer, id: String, _count: int) -> void:
+			if ItemDB.info(id).get("kind", "") == "camper":
+				var cb := _button("주유" if ItemDB.info(id).get("camper", "") == "fuel" else "응급 수리", func() -> void:
+					boot.hud.toast(boot.use_camper_item(id))
+					_refresh_panel())
+				cb.tooltip_text = "캠핑카 곁에서 사용 — " + Game.camper_status_text()
+				h.add_child(cb)
 			if ItemDB.is_consumable(id):
 				var reading: bool = ItemDB.info(id).get("use", "") == "read"
 				var ub := _button("읽기" if reading else "사용", func() -> void:
@@ -633,6 +639,17 @@ func open_shop(shop_id: String, source: Node3D) -> void:
 						total += ShopDB.sell(shop_id, id)
 					Game.combat_log.add("판매: %s ×%d (+%d 골드)" % [ItemDB.item_name(id), count, total], "", "info")
 					_refresh_panel())), "팔 물건이 없다")
+		if shop.get("smith", false) and Game.has_camper:
+			# GDD 9.5: the smith doubles as the mechanic (full repair for gold)
+			var rq: Dictionary = boot.camper_repair_quote()
+			var rrow := HBoxContainer.new()
+			rrow.add_child(_row_label("캠핑카 정비 — %s" % Game.camper_status_text(), 760, 20, Color(1.0, 0.9, 0.6)))
+			var rb := _button("완전 수리 (%d g)" % int(rq["gold"]) if rq["ok"] else str(rq["why"]), func() -> void:
+				boot.hud.toast(boot.repair_camper())
+				_refresh_panel())
+			rb.disabled = not rq["ok"]
+			rrow.add_child(rb)
+			v.add_child(rrow)
 		if shop.get("smith", false):
 			v.add_child(_row_label("장비 강화 — 착용 중인 무기·방어구, 100%% 성공 (실패·하락·파괴 없음) · 최대 +%d" % ItemDB.MAX_ENHANCE, 1100, 22, Color(1.0, 0.9, 0.6)))
 			var any := false
@@ -1249,6 +1266,8 @@ func _process(delta: float) -> void:
 	lines.append("진행 %s (F9)" % Game.STAGE_NAMES[Game.story_stage()])
 	if Game.cat_joined:
 		lines.append("고양이 호감도 %d / %d" % [Game.cat_affection, Game.CAT_AFFECTION_MAX])
+	if Game.has_camper:
+		lines.append(Game.camper_status_text())
 	_info.text = "\n".join(lines)
 	_info.add_theme_color_override("font_color", Color(1.0, 0.7, 0.5) if st.speed_factor() < 0.999 else Color(1, 1, 1))
 	var w: Node = boot.world if boot else null

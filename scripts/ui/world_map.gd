@@ -225,8 +225,10 @@ func open_city(id: String) -> void:
 		if q.get("ok", false):
 			rows.append(_label("출발: %s → 거리 %d m" % [q["from_name"], int(q["distance"])], 17))
 			rows.append(_label("걸리는 시간: %s" % _hours(float(q["minutes"])), 17))
-			rows.append(_label("캠핑카와 함께 (요금 없음)" if q["with_camper"] else "마차 삯: %d 골드 (캠핑카 없이)" % int(q["gold"]), 17,
+			rows.append(_label("캠핑카와 함께 (요금 없음, 연료 %.0f L)" % float(q["fuel"]) if q["with_camper"] else "마차 삯: %d 골드 (캠핑카 없이)" % int(q["gold"]), 17,
 				Color(0.85, 0.95, 1.0)))
+			if str(q.get("camper_note", "")) != "":
+				rows.append(_label(q["camper_note"], 16, Color(1.0, 0.75, 0.55)))
 			rows.append(_button("빠른 이동", func() -> void: boot.fast_travel(id)))
 		else:
 			rows.append(_label(str(q.get("why", "")), 17, Color(1.0, 0.7, 0.6)))

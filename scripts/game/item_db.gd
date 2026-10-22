@@ -26,6 +26,10 @@ const ITEMS := {
 	"small_fish": {"name": "붕어", "value": 5, "weight": 0.4, "desc": "연못에서 흔히 잡히는 물고기."},
 	"trout": {"name": "송어", "value": 9, "weight": 0.7, "desc": "살이 단단한 물고기."},
 	"golden_carp": {"name": "황금 잉어", "cat": "rare", "value": 60, "weight": 1.0, "desc": "보기 드문 황금빛 잉어."},
+	"fuel_can": {"name": "휘발유 통", "value": 24, "weight": 4.0, "kind": "camper", "camper": "fuel", "amount": 10.0,
+		"desc": "캠핑카 연료 10 L. 캠핑카 곁에서 가방의 '주유'로 넣는다. 잡화점에서 사거나 정제 시설에서 슬라임 젤리로 만든다."},
+	"repair_kit": {"name": "응급 수리 공구", "value": 50, "weight": 2.5, "kind": "camper", "camper": "repair", "amount": 30.0,
+		"desc": "캠핑카 응급 복구: 내구도를 30까지 되살려 다시 달릴 수 있게 한다(그보다 높으면 쓸 필요 없음). 완전 수리는 대장간."},
 	"fishing_rod": {"name": "낚싯대", "value": 30, "weight": 1.5, "kind": "tool", "desc": "연못가 나무 부두에서 낚시할 때 필요하다."},
 	# --- cooking / crafting results (P3-5, GDD 14.4)
 	"grilled_fish": {"name": "구운 붕어", "value": 9, "weight": 0.3, "kind": "consumable", "use": "eat", "effect": {"hp": 16, "sp": 10},

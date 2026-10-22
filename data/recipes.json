@@ -3,7 +3,8 @@
   "_comment": "Recipes (GDD 14.4 [확정]: learned recipes only, no free combination; simple crafting anywhere, cooking / complex crafting need a facility; basic recipes cost life EXP, special ones come from NPCs, books, quests or exploration). Numbers [미정].",
   "facilities": {
     "cooking": "조리 시설 (캠프 모닥불 · 캠핑카 주방)",
-    "workbench": "작업대 (캠프)"
+    "workbench": "작업대 (캠프)",
+    "refinery": "정제 시설 (교역소 대장간 옆)"
   },
   "recipes": {
     "grilled_fish": {
@@ -174,6 +175,21 @@
       "mastery": 6,
       "learn": "special",
       "source": "책·탐험 — 변덕의 미궁 상자의 제작서"
+    },
+    "fuel_can": {
+      "name": "휘발유 통 (정제)",
+      "field": "crafting",
+      "facility": "refinery",
+      "inputs": {
+        "slime_jelly": 4
+      },
+      "outputs": {
+        "fuel_can": 1
+      },
+      "time": 2.5,
+      "life_exp": 2,
+      "mastery": 2,
+      "learn": "known"
     }
   }
 }

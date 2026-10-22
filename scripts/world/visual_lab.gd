@@ -21,6 +21,9 @@ const MONSTER_RESPAWN_MIN := 120.0  # game minutes [미정]
 const CORPSE_LIFETIME_MIN := 60.0  # game minutes [미정]
 ## Seconds after arriving before road exits react (never bounce straight back).
 const EXIT_GRACE := 1.5
+const RAM_MIN_SPEED := 1.5      # m/s: slower bumps don't count
+const RAM_CAMPER_DAMAGE := 15.0  # durability lost per monster hit (deliberately high, [미정])
+const REFINERY_POS := Vector3(-29.6, 0.0, 2.2)  # NPC fuel refinery beside the smithy (GDD 9.3)
 ## Trade post west of the camp (P2-4): stalls with a merchant each, their houses behind.
 ## [stall position, shop id / look, house position]
 const TRADE_STALLS := [
@@ -333,6 +336,7 @@ func _build_landmarks() -> void:
 		_build_farm()
 	if has_feature("trade_post"):
 		_build_trade_post()
+		_build_refinery()
 	if has_feature("lost_parcels") or has_feature("trade_post"):
 		_build_quest_props()
 	for cp: Dictionary in checkpoints:
@@ -1017,6 +1021,24 @@ func _build_trade_post() -> void:
 	_on_ground(NatureProps.signpost(), -22.8, 6.8)
 
 
+## NPC fuel refinery beside the smithy (GDD 9.3 [확정]: monster materials refined into fuel at an
+## NPC facility first; a refinery inside the camper comes later): still, barrels, a pipe.
+func _build_refinery() -> void:
+	var root := _on_ground(Node3D.new(), REFINERY_POS.x, REFINERY_POS.z)
+	var metal := ProtoMesh.mat(Color(0.5, 0.52, 0.56), 0.5)
+	var copper := ProtoMesh.mat(Color(0.78, 0.48, 0.3), 0.4)
+	var barrel := ProtoMesh.mat(Color(0.32, 0.38, 0.3))
+	ProtoMesh.cylinder(root, 0.55, 1.5, Vector3(0, 0.75, 0), copper, Vector3.ZERO, 10)
+	ProtoMesh.cone(root, 0.55, 0.5, Vector3(0, 1.75, 0), copper, 10)
+	ProtoMesh.cylinder(root, 0.06, 1.2, Vector3(0.5, 1.6, 0), metal, Vector3(0, 0, -60), 6)
+	ProtoMesh.cylinder(root, 0.3, 0.6, Vector3(1.1, 0.3, 0.1), metal, Vector3.ZERO, 8)
+	for spec in [[-0.9, 0.4], [-1.0, -0.4], [1.0, -0.6]]:
+		ProtoMesh.cylinder(root, 0.28, 0.75, Vector3(spec[0], 0.38, spec[1]), barrel, Vector3.ZERO, 8)
+	ProtoMesh.static_cylinder_collider(root, 0.8, 2.0, Vector3(0, 1, 0))
+	_block(REFINERY_POS.x, REFINERY_POS.z, 1.6)
+	InteractPoint.facility(self, REFINERY_POS + Vector3(0, 0, 1.0), "refinery", "정제 시설")
+
+
 func _build_quest_props() -> void:
 	var wood := ProtoMesh.mat(Color(0.56, 0.4, 0.25))
 	var dark := ProtoMesh.mat(Color(0.36, 0.25, 0.16))
@@ -1162,13 +1184,19 @@ func _on_story_changed() -> void:
 func enter_vehicle() -> void:
 	if not camper_here() or vehicle.driving:
 		return
+	if Game.camper_broken():
+		Game.boot.hud.toast("캠핑카가 고장났다 (내구도 0) — 대장간 브론에게 수리를 맡기거나 응급 수리 공구를 쓰자")
+		return
 	player.set_driving(true)
 	vehicle.driving = true
 	camera.target = vehicle
 	if cat:
 		cat.visible = false  # rides along inside
 		cat.process_mode = Node.PROCESS_MODE_DISABLED
-	Game.boot.hud.toast("운전 중 — W 전진 · S 후진 · A/D 머리 좌/우 · 키를 놓으면 정지 · 멈춘 뒤 E 내리기")
+	_last_drive_pos = vehicle.global_position
+	vehicle.power = Game.camper_power()
+	Game.boot.hud.toast("연료가 없다 — 휘발유 통으로 주유해야 움직인다" if Game.camper_out_of_fuel() else
+		"운전 중 — W 전진 · S 후진 · A/D 머리 좌/우 · 키를 놓으면 정지 · 멈춘 뒤 E 내리기")
 
 
 func exit_vehicle() -> void:
@@ -1225,6 +1253,8 @@ func set_fx(_on: bool) -> void:
 
 var _respawn_timer := 0.0
 var _age := 0.0
+var _last_drive_pos := Vector3.INF
+var _ram_cd := {}  # monster instance id -> time the next hit may count
 ## Set by bootstrap.travel when the camper drives out: its new parking spot is already decided.
 var _leaving_with_camper := false
 var _no_vehicle_toast_at := 0.0
@@ -1296,7 +1326,53 @@ func _build_exit_marker(ex: Dictionary) -> void:
 	_block(c.x, c.z, float(ex["radius"]) + 1.5)
 
 
+## While driving: fuel per metre, engine power from fuel / durability, running into monsters.
+func _drive_costs() -> void:
+	var was := vehicle.power
+	vehicle.power = Game.camper_power()
+	var p := vehicle.global_position
+	if _last_drive_pos != Vector3.INF:
+		var moved := Vector2(p.x - _last_drive_pos.x, p.z - _last_drive_pos.z).length()
+		if moved < 3.0:  # not a teleport / scene change
+			var before := Game.camper_fuel
+			Game.use_camper_fuel(moved * Game.CAMPER_FUEL_PER_M)
+			var low := Game.CAMPER_FUEL_MAX * 0.15
+			if before > low and Game.camper_fuel <= low and Game.camper_fuel > 0.0:
+				Game.boot.hud.toast("연료가 얼마 안 남았다 (%d L)" % roundi(Game.camper_fuel))
+	_last_drive_pos = p
+	if was > 0.0 and vehicle.power <= 0.0:
+		Game.boot.hud.toast("캠핑카가 멈췄다 — " + ("고장 (내구도 0)" if Game.camper_broken() else "연료가 떨어졌다"))
+	if absf(vehicle.speed) < RAM_MIN_SPEED:
+		return
+	var inv := vehicle.global_transform.affine_inverse()
+	for m in monsters:
+		if not is_instance_valid(m) or m.state == SlimeMonster.State.DEAD:
+			continue
+		var key := m.get_instance_id()
+		if float(_ram_cd.get(key, 0.0)) > _age:
+			continue
+		var l := inv * m.global_position
+		if absf(l.x) > CamperExterior.LENGTH * 0.5 + 0.5 or absf(l.z) > CamperExterior.WIDTH * 0.5 + 0.5:
+			continue
+		_ram_cd[key] = _age + 0.8
+		var sp := absf(vehicle.speed)
+		var cost := RAM_CAMPER_DAMAGE + sp + float(m.profile.get("armor", 0)) * 4.0
+		m.receive_ram(roundi(4.0 + sp * 2.5), vehicle)
+		Game.damage_camper(cost)
+		vehicle.speed *= 0.45
+		Game.hud.float_text(vehicle.global_position + Vector3(0, 3.4, 0), "내구도 -%d" % roundi(cost), Color(1.0, 0.55, 0.3), true)
+		Game.combat_log.add("캠핑카 내구도 -%d (%d/%d)" % [roundi(cost), ceili(Game.camper_durability), roundi(Game.CAMPER_DURABILITY_MAX)],
+			"몬스터를 들이받은 충격 — 캠핑카 내구도 -%d (속도 %.1f m/s, 상대 방어 %d)" % [roundi(cost), sp, int(m.profile.get("armor", 0))], "death")
+		if Game.camper_broken():
+			vehicle.power = 0.0
+			Game.boot.hud.toast("캠핑카가 고장났다! 멈춘 뒤 E로 내리자 — 수리: 대장간 브론 / 응급 수리 공구")
+		elif Game.camper_durability < Game.CAMPER_DURABILITY_MAX * Game.CAMPER_WEAK and Game.camper_durability + cost >= Game.CAMPER_DURABILITY_MAX * Game.CAMPER_WEAK:
+			Game.boot.hud.toast("캠핑카가 많이 상했다 — 속도가 떨어진다")
+
+
 func _process(delta: float) -> void:
+	if vehicle and vehicle.driving:
+		_drive_costs()
 	if player == null:
 		return
 	_update_occluder_fade(delta)
