@@ -70,7 +70,7 @@ var controls_enabled := true
 func _ready() -> void:
 	motion_mode = CharacterBody3D.MOTION_MODE_FLOATING
 	collision_layer = BODY_LAYER
-	collision_mask = 1
+	collision_mask = PhysLayers.PLAYER_MASK  # no walking through monsters, the cat or people
 	var shape := CollisionShape3D.new()
 	var cap := CapsuleShape3D.new()
 	cap.radius = 0.3

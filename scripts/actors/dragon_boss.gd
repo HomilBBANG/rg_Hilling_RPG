@@ -59,7 +59,7 @@ func _ready() -> void:
 	arena_radius = float(def.get("arena_radius", 16.0))
 	motion_mode = CharacterBody3D.MOTION_MODE_FLOATING
 	collision_layer = LAYER
-	collision_mask = 1
+	collision_mask = PhysLayers.WORLD | PhysLayers.PLAYER
 	var body := CollisionShape3D.new()
 	var cap := CapsuleShape3D.new()
 	cap.radius = 1.25

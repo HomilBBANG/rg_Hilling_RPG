@@ -544,6 +544,8 @@ func _parse_args() -> void:
 		_run_drive_gta_tour()
 	elif tour == "preset":
 		_run_preset_tour()
+	elif tour == "collide":
+		_run_collide_tour()
 	elif tour == "wind":
 		_run_wind_check()
 	elif tour == "catfollow":
@@ -1688,6 +1690,76 @@ func _drive_reset(v: CamperVehicle, pos: Vector3, yaw: float, mask: int) -> void
 	v.rotation.y = yaw
 	await get_tree().physics_frame
 	await get_tree().physics_frame
+
+
+## Bodies that must not be walked through (user request): the hero pushes for 2 s straight at a
+## villager, a slime, the cat, the camper, a tree, a big rock and a building and must stop at
+## its surface; a slime hopping at the hero stops too; the cat steps aside.
+func _run_collide_tour() -> void:
+	Game.clock_running = false
+	Game.minute_of_day = 11.0 * 60.0
+	await wait_for_sprites()
+	var p: PrototypePlayer = world.player
+	var push := func(from: Vector3, toward: Vector3, secs := 2.0) -> float:
+		_place_player(from, 0.0)
+		await get_tree().physics_frame
+		var t := 0.0
+		while t < secs:
+			var d := Vector2(toward.x - p.global_position.x, toward.z - p.global_position.z)
+			p.scripted_move = d.normalized() if d.length() > 0.05 else Vector2.ZERO
+			await get_tree().physics_frame
+			t += get_physics_process_delta_time()
+		p.scripted_move = Vector2.ZERO
+		return Vector2(toward.x - p.global_position.x, toward.z - p.global_position.z).length()
+	var report := func(what: String, gap: float, need: float) -> void:
+		print("[collide] %s: stopped %.2f m from its centre (body edge %.2f) -> %s" % [what, gap, need, "막힘 ✔" if gap >= need - 0.05 else "뚫고 지나감 ✘"])
+	var rosa: Npc = world._npc_for("rosa")
+	var rp := rosa.global_position
+	report.call("villager (Rosa, from the side)", await push.call(rp + Vector3(3.0, 0, 0), rp), 0.66)
+	var slime: SlimeMonster = null
+	for m in world.monsters:
+		if m.kind == "meadow_slime":
+			slime = m
+			break
+	slime.set_physics_process(false)  # hold it still for the push (its body stays in the world)
+	var sp := slime.global_position
+	report.call("slime", await push.call(sp + Vector3(2.5, 0, 0), sp), SlimeMonster.RADIUS * slime.body_scale + 0.3)
+	slime.set_physics_process(true)
+	var vp: Vector3 = world.vehicle.global_position
+	var side: Vector3 = world.vehicle.global_transform.basis.z.normalized()
+	report.call("camper (far side)", await push.call(vp - side * 4.0, vp), CamperExterior.WIDTH * 0.5 + 0.3)
+	report.call("tree (broadleaf trunk)", await push.call(Vector3(-12.2, 0, 7.0), Vector3(-12.2, 0, 4.2)), 0.36 * 1.45 + 0.3)
+	report.call("big rock", await push.call(Vector3(-1.0, 0, -2.6), Vector3(-1.0, 0, -5.6)), 0.8 + 0.3)
+	report.call("shed (building)", await push.call(Vector3(-19.0, 0, 17.5), Vector3(-19.0, 0, 13.0)), 1.3 + 0.3)
+	# the cat: solid, and it makes room when walked into
+	var cat: CatCompanion = world.cat
+	if cat:
+		_place_player(Vector3(6.0, 0, 6.0), 0.0)
+		await _frames(2)
+		cat.global_position = Vector3(6.0, 0, 4.6)
+		cat.mode = CatCompanion.Mode.FOLLOW
+		var c0 := cat.global_position
+		var gap: float = await push.call(Vector3(6.0, 0, 6.0), Vector3(6.0, 0, 2.0), 1.5)
+		var overlap := p.global_position.distance_to(cat.global_position)
+		print("[collide] cat in the way: hero walked %.2f m, cat moved aside %.2f m, never overlapped %s (now %.2f m apart)" % [
+			6.0 - p.global_position.z, Vector2(cat.global_position.x - c0.x, cat.global_position.z - c0.z).length(), overlap > 0.4, overlap])
+	# a slime hopping at the hero stops at its body (and still lands its hit)
+	var aggro: SlimeMonster = null
+	for m in world.monsters:
+		if m.aggressive:
+			aggro = m
+			break
+	if aggro:
+		_place_player(aggro.global_position + Vector3(2.0, 0, 0), 0.0)
+		aggro.engage()
+		var closest := 9.0
+		for i in 240:
+			await get_tree().physics_frame
+			closest = minf(closest, Vector2(aggro.global_position.x - p.global_position.x, aggro.global_position.z - p.global_position.z).length())
+		print("[collide] %s attacking: closest %.2f m (body edges %.2f), hero HP %d/%d" % [aggro.display_name, closest, SlimeMonster.RADIUS * aggro.body_scale + 0.3,
+			roundi(Game.player_state.hp), roundi(Game.player_state.max_hp())])
+	await _p1_shot("collide_01_villager_blocked", "standing against a solid villager", true)
+	get_tree().quit()
 
 
 ## The chapter-1 save preset: put into an empty slot 3 once, kept out after a delete, put back

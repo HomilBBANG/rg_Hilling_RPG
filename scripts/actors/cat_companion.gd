@@ -52,7 +52,7 @@ func _ready() -> void:
 	_rng.seed = 99
 	motion_mode = CharacterBody3D.MOTION_MODE_FLOATING
 	collision_layer = LAYER
-	collision_mask = 1
+	collision_mask = PhysLayers.CAT_MASK
 	var shape := CollisionShape3D.new()
 	var cap := CapsuleShape3D.new()
 	cap.radius = 0.16
@@ -234,6 +234,10 @@ func _physics_process(delta: float) -> void:
 			desired = d.normalized() * minf(speed, d.length() * 3.0)  # slow down on arrival
 	if _happy_t >= 0.0:
 		desired = Vector3.ZERO
+	# solid now (no walking through each other): when the hero comes right up to it, step aside
+	if mode != Mode.RESCUE and _script_goal == Vector3.INF and dist < 0.75 and player.visible and dist > 0.01:
+		var side := Vector3(-to_p.z, 0, to_p.x).normalized()
+		desired = (-to_p.normalized() + side * 0.6).normalized() * 2.4
 	velocity = _flat(velocity).move_toward(desired, ACCEL * delta)
 	if velocity.length() > 0.3:
 		_yaw = lerp_angle(_yaw, atan2(-velocity.x, -velocity.z), 1.0 - exp(-10.0 * delta))

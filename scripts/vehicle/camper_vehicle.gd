@@ -71,8 +71,8 @@ var _unstick_dir := -1.0  # -1 back off, +1 creep forward
 
 func _ready() -> void:
 	motion_mode = CharacterBody3D.MOTION_MODE_FLOATING
-	collision_layer = 1
-	collision_mask = 1
+	collision_layer = PhysLayers.WORLD
+	collision_mask = PhysLayers.CAMPER_MASK
 	var shape := CollisionShape3D.new()
 	_shape = BoxShape3D.new()
 	_shape.size = Vector3(CamperExterior.LENGTH, 3.0, CamperExterior.WIDTH)

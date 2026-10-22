@@ -404,7 +404,7 @@ func _place_tree(kind: NatureProps.TreeKind, x: float, z: float, s: float) -> vo
 	var t := _on_ground(NatureProps.tree(kind, s, _rng), x, z)
 	var radius := (1.5 if kind != NatureProps.TreeKind.BIRCH else 1.0) * s
 	_register_occluder(t, radius, 3.2 * s)
-	ProtoMesh.static_cylinder_collider(self, 0.28 * s, 8.0, t.position)
+	ProtoMesh.static_cylinder_collider(self, 0.36 * s, 8.0, t.position)  # trunk (a little wider than drawn: no brushing through)
 	_block(x, z, radius)
 
 

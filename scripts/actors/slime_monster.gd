@@ -66,7 +66,7 @@ func _ready() -> void:
 	body_scale = float(def.get("scale", 1.0))
 	motion_mode = CharacterBody3D.MOTION_MODE_FLOATING
 	collision_layer = LAYER
-	collision_mask = 1 | LAYER
+	collision_mask = PhysLayers.MONSTER_MASK
 	var shape := CollisionShape3D.new()
 	var sph := SphereShape3D.new()
 	sph.radius = RADIUS * body_scale

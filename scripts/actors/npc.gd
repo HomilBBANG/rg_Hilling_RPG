@@ -20,6 +20,7 @@ var where := Where.COUNTER
 var sprite: BakedSprite
 
 var _rig: NpcRig
+var _body: AnimatableBody3D  # solid: the hero, monsters, the cat and the camper can't pass through
 var _meshes: Array[MeshInstance3D] = []
 var _yaw := 0.0
 var _phase := 0.0
@@ -28,6 +29,18 @@ var _phase := 0.0
 func _ready() -> void:
 	_rig = NpcRig.new(look)
 	add_child(_rig)
+	_body = AnimatableBody3D.new()
+	_body.sync_to_physics = false
+	_body.collision_layer = PhysLayers.NPC
+	_body.collision_mask = 0
+	var shape := CollisionShape3D.new()
+	var cap := CapsuleShape3D.new()
+	cap.radius = 0.36
+	cap.height = 1.5
+	shape.shape = cap
+	shape.position.y = 0.75
+	_body.add_child(shape)
+	add_child(_body)
 	for mi in _rig.find_children("*", "MeshInstance3D", true, false):
 		_meshes.append(mi as MeshInstance3D)
 	# Start where the clock says, without walking there.
@@ -84,6 +97,8 @@ func _set_at(w: Where) -> void:
 	global_position = Vector3(p.x, _ground(p), p.z)
 	_yaw = counter_yaw
 	visible = w != Where.HOME
+	if _body:
+		_body.collision_layer = PhysLayers.NPC if visible else 0  # at home: not in the street
 
 
 func _ground(p: Vector3) -> float:
@@ -96,6 +111,7 @@ func _process(delta: float) -> void:
 		_set_at(Where.HOME)
 		where = Where.TO_COUNTER
 		visible = true
+		_body.collision_layer = PhysLayers.NPC
 	elif not open and where == Where.COUNTER:
 		where = Where.TO_HOME
 	var moving := false
