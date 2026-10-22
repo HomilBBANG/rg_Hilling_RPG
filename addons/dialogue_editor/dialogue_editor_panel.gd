@@ -75,6 +75,8 @@ var _mode_tabs: TabContainer
 var _page: Control
 ## The 컷씬 tab (cutscene files, new-game story order).
 var cutscene_panel: CutsceneEditorPanel
+## The 몬스터 AI tab (data/ai decision graphs, which graph each monster uses).
+var monster_ai_panel: MonsterAIEditorPanel
 
 
 func _ready() -> void:
@@ -97,7 +99,7 @@ func _btn(parent: Control, text: String, cb: Callable, tip := "") -> Button:
 
 
 func _build_ui() -> void:
-	# two tabs: 대화 (this graph editor) and 컷씬 (CutsceneEditorPanel)
+	# tabs: 대화 (this graph editor), 컷씬 (CutsceneEditorPanel), 몬스터 AI (MonsterAIEditorPanel)
 	_mode_tabs = TabContainer.new()
 	_mode_tabs.set_anchors_preset(Control.PRESET_FULL_RECT)
 	add_child(_mode_tabs)
@@ -109,6 +111,9 @@ func _build_ui() -> void:
 	cutscene_panel.name = "컷씬"
 	_mode_tabs.add_child(cutscene_panel)
 	cutscene_panel.saved.connect(func(_p: String) -> void: refresh_catalog())
+	monster_ai_panel = MonsterAIEditorPanel.new()
+	monster_ai_panel.name = "몬스터 AI"
+	_mode_tabs.add_child(monster_ai_panel)
 	# toolbar (wraps on narrow screens) + status line
 	var bar := HFlowContainer.new()
 	root.add_child(bar)

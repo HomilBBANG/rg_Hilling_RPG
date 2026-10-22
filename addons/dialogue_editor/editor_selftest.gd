@@ -8,6 +8,7 @@ extends RefCounted
 
 const TEST_ID := "dialogue.test.editor_selftest"
 const CUT_ID := "cutscene.test.editor_selftest"
+const AI_ID := "ai.test.editor_selftest"
 
 
 static func _check(ok: bool, what: String) -> bool:
@@ -187,6 +188,7 @@ static func run(panel: DialogueEditorPanel, shot: Callable) -> void:
 	DirAccess.remove_absolute(ProjectSettings.globalize_path(DialogueData.path_for(TEST_ID)))
 	panel.refresh_list()
 	fails += await _cutscene_checks(panel, shot)
+	fails += await _monster_ai_checks(panel, shot)
 	print("[editor] done: %d failed checks" % fails)
 
 
@@ -276,5 +278,108 @@ static func _cutscene_checks(dpanel: DialogueEditorPanel, shot: Callable) -> int
 	cp.open_cutscene("cutscene.intro")
 	DirAccess.remove_absolute(ProjectSettings.globalize_path(CutsceneData.path_for(CUT_ID)))
 	cp.refresh_list()
+	dpanel._mode_tabs.current_tab = 0
+	return fails
+
+
+## The 몬스터 AI tab: open the passive slime graph, simulate it, build a new graph (condition +
+## action), catch the unconnected outputs, fix, undo / redo, save → reload, assign it to a monster
+## in monsters.json (only that block changes; file restored afterwards), clean up.
+static func _monster_ai_checks(dpanel: DialogueEditorPanel, shot: Callable) -> int:
+	var fails := 0
+	var ap := dpanel.monster_ai_panel
+	var monsters_before := FileAccess.get_file_as_string(MonsterAI.MONSTERS_PATH)
+	dpanel._mode_tabs.current_tab = 2
+	ap.open_ai("ai.slime.passive")
+	await _frames(ap, 6)
+	fails += 0 if _check(ap.is_visible_in_tree() and ap.ai_id == "ai.slime.passive" and ap._views.size() == ap.doc["nodes"].size(),
+		"몬스터 AI tab opens ai.slime.passive (%d nodes, %d links)" % [ap.doc["nodes"].size(), ap.doc["connections"].size()]) else 1
+	fails += 0 if _check(ap.validate().is_empty(), "shipped passive graph validates clean") else 1
+	# simulation: nobody hit it -> wander; hit + hero in reach -> attack; ally call alone -> still wander
+	for k: String in MonsterAI.CHECKS:
+		ap.set_sim(k, false)
+	var r0: String = ap.run_sim()["node"]["action"]
+	ap.set_sim("ally_called", true)
+	var r1: String = ap.run_sim()["node"]["action"]
+	ap.set_sim("provoked", true)
+	ap.set_sim("player_in_reach", true)
+	var r2: String = ap.run_sim()["node"]["action"]
+	await _frames(ap, 3)
+	await shot.call("editor_20_monster_ai_sim")
+	fails += 0 if _check(r0 == "wander" and r1 == "wander" and r2 == "attack", "simulate passive: idle → %s, ally called → %s, hit + in reach → %s" % [r0, r1, r2]) else 1
+	ap.open_ai("ai.slime.aggressive")
+	ap.set_sim("provoked", false)
+	ap.set_sim("player_in_reach", false)
+	var r3: String = ap.run_sim()["node"]["action"]
+	ap.set_sim("ally_called", false)
+	ap.set_sim("player_near", true)
+	var r4: String = ap.run_sim()["node"]["action"]
+	fails += 0 if _check(r3 == "chase" and r4 == "chase" and ap.run_sim()["path"].has("e_spot"), "simulate aggressive: ally called → %s (joins), hero near → %s via 'engage'" % [r3, r4]) else 1
+	# a new graph: start -> [hp low?] -> flee / wander
+	DirAccess.remove_absolute(ProjectSettings.globalize_path(MonsterAI.path_for(AI_ID)))
+	fails += 0 if _check(ap.create_ai(AI_ID) and ap.ai_id == AI_ID and ap.doc["nodes"].size() == 2, "new AI: start → wander") else 1
+	ap.select_node("start")
+	var c := ap.add_node("condition", "hp_below")
+	ap.connect_nodes("start", "next", c)
+	var errs := ap.validate().filter(func(e: Dictionary) -> bool: return e["severity"] == "error")
+	fails += 0 if _check(errs.size() == 2, "unconnected 예 / 아니오 caught (%s)" % ", ".join(errs.map(func(e: Dictionary) -> String: return e["message"]))) else 1
+	ap.select_node(c)
+	var f := ap.add_node("action", "flee")
+	ap.connect_nodes(c, "false", "a_wander")
+	ap.set_param(f, "step", 2.5)
+	ap.set_param(c, "percent", 45.0)
+	ap.arrange()
+	fails += 0 if _check(ap.validate().is_empty() and MonsterAI.next_of(ap.doc, c, "true") == f, "fixed: %s 예 → %s, 아니오 → a_wander, no issues" % [c, f]) else 1
+	ap.set_sim("hp_below", true)
+	var r5: String = ap.run_sim()["node"]["action"]
+	ap.set_sim("hp_below", false)
+	var r6: String = ap.run_sim()["node"]["action"]
+	fails += 0 if _check(r5 == "flee" and r6 == "wander", "simulate new graph: hp low → %s, otherwise → %s" % [r5, r6]) else 1
+	ap.set_kind(f, "idle")
+	var kind_changed := str(MonsterAI.node(ap.doc, f).get("action", "")) == "idle"
+	ap.undo()
+	var undone := str(MonsterAI.node(ap.doc, f).get("action", "")) == "flee" and is_equal_approx(MonsterAI.param(MonsterAI.node(ap.doc, f), "step"), 2.5)
+	ap.redo()
+	var redone := str(MonsterAI.node(ap.doc, f).get("action", "")) == "idle"
+	ap.undo()
+	fails += 0 if _check(kind_changed and undone and redone, "change action kind → undo → redo") else 1
+	ap.select_node(f)
+	await _frames(ap, 4)
+	await shot.call("editor_21_monster_ai_new_graph")
+	var before := JSON.stringify(ap.doc)
+	var saved_ok := ap.save()
+	ap.dirty = false
+	ap.open_ai("ai.slime.passive")
+	ap.open_ai(AI_ID)
+	fails += 0 if _check(saved_ok and JSON.stringify(ap.doc) == before and ap.validate().is_empty(), "save → reload: nodes, links, settings and positions identical") else 1
+	# the game reads it the same way
+	MonsterAI.clear_cache()
+	var g := MonsterAI.load_graph(AI_ID)
+	fails += 0 if _check(is_equal_approx(MonsterAI.param(MonsterAI.node(g, c), "percent"), 45.0), "MonsterAI.load_graph sees the saved settings") else 1
+	# assign it to a monster: only that block of monsters.json changes
+	var ok := ap.assign_monster("meadow_slime", AI_ID, true)
+	var after_text := FileAccess.get_file_as_string(MonsterAI.MONSTERS_PATH)
+	var changed_lines := 0
+	var a_lines := after_text.split("\n")
+	var b_lines := monsters_before.split("\n")
+	for i in mini(a_lines.size(), b_lines.size()):
+		changed_lines += 1 if a_lines[i] != b_lines[i] else 0
+	fails += 0 if _check(ok and MonsterAI.ai_for("meadow_slime") == AI_ID and MonsterDB.info("meadow_slime").get("aggressive", false) == true \
+			and a_lines.size() == b_lines.size() + 1 and after_text.contains('"hp": 9,'),
+		"assign to 풀밭 슬라임 → monsters.json: +1 line (\"ai\"), 선공 flag, numbers untouched") else 1
+	ap.assign_monster("meadow_slime", "", false)
+	fails += 0 if _check(FileAccess.get_file_as_string(MonsterAI.MONSTERS_PATH) == monsters_before, "unassign → monsters.json back to the original text") else 1
+	await _frames(ap, 3)
+	await shot.call("editor_22_monster_ai_monsters")
+	# cleanup
+	var fw := FileAccess.open(MonsterAI.MONSTERS_PATH, FileAccess.WRITE)
+	fw.store_string(monsters_before)
+	fw.close()
+	MonsterDB.reload()
+	ap.dirty = false
+	ap.open_ai("ai.slime.passive")
+	DirAccess.remove_absolute(ProjectSettings.globalize_path(MonsterAI.path_for(AI_ID)))
+	ap.refresh_list()
+	ap.refresh_monsters()
 	dpanel._mode_tabs.current_tab = 0
 	return fails

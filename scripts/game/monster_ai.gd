@@ -238,22 +238,46 @@ static func save_graph(g: Dictionary, ai_id: String) -> Error:
 	return OK
 
 
-## Writes one monster's "ai" (and 선공 flag) into data/monsters.json, keeping everything else.
+## Writes one monster's "ai" (and 선공 flag) into data/monsters.json as a small text edit inside
+## that monster's block, so the rest of the file (numbers, order, comments) stays as written.
 static func set_monster_ai(kind: String, ai_id: String, aggressive: Variant = null) -> Error:
-	var v: Variant = DialogueData.read_json(MONSTERS_PATH)
-	if not (v is Dictionary) or not v.get("monsters", {}).has(kind):
+	var text := FileAccess.get_file_as_string(MONSTERS_PATH)
+	var at := text.find('"%s": {' % kind)
+	if text == "" or at < 0:
 		return ERR_DOES_NOT_EXIST
-	var def: Dictionary = v["monsters"][kind]
-	if ai_id == "":
-		def.erase("ai")
-	else:
-		def["ai"] = ai_id
+	var open := text.find("{", at)
+	var depth := 0
+	var close := -1
+	for i in range(open, text.length()):
+		var ch := text[i]
+		if ch == "{":
+			depth += 1
+		elif ch == "}":
+			depth -= 1
+			if depth == 0:
+				close = i
+				break
+	if close < 0:
+		return ERR_PARSE_ERROR
+	var block := text.substr(open, close - open + 1)
+	var re_aggr := RegEx.create_from_string('"aggressive":\\s*(true|false)')
+	var re_ai := RegEx.create_from_string(',?\\n[ \\t]*"ai":\\s*"[^"]*"')
 	if aggressive != null:
-		def["aggressive"] = bool(aggressive)
+		block = re_aggr.sub(block, '"aggressive": %s' % ("true" if aggressive else "false"))
+	block = re_ai.sub(block, "")
+	if ai_id != "":
+		var m := re_aggr.search(block)
+		var line_start := block.rfind("\n", m.get_start()) if m else block.find("\n")
+		var indent := block.substr(line_start + 1, (m.get_start() if m else line_start + 1) - line_start - 1)
+		var pos := m.get_end() if m else 1
+		block = block.insert(pos, ',\n%s"ai": "%s"' % [indent, ai_id])
+	var out := text.substr(0, open) + block + text.substr(close + 1)
+	if not (JSON.parse_string(out) is Dictionary):
+		return ERR_PARSE_ERROR
 	var f := FileAccess.open(MONSTERS_PATH, FileAccess.WRITE)
 	if f == null:
 		return FileAccess.get_open_error()
-	f.store_string(JSON.stringify(v, "  ", false) + "\n")
+	f.store_string(out)
 	f.close()
 	MonsterDB.reload()
 	return OK
