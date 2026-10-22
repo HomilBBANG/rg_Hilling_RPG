@@ -18,6 +18,7 @@ var _head: Label
 var _body: VBoxContainer
 var _note: Label
 var _confirm_delete := 0
+var _confirm_preset := ""
 
 
 func _ready() -> void:
@@ -115,6 +116,8 @@ func _unhandled_input(ev: InputEvent) -> void:
 
 ## Rebuilds whatever sub-screen is open (bootstrap.show_title calls this when the title opens).
 func refresh() -> void:
+	if boot == null or boot._cmd_tour() == "":  # tours keep their test slots as they are
+		SavePresets.auto_install()  # first time only: the chapter-1 save into an empty slot 3
 	if mode == "new" or mode == "load":
 		open_slots(mode)
 	elif mode == "settings":
@@ -126,6 +129,7 @@ func refresh() -> void:
 func close_panel() -> void:
 	mode = ""
 	_confirm_delete = 0
+	_confirm_preset = ""
 	_panel.visible = false
 
 
@@ -152,6 +156,27 @@ func open_slots(m: String) -> void:
 	_open(m, "새 게임 — 슬롯 고르기" if m == "new" else "불러오기", note)
 	for slot in range(1, SaveManager.SLOTS + 1):
 		_body.add_child(_card(slot))
+	if m == "load":  # ready-made saves (user request): put one into its slot again
+		for id: String in SavePresets.PRESETS:
+			var pslot := int(SavePresets.PRESETS[id]["slot"])
+			var row := HBoxContainer.new()
+			row.add_theme_constant_override("separation", 12)
+			var l := Label.new()
+			l.text = "준비된 세이브: %s → 슬롯 %d" % [SavePresets.preset_name(id), pslot]
+			l.add_theme_font_size_override("font_size", 20)
+			l.add_theme_color_override("font_color", Color(0.8, 0.8, 0.76))
+			l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			row.add_child(l)
+			var taken := SaveManager.exists(pslot)
+			var b := _button("슬롯 %d 덮어쓰고 넣기?" % pslot if _confirm_preset == id else ("슬롯 %d에 넣기" % pslot), func() -> void:
+				if taken and _confirm_preset != id:
+					_confirm_preset = id  # first press asks when a character is already there
+				else:
+					SavePresets.install(id, pslot)
+					_confirm_preset = ""
+				open_slots("load"))
+			row.add_child(b)
+			_body.add_child(row)
 
 
 func _card(slot: int) -> PanelContainer:

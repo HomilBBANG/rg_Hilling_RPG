@@ -542,6 +542,8 @@ func _parse_args() -> void:
 		_run_drive_compare()
 	elif tour == "drivegta":
 		_run_drive_gta_tour()
+	elif tour == "preset":
+		_run_preset_tour()
 	elif tour == "wind":
 		_run_wind_check()
 	elif tour == "catfollow":
@@ -1686,6 +1688,68 @@ func _drive_reset(v: CamperVehicle, pos: Vector3, yaw: float, mask: int) -> void
 	v.rotation.y = yaw
 	await get_tree().physics_frame
 	await get_tree().physics_frame
+
+
+## The chapter-1 save preset: put into an empty slot 3 once, kept out after a delete, put back
+## from the load screen, then loaded and checked (story, cat, camper, hero, the nest). Uses
+## user://tour_saves, never the real slots.
+func _run_preset_tour() -> void:
+	_touring = true
+	SaveManager.dir = "user://tour_saves"
+	SavePresets.marker = "user://tour_saves/presets.cfg"
+	var t: Dictionary = Game.get_meta("preset_tour", {"step": 0})
+	Game.set_meta("preset_tour", t)
+	var step := int(t["step"])
+	t["step"] = step + 1
+	await _frames(5)
+	while _arriving:
+		await get_tree().process_frame
+	await wait_for_sprites()
+	hud.show_help_panel(false)
+	var st := Game.player_state
+	match step:
+		0:
+			for i in range(1, SaveManager.SLOTS + 1):
+				SaveManager.delete(i)
+			DirAccess.remove_absolute(ProjectSettings.globalize_path(SavePresets.marker))
+			var gold_before := st.gold
+			SavePresets.auto_install()
+			var d := SaveManager.read(3)
+			print("[preset] auto install -> slot 3 %s: %s · live state untouched %s" % [SaveManager.exists(3), d.get("meta", {}), st.gold == gold_before])
+			SaveManager.delete(3)
+			SavePresets.auto_install()
+			print("[preset] deleted, title again -> slot 3 refilled %s (should stay empty)" % SaveManager.exists(3))
+			show_title()
+			title.open_slots("load")
+			await _frames(6)
+			print("[tour] saved ", save_screenshot("p1_preset_01_load_screen_empty3.png"))
+			SavePresets.install("chapter1", 3)
+			title.open_slots("load")
+			await _frames(6)
+			print("[tour] saved ", save_screenshot("p1_preset_02_load_screen.png"))
+			start_slot(3, false)
+		1:
+			print("[preset] loaded slot %d: %s, stage %s, cat joined %s (affection %d), camper here %s at %s" % [Game.slot, Game.region,
+				Game.STAGE_NAMES[Game.story_stage()], Game.cat_joined, Game.cat_affection, world.camper_here(), Game.camper.get("pos", "")])
+			print("[preset] quests: audience %s, dragon %s · events king %s wish %s · flags dragon %s camper %s" % [Game.quests.state("quest.main.audience"),
+				Game.quests.state("quest.main.dragon"), Game.narrative.event_done("story.king_audience"), Game.narrative.event_done("story.camper_wish"),
+				Game.narrative.get_flag("story.dragon_defeated"), Game.narrative.get_flag("story.camper_received")])
+			print("[preset] hero: Lv %d, stats %s, HP %d/%d, gold %d, weapon %s, armor %s, scales %d, fang %d" % [st.level, st.stats, roundi(st.hp), roundi(st.max_hp()),
+				st.gold, st.equipment.get("main", ""), st.equipment.get("body", ""), st.inventory.count("dragon_scale"), st.inventory.count("dragon_fang")])
+			await _seconds(1.0)
+			await _p1_shot("preset_03_loaded_plaza", "chapter 1 cleared: plaza, camper, cat", true)
+			game_hud.toggle_map()
+			await _frames(6)
+			await _p1_shot("preset_04_map", "map after chapter 1", true)
+			game_hud.toggle_map()
+			travel("dragon_nest", "entrance", false)
+			await _wait_travel()
+			var dragons: int = world.monsters.filter(func(m: SlimeMonster) -> bool: return m is DragonBoss).size()
+			print("[preset] the nest: dragons %d, remains %s" % [dragons, Game.field.get("remains", {})])
+			Game.remove_meta("preset_tour")
+			for i in range(1, SaveManager.SLOTS + 1):
+				SaveManager.delete(i)
+			get_tree().quit()
 
 
 ## GTA-style driving check (the default HEADING control): gas, W+S hold, S brake → pause →
