@@ -1099,7 +1099,7 @@ func open_crafting(facility: String, source: Node3D) -> void:
 				parts.append("%s %d/%d" % [ItemDB.item_name(item), st.inventory.count(item), int(inputs[item])])
 			row.add_child(_row_label(" + ".join(parts), 400, 17, Color(0.85, 0.85, 0.8)))
 			var fac: String = r.get("facility", "")
-			row.add_child(_row_label("어디서나" if fac == "" else ("모닥불·주방" if fac == "cooking" else "작업대"), 110, 17, Color(0.7, 0.78, 0.9)))
+			row.add_child(_row_label("어디서나" if fac == "" else {"cooking": "모닥불·주방", "workbench": "작업대", "refinery": "정제 시설"}.get(fac, fac), 110, 17, Color(0.7, 0.78, 0.9)))
 			var block := _recipe_block(rid, facility)
 			var b := _button("만들기", func() -> void: craft(rid, facility), 120)
 			b.disabled = block != ""

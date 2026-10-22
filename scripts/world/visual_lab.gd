@@ -1356,7 +1356,7 @@ func _drive_costs() -> void:
 			continue
 		_ram_cd[key] = _age + 0.8
 		var sp := absf(vehicle.speed)
-		var cost := RAM_CAMPER_DAMAGE + sp + float(m.profile.get("armor", 0)) * 4.0
+		var cost := roundf(RAM_CAMPER_DAMAGE + sp + float(m.profile.get("armor", 0)) * 4.0)  # whole points
 		m.receive_ram(roundi(4.0 + sp * 2.5), vehicle)
 		Game.damage_camper(cost)
 		vehicle.speed *= 0.45

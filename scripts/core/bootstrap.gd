@@ -2147,7 +2147,11 @@ func _run_camper_tour() -> void:
 				await _frames(2)
 				await _p1_shot("camper_01_ram", "camper rams a slime", true)
 		await _seconds(0.6)
-	print("[camper] broken %s after %d hits, power %.2f, status '%s'" % [Game.camper_broken(), hits, v.power, Game.camper_status_text()])
+	print("[camper] after %d hits: broken %s, power %.2f, status '%s'" % [hits, Game.camper_broken(), v.power, Game.camper_status_text()])
+	if not Game.camper_broken():
+		Game.damage_camper(Game.camper_durability)  # one more knock: check the broken state itself
+		await _frames(2)
+		print("[camper] one more hit -> broken %s, power %.2f" % [Game.camper_broken(), v.power])
 	v.scripted = {"throttle": 1.0, "steer": 0.0}
 	var bx := v.global_position.x
 	await _seconds(1.5)
