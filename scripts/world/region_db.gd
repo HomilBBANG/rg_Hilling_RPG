@@ -156,6 +156,23 @@ static func danger_text(region_id: String) -> String:
 	return "★".repeat(n) if n > 0 else "없음"
 
 
+## A camper parked here is out of harm's way (GDD 9.4): inside a safe checkpoint's circle or a
+## town (with a little margin), or by the starting camp.
+static func spot_safe(region_id: String, pos: Variant) -> bool:
+	var p := v3(pos) if not (pos is Vector3) else pos as Vector3
+	var reg := info(region_id)
+	for cp: Dictionary in reg.get("checkpoints", []):
+		var c := v3(cp["pos"])
+		if Vector2(p.x - c.x, p.z - c.z).length() < float(cp.get("radius", 5.0)) + 2.0:
+			return true
+	for ct: Dictionary in cities().values():
+		if ct["region"] == region_id and (ct["rect"] as Rect2).grow(3.0).has_point(Vector2(p.x, p.z)):
+			return true
+	if region_id == START and Vector2(p.x + 6.2, p.z + 2.8).length() < 14.0:  # the camp clearing
+		return true
+	return int(reg.get("danger", 1)) <= 0
+
+
 static func v3(a: Variant) -> Vector3:
 	return Vector3(float(a[0]), 0.0, float(a[1])) if a is Array and (a as Array).size() >= 2 else Vector3.ZERO
 

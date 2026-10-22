@@ -1,0 +1,478 @@
+{
+  "version": 1,
+  "_comment": "캠핑카 개조 (GDD 9.2 [확정]: NPC에게 골드를 내거나 특정 퀘스트로만 얻는다. 차량을 바꾸지 않고 같은 차를 계속 개조). 숫자는 모두 [미정] 임시값. vendor: mechanic(정비공) / mage(궁정 마법사) / carpenter(가구 장인). quest가 있으면 그 퀘스트를 끝내야 달아 준다.",
+  "categories": [
+    [
+      "engine",
+      "엔진·연료·동력"
+    ],
+    [
+      "drive",
+      "주행 성능"
+    ],
+    [
+      "facility",
+      "실내 시설"
+    ],
+    [
+      "storage",
+      "보관 공간"
+    ],
+    [
+      "exterior",
+      "외장·부착물"
+    ],
+    [
+      "rooms",
+      "마법 실내 공간"
+    ],
+    [
+      "skill",
+      "정비 기술"
+    ]
+  ],
+  "vendors": {
+    "mechanic": {
+      "name": "정비공 기어",
+      "look": "mechanic"
+    },
+    "mage": {
+      "name": "궁정 마법사 엘라",
+      "look": "mage"
+    },
+    "carpenter": {
+      "name": "가구 장인 토마",
+      "look": "carpenter"
+    }
+  },
+  "beds": {
+    "cot": {
+      "name": "간이침대",
+      "hp": 0.1
+    },
+    "sofa": {
+      "name": "소파 베드",
+      "hp": 0.4
+    },
+    "bed": {
+      "name": "푹신한 침대",
+      "hp": 0.75
+    }
+  },
+  "paints": {
+    "classic": {
+      "body": [
+        0.88,
+        0.85,
+        0.78
+      ],
+      "skirt": [
+        0.32,
+        0.6,
+        0.58
+      ],
+      "stripe_a": [
+        0.95,
+        0.52,
+        0.4
+      ],
+      "stripe_b": [
+        0.97,
+        0.79,
+        0.36
+      ]
+    },
+    "forest": {
+      "body": [
+        0.36,
+        0.5,
+        0.34
+      ],
+      "skirt": [
+        0.42,
+        0.3,
+        0.2
+      ],
+      "stripe_a": [
+        0.86,
+        0.8,
+        0.6
+      ],
+      "stripe_b": [
+        0.62,
+        0.46,
+        0.28
+      ]
+    },
+    "sunset": {
+      "body": [
+        0.95,
+        0.62,
+        0.36
+      ],
+      "skirt": [
+        0.62,
+        0.2,
+        0.18
+      ],
+      "stripe_a": [
+        0.85,
+        0.28,
+        0.24
+      ],
+      "stripe_b": [
+        0.98,
+        0.86,
+        0.5
+      ]
+    },
+    "night": {
+      "body": [
+        0.2,
+        0.24,
+        0.42
+      ],
+      "skirt": [
+        0.12,
+        0.13,
+        0.22
+      ],
+      "stripe_a": [
+        0.98,
+        0.86,
+        0.36
+      ],
+      "stripe_b": [
+        0.6,
+        0.7,
+        0.95
+      ]
+    }
+  },
+  "upgrades": [
+    {
+      "id": "engine_tune",
+      "category": "engine",
+      "name": "엔진 정비·고효율 개조",
+      "desc": "연비가 좋아진다 — 1 m당 연료 0.04 → 0.03",
+      "vendor": "mechanic",
+      "gold": 300,
+      "effects": {
+        "fuel_per_m": 0.03
+      }
+    },
+    {
+      "id": "engine_tank",
+      "category": "engine",
+      "name": "보조 연료 탱크",
+      "desc": "연료 탱크 60 → 90",
+      "vendor": "mechanic",
+      "gold": 250,
+      "effects": {
+        "fuel_max": 90.0
+      }
+    },
+    {
+      "id": "engine_magic",
+      "category": "engine",
+      "name": "마력 변환 엔진",
+      "desc": "휘발유 대신 마력 연료로 달린다 — 1 m당 0.02, 연료는 '마력 연료병'(정제). 바꾸는 즉시 탱크가 마력으로 가득 찬다",
+      "vendor": "mage",
+      "gold": 1200,
+      "effects": {
+        "fuel_kind": "magic",
+        "fuel_per_m": 0.02
+      },
+      "requires": "engine_tune"
+    },
+    {
+      "id": "engine_infinite",
+      "category": "engine",
+      "name": "영구 마력 핵",
+      "desc": "무한 동력 — 연료를 쓰지 않는다 (궁정 마법사의 의뢰를 끝내면 달아 준다)",
+      "vendor": "mage",
+      "gold": 0,
+      "effects": {
+        "infinite": true
+      },
+      "requires": "engine_magic",
+      "quest": "quest.camper.infinite_core"
+    },
+    {
+      "id": "drive_tires",
+      "category": "drive",
+      "name": "산악 타이어·서스펜션",
+      "desc": "최고 속도 ×1.2",
+      "vendor": "mechanic",
+      "gold": 280,
+      "effects": {
+        "speed_mult": 1.2
+      }
+    },
+    {
+      "id": "drive_offroad",
+      "category": "drive",
+      "name": "험로 주행 키트",
+      "desc": "길 밖·숲·언덕에서도 느려지지 않는다 (기본은 길 밖에서 ×0.65)",
+      "vendor": "mechanic",
+      "gold": 450,
+      "effects": {
+        "offroad": true
+      },
+      "requires": "drive_tires"
+    },
+    {
+      "id": "drive_booster",
+      "category": "drive",
+      "name": "마력 부스터",
+      "desc": "최고 속도 ×1.45, 회전이 빨라진다",
+      "vendor": "mage",
+      "gold": 900,
+      "effects": {
+        "speed_mult": 1.45,
+        "turn_mult": 1.25
+      },
+      "requires": "drive_offroad"
+    },
+    {
+      "id": "bed_sofa",
+      "category": "facility",
+      "name": "소파 베드",
+      "desc": "간이침대를 소파 베드로 — 수면 회복 HP 10% → 40%",
+      "vendor": "carpenter",
+      "gold": 220,
+      "effects": {
+        "bed": "sofa"
+      }
+    },
+    {
+      "id": "bed_full",
+      "category": "facility",
+      "name": "푹신한 침대",
+      "desc": "소파 베드를 진짜 침대로 — 수면 회복 HP 75%",
+      "vendor": "carpenter",
+      "gold": 650,
+      "effects": {
+        "bed": "bed"
+      },
+      "requires": "bed_sofa"
+    },
+    {
+      "id": "workbench",
+      "category": "facility",
+      "name": "실내 작업대 정비",
+      "desc": "실내 작업대를 쓸 수 있다 (복잡한 제작)",
+      "vendor": "mechanic",
+      "gold": 200,
+      "effects": {
+        "facility": "workbench"
+      }
+    },
+    {
+      "id": "refinery",
+      "category": "facility",
+      "name": "실내 연료 정제기",
+      "desc": "캠핑카 안에서 연료를 정제한다",
+      "vendor": "mechanic",
+      "gold": 500,
+      "effects": {
+        "facility": "refinery"
+      }
+    },
+    {
+      "id": "refinery_plus",
+      "category": "facility",
+      "name": "정제기 개선",
+      "desc": "실내 정제기로 만들면 연료가 하나 더 나온다",
+      "vendor": "mage",
+      "gold": 600,
+      "effects": {
+        "refine_bonus": 1
+      },
+      "requires": "refinery"
+    },
+    {
+      "id": "storage_1",
+      "category": "storage",
+      "name": "선반·수납장 증설",
+      "desc": "창고 100 → 160 kg",
+      "vendor": "carpenter",
+      "gold": 200,
+      "effects": {
+        "storage": 160.0
+      }
+    },
+    {
+      "id": "storage_2",
+      "category": "storage",
+      "name": "바닥 수납고",
+      "desc": "창고 → 250 kg",
+      "vendor": "carpenter",
+      "gold": 500,
+      "effects": {
+        "storage": 250.0
+      },
+      "requires": "storage_1"
+    },
+    {
+      "id": "storage_3",
+      "category": "storage",
+      "name": "마법 확장 창고",
+      "desc": "창고 → 400 kg",
+      "vendor": "mage",
+      "gold": 1500,
+      "effects": {
+        "storage": 400.0
+      },
+      "requires": "storage_2"
+    },
+    {
+      "id": "paint_classic",
+      "category": "exterior",
+      "name": "도색: 크림·청록 (기본)",
+      "desc": "처음 받은 색",
+      "vendor": "mechanic",
+      "gold": 0,
+      "effects": {
+        "paint": "classic"
+      }
+    },
+    {
+      "id": "paint_forest",
+      "category": "exterior",
+      "name": "도색: 숲 녹색",
+      "desc": "짙은 녹색과 나무색 줄무늬",
+      "vendor": "mechanic",
+      "gold": 80,
+      "effects": {
+        "paint": "forest"
+      }
+    },
+    {
+      "id": "paint_sunset",
+      "category": "exterior",
+      "name": "도색: 노을 주황",
+      "desc": "주황 바탕에 붉은 줄무늬",
+      "vendor": "mechanic",
+      "gold": 80,
+      "effects": {
+        "paint": "sunset"
+      }
+    },
+    {
+      "id": "paint_night",
+      "category": "exterior",
+      "name": "도색: 밤하늘 남색",
+      "desc": "남색 바탕에 별빛 노랑 줄무늬",
+      "vendor": "mechanic",
+      "gold": 80,
+      "effects": {
+        "paint": "night"
+      }
+    },
+    {
+      "id": "part_awning",
+      "category": "exterior",
+      "name": "측면 차양",
+      "desc": "문 쪽에 줄무늬 차양을 단다 (켜고 끌 수 있다)",
+      "vendor": "mechanic",
+      "gold": 120,
+      "effects": {
+        "part": "awning"
+      }
+    },
+    {
+      "id": "part_flag",
+      "category": "exterior",
+      "name": "여행 깃발",
+      "desc": "뒤쪽 사다리에 깃발을 꽂는다 (켜고 끌 수 있다)",
+      "vendor": "mechanic",
+      "gold": 40,
+      "effects": {
+        "part": "flag"
+      }
+    },
+    {
+      "id": "part_bullbar",
+      "category": "exterior",
+      "name": "전면 보호 범퍼",
+      "desc": "몬스터를 들이받을 때 캠핑카가 덜 상한다 (×0.6)",
+      "vendor": "mechanic",
+      "gold": 260,
+      "effects": {
+        "part": "bullbar",
+        "ram_mult": 0.6
+      }
+    },
+    {
+      "id": "room_1",
+      "category": "rooms",
+      "name": "공간 확장 마법 Ⅰ",
+      "desc": "실내에 방 하나가 늘어난다 — 용도를 고를 수 있다",
+      "vendor": "mage",
+      "gold": 1000,
+      "effects": {
+        "rooms": 1
+      }
+    },
+    {
+      "id": "room_2",
+      "category": "rooms",
+      "name": "공간 확장 마법 Ⅱ",
+      "desc": "방이 하나 더 늘어난다",
+      "vendor": "mage",
+      "gold": 2500,
+      "effects": {
+        "rooms": 2
+      },
+      "requires": "room_1"
+    },
+    {
+      "id": "skill_repair",
+      "category": "skill",
+      "name": "고급 정비 기술",
+      "desc": "응급 수리 공구로 현장에서 완전히 고친다 (내구도 100까지)",
+      "vendor": "mechanic",
+      "gold": 400,
+      "effects": {
+        "field_repair": "full"
+      }
+    }
+  ],
+  "room_purposes": {
+    "lounge": {
+      "name": "거실",
+      "desc": "소파와 낮은 탁자, 스탠드 조명 — 쉬어 가는 방"
+    },
+    "bedroom": {
+      "name": "침실",
+      "desc": "넓은 침대 — 여기서 자면 회복이 HP 10%p 더 (아늑함)",
+      "sleep_bonus": 0.1
+    },
+    "workshop": {
+      "name": "작업실",
+      "desc": "작업대(복잡한 제작)와 연료 정제기를 둔다",
+      "facilities": [
+        "workbench",
+        "refinery"
+      ]
+    },
+    "storage_room": {
+      "name": "창고방",
+      "desc": "선반과 상자 — 캠핑카 창고 +120 kg",
+      "storage_bonus": 120.0
+    },
+    "cat_room": {
+      "name": "고양이 방",
+      "desc": "캣타워와 방석 — 고양이가 즐겨 머문다"
+    }
+  },
+  "decor_prices": {
+    "decor_plant": 25,
+    "decor_lamp": 40,
+    "decor_rug": 35,
+    "decor_shelf": 55,
+    "decor_cat_tower": 70,
+    "decor_painting": 45
+  }
+}

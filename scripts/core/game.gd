@@ -5,6 +5,8 @@ extends Node
 
 signal world_change_requested(world_id: StringName)
 signal story_changed
+## Camper upgrades / name / paint / parts / rooms / decor changed (CamperUpgrades).
+signal camper_changed
 
 const WORLD_EXTERIOR := &"exterior"
 const WORLD_INTERIOR := &"interior"
@@ -42,17 +44,19 @@ var player_state := PlayerState.new()
 var combat_log := CombatLog.new()
 ## Camper storage: separate weight-limited container (GDD 8.3 [확정]); capacity [미정].
 var storage := Inventory.new()
-const STORAGE_CAPACITY := 100.0
 ## Story flags (GDD 2.3: the cat joins before the camper exists). F9 cycles the stages.
 var has_camper := true
 ## Camper fuel and durability (GDD 9.3 / 9.5 [확정]; the numbers are [미정] placeholders).
-const CAMPER_FUEL_MAX := 60.0          # litres of gasoline in the tank
-const CAMPER_FUEL_PER_M := 0.04        # litres per metre driven (a full tank ≈ 1.5 km)
+## Tank size and use per metre come from the upgrades (CamperUpgrades.fuel_max / fuel_per_m).
 const CAMPER_DURABILITY_MAX := 100.0
 const CAMPER_WEAK := 0.3               # below this share of durability it drives slower
-var camper_fuel := CAMPER_FUEL_MAX
+var camper_fuel := CamperUpgrades.BASE_FUEL_MAX
 var camper_durability := CAMPER_DURABILITY_MAX
 var camper_infinite_power := false     # final power upgrade (9.3): no fuel used
+## Camper upgrades and the player's own choices for it (GDD 9.1 / 9.2): owned upgrade ids, its
+## name, paint, attachments switched on, magic rooms {"purpose"} and freely placed decor
+## {"item", "room", "pos": [x, z], "yaw"}.
+var camper_mods := {"owned": ["paint_classic"], "name": "", "paint": "classic", "parts": [], "rooms": [], "decor": []}
 var cat_joined := true
 ## Cat affection: snacks raise it (GDD 2.5 [확정]); amount / cap [미정].
 var cat_affection := 0
@@ -325,12 +329,20 @@ func receive_camper() -> bool:
 		return false
 	var w: Dictionary = CutsceneData.story().get("camper_wish", {})
 	camper = {"region": str(w.get("region", "capital")), "pos": RegionDB.v3(w.get("pos", [0, 0])), "yaw": float(w.get("yaw", 0.0))}
-	camper_fuel = CAMPER_FUEL_MAX
+	camper_fuel = camper_fuel_max()
 	camper_durability = CAMPER_DURABILITY_MAX
 	has_camper = true
 	narrative.set_flag("story.camper_received")
 	story_changed.emit()
 	return true
+
+
+func camper_fuel_max() -> float:
+	return CamperUpgrades.fuel_max()
+
+
+func storage_capacity() -> float:
+	return CamperUpgrades.storage_capacity()
 
 
 func camper_broken() -> bool:
@@ -358,7 +370,8 @@ func damage_camper(amount: float) -> void:
 
 
 func camper_status_text() -> String:
-	var s := "캠핑카 연료 %d/%d L · 내구도 %d/%d" % [roundi(camper_fuel), roundi(CAMPER_FUEL_MAX), ceili(camper_durability), roundi(CAMPER_DURABILITY_MAX)]
+	var fuel := "무한 동력" if camper_infinite_power else "%s %d/%d%s" % [CamperUpgrades.fuel_name(), roundi(camper_fuel), roundi(camper_fuel_max()), " L" if CamperUpgrades.fuel_kind() == "gasoline" else ""]
+	var s := "캠핑카 %s · 내구도 %d/%d" % [fuel, ceili(camper_durability), roundi(CAMPER_DURABILITY_MAX)]
 	if camper_broken():
 		s += " — 고장 (수리 필요)"
 	elif camper_out_of_fuel():

@@ -464,7 +464,7 @@ func _player_can_take(w: float) -> bool:
 
 
 func _storage_can_take(w: float) -> bool:
-	return Game.storage.weight() + w <= Game.STORAGE_CAPACITY + 0.0001
+	return Game.storage.weight() + w <= Game.storage_capacity() + 0.0001
 
 
 func _too_heavy_toast() -> void:
@@ -535,6 +535,13 @@ func toggle_inventory() -> void:
 			left.add_child(row)
 		right.add_child(_row_label("가방", 300, 22, Color(1.0, 0.9, 0.6)))
 		_items_list(right, st.inventory, func(h: HBoxContainer, id: String, _count: int) -> void:
+			if ItemDB.info(id).get("kind", "") == "decor":
+				var db := _button("배치", func() -> void:
+					close_panel()
+					boot.world.begin_place(id))
+				db.disabled = not (boot.world is CamperInteriorLab)
+				db.tooltip_text = "캠핑카 안에서만 놓을 수 있다" if db.disabled else "E 놓기 · R 돌리기 · X 취소"
+				h.add_child(db)
 			if ItemDB.info(id).get("kind", "") == "camper":
 				var cb := _button("주유" if ItemDB.info(id).get("camper", "") == "fuel" else "응급 수리", func() -> void:
 					boot.hud.toast(boot.use_camper_item(id))
@@ -731,7 +738,7 @@ func open_storage(source: Node3D) -> void:
 					if _move(bag, box, id, count, _storage_can_take) < count:
 						boot.hud.toast("창고 용량이 부족해 일부만 옮겼다")
 					_refresh_panel())), "가방이 비어 있다")
-		right.add_child(_row_label("창고 %.1f / %.0f kg" % [box.weight(), Game.STORAGE_CAPACITY], 520, 20, Color(0.85, 0.88, 0.92)))
+		right.add_child(_row_label("창고 %.1f / %.0f kg" % [box.weight(), Game.storage_capacity()], 520, 20, Color(0.85, 0.88, 0.92)))
 		_items_list(right, box, func(h: HBoxContainer, id: String, count: int) -> void:
 			h.add_child(_button("← 1", func() -> void:
 				if _move(box, bag, id, 1, _player_can_take) == 0:
@@ -756,13 +763,180 @@ func open_storage(source: Node3D) -> void:
 		v.add_child(bottom), 1180)
 
 
+## Camper upgrade vendor (GDD 9.2 [확정]: NPC + gold, or a quest). One row per upgrade this
+## vendor fits, grouped by field; paints / parts already owned can be switched here; the mechanic
+## also repairs and names the camper, the mage gives the infinite-power quest.
+func open_upgrades(vendor: String, source: Node3D) -> void:
+	if _panel_kind == "upgrades":
+		close_panel()
+		return
+	_open("upgrades", source, 3.0, func(v: VBoxContainer) -> void:
+		var head := HBoxContainer.new()
+		head.add_child(_row_label("%s — 캠핑카 개조" % CamperUpgrades.vendor_name(vendor), 520, 26, Color(1.0, 0.9, 0.6)))
+		head.add_child(_row_label("%d 골드 · %s" % [Game.player_state.gold, CamperUpgrades.camper_name()], 420, 20, Color(0.85, 0.88, 0.92)))
+		v.add_child(head)
+		if not Game.has_camper:
+			v.add_child(_row_label("캠핑카가 생기면 다시 오게. (아직 캠핑카가 없다)", 900, 20, Color(0.8, 0.8, 0.8)))
+		v.add_child(_row_label(Game.camper_status_text(), 900, 18, Color(0.75, 0.8, 0.85)))
+		var cat := ""
+		for u: Dictionary in CamperUpgrades.for_vendor(vendor):
+			if u["category"] != cat:
+				cat = u["category"]
+				v.add_child(_row_label("— %s" % CamperUpgrades.category_name(cat), 900, 19, Color(0.6, 0.85, 1.0)))
+			v.add_child(_upgrade_row(u))
+		if vendor == "carpenter":  # small furniture to place freely inside (GDD 9.1)
+			v.add_child(_row_label("— 실내 소품 (가방에 넣고 캠핑카 안에서 '배치')", 900, 19, Color(0.6, 0.85, 1.0)))
+			var prices: Dictionary = CamperUpgrades.data().get("decor_prices", {})
+			var drow := HFlowContainer.new()
+			drow.custom_minimum_size.x = 1060
+			for item: String in prices:
+				var b := _button("%s %dg" % [ItemDB.item_name(item), int(prices[item])], func() -> void:
+					var st := Game.player_state
+					if st.gold < int(prices[item]):
+						boot.hud.toast("골드가 모자란다")
+					elif not st.can_carry(ItemDB.weight(item)):
+						boot.hud.toast("너무 무겁다 — 더 들 수 없다")
+					else:
+						st.gold -= int(prices[item])
+						st.inventory.add(item, 1)
+						boot.hud.toast("%s을(를) 샀다 — 캠핑카 안에서 가방의 '배치'" % ItemDB.item_name(item))
+					_refresh_panel())
+				b.tooltip_text = str(ItemDB.info(item).get("desc", ""))
+				drow.add_child(b)
+			v.add_child(drow)
+		var bottom := HBoxContainer.new()
+		if vendor == "mechanic":
+			bottom.add_child(_button("이름 짓기", func() -> void: open_camper_name(source)))
+			var q: Dictionary = boot.camper_repair_quote()
+			var rb := _button("수리 (%d 골드)" % int(q.get("gold", 0)) if int(q.get("gold", 0)) > 0 else "수리", func() -> void:
+				boot.hud.toast(boot.repair_camper())
+				_refresh_panel())
+			rb.disabled = not q["ok"]
+			rb.tooltip_text = str(q.get("why", ""))
+			bottom.add_child(rb)
+		bottom.add_child(_button("닫기 (E)", close_panel))
+		v.add_child(bottom), 1100)
+
+
+func _upgrade_row(u: Dictionary) -> HBoxContainer:
+	var id: String = u["id"]
+	var row := HBoxContainer.new()
+	var have := CamperUpgrades.owned(id)
+	row.add_child(_row_label(("✔ " if have else "· ") + str(u["name"]), 270, 19, Color(0.75, 1.0, 0.7) if have else Color.WHITE))
+	row.add_child(_row_label(str(u.get("desc", "")), 560, 16, Color(0.8, 0.82, 0.86)))
+	var e: Dictionary = u.get("effects", {})
+	var qid := str(u.get("quest", ""))
+	if have and e.has("paint"):
+		var on: bool = Game.camper_mods.get("paint", "") == e["paint"]
+		var pb := _button("사용 중" if on else "이 색으로", func() -> void:
+			Game.camper_mods["paint"] = str(e["paint"])
+			Game.camper_changed.emit()
+			_refresh_panel(), 170)
+		pb.disabled = on
+		row.add_child(pb)
+	elif have and e.has("part"):
+		var parts: Array = Game.camper_mods["parts"]
+		var on2 := parts.has(e["part"])
+		row.add_child(_button("떼기" if on2 else "달기", func() -> void:
+			if parts.has(e["part"]):
+				parts.erase(e["part"])
+			else:
+				parts.append(e["part"])
+			Game.camper_changed.emit()
+			_refresh_panel(), 170))
+	elif have:
+		row.add_child(_row_label("설치됨", 170, 18, Color(0.75, 1.0, 0.7)))
+	elif qid != "" and Game.quests.state(qid) != "completed":
+		var qs := Game.quests.state(qid)
+		var qb: Button
+		if qs == "ready":
+			qb = _button("의뢰 보고", func() -> void:
+				boot.hud.toast(Game.quests.complete(qid))  # pays the rewards; the upgrade can be fitted now
+				_refresh_panel(), 170)
+		elif qs == "active":
+			qb = _button("의뢰 진행 중", func() -> void: pass, 170)
+			qb.disabled = true
+			qb.tooltip_text = " / ".join(Game.quests.objectives_text(qid))
+		else:
+			qb = _button("의뢰 받기", func() -> void:
+				var why := Game.quests.accept(qid)
+				if why != "":
+					boot.hud.toast(why)
+				_refresh_panel(), 170)
+			qb.disabled = not Game.has_camper or not CamperUpgrades.owned(str(u.get("requires", "")))
+		row.add_child(qb)
+	else:
+		var why := CamperUpgrades.block(id)
+		var gold := int(u.get("gold", 0))
+		var b := _button("개조 (%d 골드)" % gold if gold > 0 else "달기", func() -> void:
+			var r := CamperUpgrades.buy(id)
+			boot.hud.toast("%s — 달았다!" % u["name"] if r == "" else r)
+			_refresh_panel(), 170)
+		b.disabled = why != ""
+		b.tooltip_text = why
+		row.add_child(b)
+	return row
+
+
+## Magic room purpose (GDD 9.1: prebuilt room modules, the player decides what each room is for).
+func open_room_purpose(index: int, source: Node3D) -> void:
+	_open("room", source, 2.5, func(v: VBoxContainer) -> void:
+		var rooms := CamperUpgrades.rooms()
+		var cur := str(rooms[index].get("purpose", "")) if index < rooms.size() else ""
+		v.add_child(_row_label("마법 방 %d — 용도 정하기" % (index + 1), 600, 26, Color(1.0, 0.9, 0.6)))
+		v.add_child(_row_label("언제든 바꿀 수 있다 (가구는 마법으로 바뀐다)", 600, 17, Color(0.75, 0.8, 0.85)))
+		var purposes: Dictionary = CamperUpgrades.data().get("room_purposes", {})
+		for pid: String in purposes:
+			var row := HBoxContainer.new()
+			row.add_child(_row_label(("✔ " if pid == cur else "· ") + str(purposes[pid]["name"]), 160, 20))
+			row.add_child(_row_label(str(purposes[pid].get("desc", "")), 470, 16, Color(0.8, 0.82, 0.86)))
+			var b := _button("사용 중" if pid == cur else "이 방으로", func() -> void:
+				rooms[index]["purpose"] = pid
+				Game.camper_changed.emit()
+				close_panel()
+				boot.hud.toast("방 %d → %s" % [index + 1, purposes[pid]["name"]])
+				if boot.world is CamperInteriorLab:
+					Game.request_world(Game.WORLD_INTERIOR)  # rebuild the interior with the new furniture
+				, 130)
+			b.disabled = pid == cur
+			row.add_child(b)
+			v.add_child(row)
+		v.add_child(_button("닫기", close_panel)), 820)
+
+
+## Naming the camper (GDD 9.1 [확정]: the player names it). Up to 12 characters.
+func open_camper_name(source: Node3D) -> void:
+	_open("camper_name", source, 3.0, func(v: VBoxContainer) -> void:
+		v.add_child(_row_label("캠핑카 이름 짓기", 400, 26, Color(1.0, 0.9, 0.6)))
+		var edit := LineEdit.new()
+		edit.text = str(Game.camper_mods.get("name", ""))
+		edit.placeholder_text = "예: 굴러가는 집"
+		edit.max_length = 12
+		edit.custom_minimum_size.x = 360
+		edit.add_theme_font_size_override("font_size", 22)
+		v.add_child(edit)
+		var save := func() -> void:
+			Game.camper_mods["name"] = edit.text.strip_edges()
+			Game.camper_changed.emit()
+			Game.combat_log.add("캠핑카 이름: %s" % CamperUpgrades.camper_name(), "", "info")
+			boot.hud.toast("이제부터 %s!" % CamperUpgrades.camper_name())
+			close_panel()
+		edit.text_submitted.connect(func(_t: String) -> void: save.call())
+		var b := HBoxContainer.new()
+		b.add_child(_button("정하기 (Enter)", save))
+		b.add_child(_button("취소", close_panel))
+		v.add_child(b)
+		edit.grab_focus.call_deferred(), 520)
+
+
 ## Cot (GDD 9.6): choose hours, game time advances by that much, cot restores HP 10 % [임시].
 func open_sleep(source: Node3D) -> void:
 	if _panel_kind == "sleep":
 		close_panel()
 		return
 	_open("sleep", source, 2.4, func(v: VBoxContainer) -> void:
-		v.add_child(_row_label("간이침대 — 수면", 400, 28, Color(1.0, 0.9, 0.6)))
+		var bed := CamperUpgrades.bed_info()
+		v.add_child(_row_label("%s — 수면" % bed.get("name", "간이침대"), 400, 28, Color(1.0, 0.9, 0.6)))
 		var h := HBoxContainer.new()
 		h.add_child(_row_label("수면 시간", 140))
 		h.add_child(_button(" − ", func() -> void:
@@ -775,12 +949,13 @@ func open_sleep(source: Node3D) -> void:
 		v.add_child(h)
 		var wake := fposmod(Game.minute_of_day + _sleep_hours * 60.0, 1440.0)
 		v.add_child(_row_label("지금 %s → 기상 %02d:%02d" % [Game.clock_text(), int(wake) / 60, int(wake) % 60], 520, 20, Color(0.85, 0.88, 0.92)))
-		v.add_child(_row_label("간이침대 회복: HP 최대치의 10%% [임시] · SP/MP 회복 [미정→전부]", 680, 19, Color(0.75, 0.8, 0.85)))
+		v.add_child(_row_label("%s 회복: HP 최대치의 %d%% [임시] · SP/MP 회복 [미정→전부]" % [bed.get("name", ""), roundi(float(bed.get("hp", 0.1)) * 100.0)], 680, 19, Color(0.75, 0.8, 0.85)))
 		var b := HBoxContainer.new()
+		var bonus := float(CamperUpgrades.purpose_info("bedroom").get("sleep_bonus", 0.0)) if source and source.has_meta("bedroom") else 0.0
 		b.add_child(_button("잠자기", func() -> void:
 			var hours := _sleep_hours
 			close_panel()
-			boot.sleep(hours)))
+			boot.sleep(hours, bonus)))
 		b.add_child(_button("취소", close_panel))
 		v.add_child(b), 700)
 
@@ -1198,8 +1373,10 @@ func _crafted(rid: String, facility: String) -> void:
 	var bonus := randf() < 0.06 * (st.mastery_level(field) - 1)  # mastery: a little extra now and then
 	var outs: Dictionary = r.get("outputs", {})
 	var made := PackedStringArray()
+	# GDD 9.3: the improved refinery inside the camper makes a little more fuel
+	var refine_extra := CamperUpgrades.refine_bonus() if facility == "refinery" and boot.world is CamperInteriorLab else 0
 	for item: String in outs:
-		var n := int(outs[item]) + (1 if bonus else 0)
+		var n := int(outs[item]) + (1 if bonus else 0) + refine_extra
 		st.inventory.add(item, n)
 		made.append("%s ×%d" % [ItemDB.item_name(item), n])
 	var lexp := int(r.get("life_exp", 2))

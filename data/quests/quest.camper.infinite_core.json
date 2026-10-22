@@ -1,0 +1,41 @@
+{
+  "version": 1,
+  "quest_id": "quest.camper.infinite_core",
+  "title": "영구 마력 핵",
+  "desc": "(임시 문안) 궁정 마법사 엘라는 드래곤의 비늘과 송곳니, 마석을 모아 오면 캠핑카에 '영구 마력 핵'을 달아 주겠다고 했다. 연료가 필요 없는 무한 동력이다.",
+  "giver": "mage",
+  "source": "npc",
+  "accept": "direct",
+  "repeatable": false,
+  "time_limit_hours": 0,
+  "objectives": [
+    {
+      "id": "scale",
+      "type": "collect",
+      "item": "dragon_scale",
+      "count": 3,
+      "text": "드래곤 비늘 3개"
+    },
+    {
+      "id": "fang",
+      "type": "collect",
+      "item": "dragon_fang",
+      "count": 1,
+      "text": "드래곤 송곳니 1개"
+    },
+    {
+      "id": "shard",
+      "type": "collect",
+      "item": "mana_shard",
+      "count": 5,
+      "text": "작은 마석 조각 5개"
+    }
+  ],
+  "consume_items": true,
+  "rewards": {
+    "gen_exp": 30,
+    "life_exp": 0,
+    "gold": 0,
+    "items": {}
+  }
+}

@@ -195,7 +195,8 @@ func _physics_process(delta: float) -> void:
 	var st := Game.player_state
 	var input := scripted_move
 	var running := scripted_running
-	if input == Vector2.ZERO and controls_enabled and not dead:
+	var typing := get_viewport().gui_get_focus_owner() is LineEdit  # naming the camper etc.
+	if input == Vector2.ZERO and controls_enabled and not dead and not typing:
 		input = Input.get_vector("move_left", "move_right", "move_up", "move_down")
 		running = Input.is_action_pressed("run")
 	var dir := Vector3(input.x, 0.0, input.y)

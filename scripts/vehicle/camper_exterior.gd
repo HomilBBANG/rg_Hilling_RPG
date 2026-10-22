@@ -20,11 +20,15 @@ var paint: ShaderMaterial
 ## False when a CamperVehicle body provides the collision (and in bake instances).
 var with_collider := true
 var sprite_dir := 0
+## Attachment nodes by part id (GDD 9.2 외장): shown when switched on in Game.camper_mods.parts.
+var _parts := {}
 
 
 func _ready() -> void:
 	_build_body()
 	_build_details()
+	_build_parts()
+	apply_look()
 	if with_collider:
 		ProtoMesh.static_box_collider(self, Vector3(LENGTH, 6.0, WIDTH), Vector3(0, 2.0, 0))
 	lights = PrototypeCamperLights.new()
@@ -132,6 +136,51 @@ func _build_body() -> void:
 	body.mesh = OrganicMesh.extrude_profile(_profile(), WIDTH, 0.12)
 	body.material_override = paint
 	add_child(body)
+
+
+## Paint scheme and attachments from the upgrades (Game.camper_mods). Bake instances built later
+## read the same state, so the sprite matches (its sheet name includes CamperUpgrades.look_key()).
+func apply_look() -> void:
+	var pc := CamperUpgrades.paint_colors()
+	for k in ["body", "skirt", "stripe_a", "stripe_b"]:
+		if pc.has(k):
+			var c: Array = pc[k]
+			paint.set_shader_parameter(k, Color(float(c[0]), float(c[1]), float(c[2])))
+	var on: Array = Game.camper_mods.get("parts", [])
+	for id: String in _parts:
+		(_parts[id] as Node3D).visible = on.has(id)
+
+
+func _build_parts() -> void:
+	# side awning over the door: striped canopy sloping out from the roof edge, two poles
+	var aw := Node3D.new()
+	add_child(aw)
+	var stripe_a := ProtoMesh.mat(Color(0.92, 0.42, 0.32))
+	var stripe_b := ProtoMesh.mat(Color(0.96, 0.92, 0.84))
+	for i in 6:
+		var x := -2.5 + i * 0.5 + 0.25
+		var cm := ProtoMesh.box(aw, Vector3(0.5, 0.05, 1.5), Vector3(x, 2.72, WIDTH * 0.5 + 0.72), stripe_a if i % 2 == 0 else stripe_b, Vector3(-14, 0, 0))
+		cm.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON
+	var pole := ProtoMesh.mat(Color(0.75, 0.76, 0.78), 0.4)
+	for x in [-2.45, 0.45]:
+		ProtoMesh.cylinder(aw, 0.03, 2.5, Vector3(x, 1.25, WIDTH * 0.5 + 1.42), pole, Vector3.ZERO, 6)
+	_parts["awning"] = aw
+	# travel flag on the rear ladder
+	var fl := Node3D.new()
+	add_child(fl)
+	ProtoMesh.cylinder(fl, 0.025, 1.6, Vector3(-3.7, 3.9, -0.62), pole, Vector3.ZERO, 6)
+	ProtoMesh.box(fl, Vector3(0.7, 0.42, 0.03), Vector3(-4.05, 4.45, -0.62), ProtoMesh.mat(Color(0.98, 0.78, 0.3)))
+	ProtoMesh.box(fl, Vector3(0.7, 0.12, 0.035), Vector3(-4.05, 4.45, -0.62), ProtoMesh.mat(Color(0.3, 0.6, 0.58)))
+	_parts["flag"] = fl
+	# front bull bar: tubes around the grille
+	var bb := Node3D.new()
+	add_child(bb)
+	var tube := ProtoMesh.mat(Color(0.2, 0.21, 0.24), 0.5)
+	ProtoMesh.capsule(bb, 0.07, WIDTH * 0.9, Vector3(4.0, 1.1, 0), tube, Vector3(90, 0, 0))
+	ProtoMesh.capsule(bb, 0.07, WIDTH * 0.9, Vector3(4.0, 0.62, 0), tube, Vector3(90, 0, 0))
+	for z in [-0.75, 0.0, 0.75]:
+		ProtoMesh.box(bb, Vector3(0.1, 0.6, 0.08), Vector3(4.0, 0.86, z), tube)
+	_parts["bullbar"] = bb
 
 
 ## Rounded panel (window, door...) lying on a side of the body.

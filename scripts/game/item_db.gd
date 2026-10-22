@@ -32,6 +32,15 @@ const ITEMS := {
 		"desc": "캠핑카 연료 10 L. 캠핑카 곁에서 가방의 '주유'로 넣는다. 잡화점에서 사거나 정제 시설에서 슬라임 젤리로 만든다."},
 	"repair_kit": {"name": "응급 수리 공구", "value": 50, "weight": 2.5, "kind": "camper", "camper": "repair", "amount": 30.0,
 		"desc": "캠핑카 응급 복구: 내구도를 30까지 되살려 다시 달릴 수 있게 한다(그보다 높으면 쓸 필요 없음). 완전 수리는 대장간."},
+	"magic_fuel": {"name": "마력 연료병", "cat": "rare", "value": 40, "weight": 1.0, "kind": "camper", "camper": "fuel", "fuel_kind": "magic", "amount": 20.0,
+		"desc": "마력 변환 엔진용 연료 20. 정제 시설에서 마석 조각과 슬라임 핵으로 만든다. 캠핑카 곁에서 '주유'로 넣는다."},
+	# --- camper decor (GDD 9.1: small furniture placed freely inside) — kind "decor", placed from the bag
+	"decor_plant": {"name": "화분", "value": 18, "weight": 1.5, "kind": "decor", "desc": "잎이 넓은 화분. 캠핑카 안에서 '배치'로 원하는 곳에 둔다."},
+	"decor_lamp": {"name": "스탠드 조명", "value": 30, "weight": 2.0, "kind": "decor", "desc": "따뜻한 빛이 나는 스탠드. 캠핑카 안에 배치한다."},
+	"decor_rug": {"name": "둥근 러그", "value": 25, "weight": 1.0, "kind": "decor", "desc": "폭신한 둥근 러그. 캠핑카 안에 배치한다."},
+	"decor_shelf": {"name": "작은 책장", "value": 40, "weight": 4.0, "kind": "decor", "desc": "책 몇 권과 소품이 꽂힌 책장. 캠핑카 안에 배치한다."},
+	"decor_cat_tower": {"name": "고양이 캣타워", "value": 55, "weight": 3.0, "kind": "decor", "desc": "고양이가 좋아하는 캣타워. 캠핑카 안에 두면 고양이가 가끔 올라가 쉰다."},
+	"decor_painting": {"name": "풍경화 액자", "value": 35, "weight": 1.0, "kind": "decor", "desc": "여행지 풍경을 그린 작은 액자(받침대에 세움). 캠핑카 안에 배치한다."},
 	"fishing_rod": {"name": "낚싯대", "value": 30, "weight": 1.5, "kind": "tool", "desc": "연못가 나무 부두에서 낚시할 때 필요하다."},
 	# --- cooking / crafting results (P3-5, GDD 14.4)
 	"grilled_fish": {"name": "구운 붕어", "value": 9, "weight": 0.3, "kind": "consumable", "use": "eat", "effect": {"hp": 16, "sp": 10},

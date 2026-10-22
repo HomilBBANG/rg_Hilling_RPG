@@ -49,6 +49,8 @@ var driving := false
 var speed := 0.0
 ## Engine power from fuel / durability (Game.camper_power): 0 = it only rolls to a stop.
 var power := 1.0
+## Turning speed factor from upgrades (마력 부스터).
+var turn_mult := 1.0
 ## Tours: heading / legacy -> {"throttle": -1..1 (W/S), "steer": -1..1 (A = +1, D = -1)};
 ## arcade -> {"dir": Vector2 screen dir}. Empty = read the keyboard.
 var scripted := {}
@@ -131,7 +133,7 @@ func _drive_heading(delta: float) -> void:
 		speed = move_toward(speed, 0.0, heading_coast * delta)
 	# A/D turn the nose left / right at a steady rate, the same way when reversing.
 	if absf(input.x) > 0.05:
-		_try_rotate(input.x * deg_to_rad(heading_turn_deg) * delta)
+		_try_rotate(input.x * deg_to_rad(heading_turn_deg) * turn_mult * delta)
 
 
 func _arcade_input() -> Dictionary:

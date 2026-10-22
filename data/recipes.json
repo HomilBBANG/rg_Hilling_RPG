@@ -190,6 +190,22 @@
       "life_exp": 2,
       "mastery": 2,
       "learn": "known"
+    },
+    "magic_fuel": {
+      "name": "마력 연료병 (정제)",
+      "field": "crafting",
+      "facility": "refinery",
+      "inputs": {
+        "mana_shard": 1,
+        "slime_core": 1
+      },
+      "outputs": {
+        "magic_fuel": 1
+      },
+      "time": 3.0,
+      "life_exp": 3,
+      "mastery": 3,
+      "learn": "known"
     }
   }
 }

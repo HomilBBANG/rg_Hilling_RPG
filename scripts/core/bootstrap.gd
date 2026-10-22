@@ -351,6 +351,10 @@ func _unhandled_input(event: InputEvent) -> void:
 		else:
 			game_hud.cutscene.handle_key(event)
 		return
+	# placing camper decor: E place / R turn / X cancel go to the interior (ESC still pauses)
+	if not event.is_action("pause") and world is CamperInteriorLab and world.placing():
+		if world.handle_place_key(event):
+			return
 	if event.is_action("pause") and game_hud.cutscene.playing and game_hud.cutscene.skippable:
 		game_hud.cutscene.skip_all()  # ESC skips a skippable cutscene instead of pausing
 		return
@@ -532,6 +536,8 @@ func _parse_args() -> void:
 		_run_dragon_tour()
 	elif tour == "wish":
 		_run_wish_tour()
+	elif tour == "upgrades":
+		_run_upgrades_tour()
 	elif tour == "drive":
 		_run_drive_compare()
 	elif tour == "wind":
@@ -920,7 +926,7 @@ func fast_travel_quote(city_id: String) -> Dictionary:
 		return {"ok": false, "why": "캠핑카에서 내려서 지도를 다시 열자"}
 	var dist: float = (cities[from]["map"] as Vector2).distance_to(cities[city_id]["map"])
 	var camper := Game.has_camper and str(Game.camper.get("region", "")) == Game.region
-	var fuel := 0.0 if Game.camper_infinite_power else dist * Game.CAMPER_FUEL_PER_M
+	var fuel := 0.0 if Game.camper_infinite_power else dist * CamperUpgrades.fuel_per_m()
 	var camper_note := ""
 	if camper and Game.camper_broken():  # GDD 9.5: broken -> no fast travel with the camper
 		camper = false
@@ -990,21 +996,30 @@ func use_camper_item(id: String) -> String:
 	if not (world is VisualLab) or not world.camper_here() or not world.player_near_camper():
 		return "캠핑카 곁에서 써야 한다"
 	var amount := float(info.get("amount", 10.0))
+	var cmax := Game.camper_fuel_max()
 	match str(info.get("camper", "")):
 		"fuel":
-			if Game.camper_fuel >= Game.CAMPER_FUEL_MAX - 0.5:
+			if Game.camper_infinite_power:
+				return "영구 마력 핵이 있어 연료가 필요 없다"
+			if str(info.get("fuel_kind", "gasoline")) != CamperUpgrades.fuel_kind():
+				return "마력 변환 엔진에는 마력 연료병을 넣어야 한다" if CamperUpgrades.fuel_kind() == "magic" else "휘발유 엔진에는 휘발유를 넣어야 한다"
+			if Game.camper_fuel >= cmax - 0.5:
 				return "연료 탱크가 가득 차 있다"
-			Game.camper_fuel = minf(Game.CAMPER_FUEL_MAX, Game.camper_fuel + amount)
+			Game.camper_fuel = minf(cmax, Game.camper_fuel + amount)
 			st.inventory.remove(id, 1)
-			Game.combat_log.add("주유 +%d L" % roundi(amount), "휘발유 통 1개를 넣었다 — 연료 %d/%d L" % [roundi(Game.camper_fuel), roundi(Game.CAMPER_FUEL_MAX)], "info")
-			return "주유했다 — 연료 %d/%d L" % [roundi(Game.camper_fuel), roundi(Game.CAMPER_FUEL_MAX)]
+			Game.combat_log.add("주유 +%d" % roundi(amount), "%s 1개를 넣었다 — %s %d/%d" % [info["name"], CamperUpgrades.fuel_name(), roundi(Game.camper_fuel), roundi(cmax)], "info")
+			return "주유했다 — %s %d/%d" % [CamperUpgrades.fuel_name(), roundi(Game.camper_fuel), roundi(cmax)]
 		"repair":
-			if Game.camper_durability >= amount:
-				return "응급 수리는 내구도가 %d 아래일 때만 — 완전 수리는 대장간에서" % roundi(amount)
-			Game.camper_durability = amount
+			# GDD 9.5: the kit alone = emergency fix up to 30; with the advanced skill = full repair
+			var full := CamperUpgrades.full_field_repair()
+			var to := Game.CAMPER_DURABILITY_MAX if full else amount
+			if Game.camper_durability >= to:
+				return "고칠 곳이 없다" if full else "응급 수리는 내구도가 %d 아래일 때만 — 완전 수리는 대장간에서 (고급 정비 기술이 있으면 현장에서)" % roundi(amount)
+			Game.camper_durability = to
 			st.inventory.remove(id, 1)
-			Game.combat_log.add("캠핑카 응급 복구", "응급 수리 공구로 캠핑카를 손봤다 — 내구도 %d/%d, 다시 달릴 수 있다" % [roundi(Game.camper_durability), roundi(Game.CAMPER_DURABILITY_MAX)], "info")
-			return "응급 복구 — 내구도 %d/%d, 다시 달릴 수 있다" % [roundi(Game.camper_durability), roundi(Game.CAMPER_DURABILITY_MAX)]
+			var what := "현장 완전 수리" if full else "응급 복구"
+			Game.combat_log.add("캠핑카 %s" % what, "수리 공구로 캠핑카를 손봤다 (%s) — 내구도 %d/%d" % [what, roundi(Game.camper_durability), roundi(Game.CAMPER_DURABILITY_MAX)], "info")
+			return "%s — 내구도 %d/%d" % [what, roundi(Game.camper_durability), roundi(Game.CAMPER_DURABILITY_MAX)]
 	return "쓸 수 없는 물건"
 
 
@@ -1102,8 +1117,9 @@ func on_player_died(death_pos: Vector3) -> void:
 	_autosave()  # the death outcome sticks: reloading cannot undo it
 
 
-## Cot sleep (GDD 9.6 / 10.1 [확정]): chosen hours pass, cot restores HP 10 % of max [임시].
-func sleep(hours: int) -> void:
+## Camper sleep (GDD 9.6 / 10.1 [확정]): chosen hours pass; HP back by the bed's share of max
+## (간이침대 10 % → 소파 베드 40 % → 침대 75 %, [임시]); SP / MP fully.
+func sleep(hours: int, bonus := 0.0) -> void:
 	if _busy:
 		return
 	_busy = true
@@ -1111,15 +1127,30 @@ func sleep(hours: int) -> void:
 	Game.advance_minutes(hours * 60.0)
 	var st := Game.player_state
 	var before := st.hp
-	st.heal(st.max_hp() * 0.10)
+	var bed := CamperUpgrades.bed_info()
+	st.heal(st.max_hp() * (float(bed.get("hp", 0.1)) + bonus))
+	# GDD 9.4: parked somewhere dangerous, monsters may scratch the camper while you sleep
+	var scratched := 0.0
+	var creg := str(Game.camper.get("region", ""))
+	var danger := int(RegionDB.info(creg).get("danger", 1))
+	if world is CamperInteriorLab and danger >= 2 and not RegionDB.spot_safe(creg, Game.camper.get("pos", Vector3.ZERO)):
+		for h in hours:
+			if randf() < 0.12 * danger:
+				scratched += 3.0
+		Game.damage_camper(scratched)
 	st.sp = st.max_sp()
 	st.mp = st.max_mp()
 	st.changed.emit()
 	await _frames(20)
 	await game_hud.fade_to(0.0, 0.9)
-	var msg := "%d시간 잤다 — %s · HP +%d" % [hours, Game.clock_text(), roundi(st.hp - before)]
+	var msg := "%s에서 %d시간 잤다 — %s · HP +%d" % [bed.get("name", "간이침대"), hours, Game.clock_text(), roundi(st.hp - before)]
 	hud.toast(msg)
 	Game.combat_log.add(msg, "", "info")
+	if scratched > 0.0:
+		var warn := "자는 동안 몬스터가 캠핑카를 긁어 댔다 — 내구도 -%d (%d/%d). 위험한 곳에 세워 두었다" % [roundi(scratched), ceili(Game.camper_durability), roundi(Game.CAMPER_DURABILITY_MAX)]
+		Game.combat_log.add(warn, "", "hurt")
+		await _frames(120)
+		hud.toast(warn)
 	_busy = false
 	_autosave()
 
@@ -2557,6 +2588,214 @@ func _run_wish_tour() -> void:
 	world.enter_vehicle()
 	await _frames(4)
 	print("[wish] driver's seat: driving %s, power %.2f, %s" % [world.vehicle.driving, world.vehicle.power, Game.camper_status_text()])
+	get_tree().quit()
+
+
+## Camper upgrades (GDD 9): the three capital vendors and their panels, buying in order (and what
+## blocks), the infinite-power quest, naming, paint + parts on the baked sprite, off-road speed,
+## the interior (bed tier, workbench, refinery bonus, two magic rooms, decor placed / picked up,
+## bedroom sleep), magic fuel, the field repair skill, monsters attacking a camper parked in a
+## dangerous spot and overnight scratches, a resident's parking complaint, and save / load.
+func _run_upgrades_tour() -> void:
+	Game.clock_running = false
+	Game.minute_of_day = 11.0 * 60.0
+	await wait_for_sprites()
+	var st := Game.player_state
+	Game.set_story_stage(2)
+	st.gold = 20000
+	Game.camper = {"region": "capital", "pos": Vector3(7, 0, 44), "yaw": 0.0}
+	travel("capital", "south_road", false)
+	await _wait_travel()
+	print("[upg] vendors in the capital: %s" % [world.npcs.map(func(n: Npc) -> String: return n.look)])
+	# --- mechanic panel
+	_place_player(Vector3(7.4, 0, -19.4), 2.356)
+	await _frames(8)
+	print("[upg] prompt at the mechanic: '%s'" % (world.player.focus.prompt_text() if world.player.focus else ""))
+	await _key(KEY_E)
+	await _frames(6)
+	print("[upg] panel %s" % game_hud._panel_kind)
+	await _p1_shot("upg_01_mechanic_panel", "mechanic upgrade panel", true)
+	game_hud.close_panel()
+	print("[upg] off-road kit first -> '%s'" % CamperUpgrades.block("drive_offroad"))
+	print("[upg] infinite core first -> '%s'" % CamperUpgrades.block("engine_infinite"))
+	# --- driving off the road before / after the kit (outside the walls, rough ground)
+	var drive_test := func(label: String) -> float:
+		world.enter_vehicle()
+		await _frames(3)
+		var v: CamperVehicle = world.vehicle
+		v.global_position = Vector3(18, 0, 30)
+		v.rotation.y = 0.0
+		world._last_drive_pos = v.global_position
+		var x0 := v.global_position.x
+		v.scripted = {"throttle": 1.0, "steer": 0.0}
+		await _seconds(2.5)
+		v.scripted = {"throttle": 0.0, "steer": 0.0}
+		await _seconds(0.8)
+		var d := v.global_position.x - x0
+		print("[upg] drive %s: on road %s, %.1f m in 2.5 s (power %.2f)" % [label, world.on_road(Vector3(24, 0, 30)), d, v.power])
+		world.exit_vehicle()
+		await _frames(3)
+		return d
+	var d0: float = await drive_test.call("stock, rough ground")
+	for id in ["engine_tune", "engine_tank", "drive_tires", "drive_offroad", "workbench", "refinery", "paint_sunset", "part_awning", "part_flag", "part_bullbar", "skill_repair"]:
+		var r := CamperUpgrades.buy(id)
+		print("[upg]   buy %s -> %s" % [id, "ok" if r == "" else r])
+	var d1: float = await drive_test.call("tires + off-road kit")
+	print("[upg] off-road gain ×%.2f, fuel per m %.3f, tank %d" % [d1 / maxf(d0, 0.1), CamperUpgrades.fuel_per_m(), roundi(Game.camper_fuel_max())])
+	# --- mage + carpenter
+	for id in ["engine_magic", "refinery_plus", "drive_booster", "room_1", "room_2", "storage_1", "storage_2", "storage_3", "bed_sofa", "bed_full"]:
+		var r2 := CamperUpgrades.buy(id)
+		print("[upg]   buy %s -> %s" % [id, "ok" if r2 == "" else r2])
+	print("[upg] fuel kind %s, fuel %s, storage %d kg, bed %s, rooms %d" % [CamperUpgrades.fuel_kind(), Game.camper_status_text(), roundi(Game.storage_capacity()),
+		CamperUpgrades.bed_info()["name"], CamperUpgrades.rooms_max()])
+	_place_player(Vector3(7.4, 0, -4.6), 0.785)
+	await _frames(6)
+	await _key(KEY_E)
+	await _frames(6)
+	await _p1_shot("upg_02_mage_panel", "mage panel with the quest", true)
+	game_hud.close_panel()
+	Game.quests.accept("quest.camper.infinite_core")
+	st.inventory.add("dragon_scale", 3)
+	st.inventory.add("dragon_fang", 1)
+	st.inventory.add("mana_shard", 5)
+	print("[upg] infinite core quest %s -> complete '%s' -> fit -> '%s', infinite %s" % [Game.quests.state("quest.camper.infinite_core"),
+		Game.quests.complete("quest.camper.infinite_core").substr(0, 24), CamperUpgrades.buy("engine_infinite"), Game.camper_infinite_power])
+	_place_player(Vector3(-7.4, 0, -4.6), -0.785)
+	await _frames(6)
+	await _key(KEY_E)
+	await _frames(6)
+	await _p1_shot("upg_03_carpenter_panel", "carpenter panel with decor", true)
+	game_hud.close_panel()
+	for it in ["decor_plant", "decor_lamp", "decor_cat_tower", "decor_rug"]:
+		st.inventory.add(it, 1)
+	# --- naming
+	game_hud.open_camper_name(null)
+	await _frames(4)
+	var edit: LineEdit = game_hud._panel.find_children("*", "LineEdit", true, false)[0]
+	edit.text = "굴러가는 집"
+	edit.text_submitted.emit(edit.text)
+	await _frames(3)
+	print("[upg] named -> %s" % CamperUpgrades.camper_name())
+	# --- the painted camper with its parts (re-baked sprite)
+	world.vehicle.global_position = Vector3(7.0, 0, 44.0)  # back on the parking bay
+	world.vehicle.rotation.y = 0.0
+	world._save_parking()
+	await wait_for_sprites()
+	_place_player(Vector3(4.0, 0, 39.5), PI)
+	await _seconds(1.0)
+	await _p1_shot("upg_04_painted_camper", "sunset paint, awning, flag, bull bar", true)
+	print("[upg] sprite sheet key: camper|%s" % CamperUpgrades.look_key())
+	# --- interior: bed, workbench, refinery, rooms, decor
+	Game.camper_mods["rooms"] = [{"purpose": "bedroom"}, {"purpose": "workshop"}]
+	Game.request_world(Game.WORLD_INTERIOR)
+	await _frames(8)
+	await wait_for_sprites()
+	var facil := PackedStringArray()
+	for ip in get_tree().get_nodes_in_group("facility"):
+		facil.append(str(ip.get_meta("facility")))
+	print("[upg] interior: walk bounds %s, facilities %s" % [world.player.walk_bounds, facil])
+	_place_player(Vector3(-3.0, 0, -0.2), 0.0)
+	await _seconds(0.6)
+	await _p1_shot("upg_05_interior_bed_refinery", "real bed, refinery, plaque", true)
+	_place_player(Vector3(7.5, 0, 0.6), 0.0)
+	await _seconds(0.6)
+	await _p1_shot("upg_06_room_bedroom", "magic room 1: bedroom", true)
+	_place_player(Vector3(13.5, 0, 0.6), 0.0)
+	await _seconds(0.6)
+	await _p1_shot("upg_07_room_workshop", "magic room 2: workshop", true)
+	# refinery bonus: one magic fuel recipe makes 2 (+1 inside the improved refinery)
+	st.inventory.add("mana_shard", 2)
+	st.inventory.add("slime_core", 2)
+	var mf := st.inventory.count("magic_fuel")
+	await _craft_and_wait("magic_fuel", "refinery")
+	print("[upg] magic fuel at the camper refinery: %d -> %d" % [mf, st.inventory.count("magic_fuel")])
+	# decor: place three, pick one back up
+	var spots := [Vector3(-0.8, 0, -0.6), Vector3(2.6, 0, 0.4), Vector3(6.0, 0, 1.2)]
+	var items := ["decor_plant", "decor_cat_tower", "decor_lamp"]
+	for k in 3:
+		_place_player(spots[k], PI)
+		await _frames(3)
+		world.begin_place(items[k])
+		await _frames(3)
+		await _key(KEY_R)
+		await _key(KEY_E)
+		await _frames(4)
+	print("[upg] decor placed: %s" % [Game.camper_mods["decor"].map(func(d: Dictionary) -> String: return "%s@(%.2f,%.2f)" % [d["item"], d["pos"][0], d["pos"][1]])])
+	_place_player(Vector3(-0.8, 0, -0.6), PI)
+	await _seconds(0.4)
+	await _p1_shot("upg_08_decor", "placed decor", true)
+	world.pick_up_decor(0)
+	await _frames(4)
+	print("[upg] picked up -> decor %d, plants in bag %d, cat spots %d" % [Game.camper_mods["decor"].size(), st.inventory.count("decor_plant"), world.cat.home_spots.size() if world.cat else -1])
+	# bedroom sleep: bed 75 % + bedroom 10 %
+	st.hp = 1.0
+	sleep(1, float(CamperUpgrades.purpose_info("bedroom").get("sleep_bonus", 0.0)))
+	await _seconds(3.5)
+	print("[upg] bedroom sleep: HP 1 -> %d / %d" % [roundi(st.hp), roundi(st.max_hp())])
+	Game.camper_mods["rooms"][1]["purpose"] = "cat_room"
+	Game.request_world(Game.WORLD_INTERIOR)
+	await _frames(8)
+	_place_player(Vector3(13.5, 0, 0.6), 0.0)
+	await _seconds(0.6)
+	await _p1_shot("upg_09_room_cat", "room 2 changed to a cat room", true)
+	# --- field repair with the skill
+	Game.request_world(Game.WORLD_EXTERIOR)
+	await _frames(8)
+	_place_player(world.vehicle.global_position + Vector3(0, 0, 2.6), 0.0)
+	await _frames(3)
+	Game.camper_durability = 10.0
+	st.inventory.add("repair_kit", 1)
+	print("[upg] repair kit with the skill -> '%s'" % use_camper_item("repair_kit"))
+	Game.camper_infinite_power = false
+	Game.camper_fuel = 10.0
+	print("[upg] magic fuel -> '%s' · gasoline can -> '%s'" % [use_camper_item("magic_fuel"), use_camper_item("fuel_can") if st.inventory.count("fuel_can") > 0 else "(없음)"])
+	Game.camper_infinite_power = true
+	# --- resident complaint: park on the plaza, then on the parking spot
+	world.enter_vehicle()
+	await _frames(3)
+	world.vehicle.global_position = Vector3(-3.0, 0, 6.0)
+	world.exit_vehicle()
+	await _frames(4)
+	var c1 := int(Game.camper_mods.get("complaints", 0))
+	await _p1_shot("upg_10_complaint", "resident complaint", true)
+	world.enter_vehicle()
+	await _frames(3)
+	world.vehicle.global_position = Vector3(7.0, 0, 44.0)
+	world.exit_vehicle()
+	await _frames(4)
+	print("[upg] complaints: plaza %d, parking spot %d" % [c1, int(Game.camper_mods.get("complaints", 0))])
+	# --- monsters go for a camper parked in a dangerous spot
+	var target: Dictionary = {}
+	for m: Dictionary in RegionDB.info("highland").get("monsters", []):
+		if MonsterDB.info(str(m["kind"])).get("aggressive", false):
+			target = m
+			break
+	var tp := RegionDB.v3(target["pos"])
+	Game.camper = {"region": "highland", "pos": tp + Vector3(4.5, 0, 0), "yaw": 0.0}
+	print("[upg] highland spot (%.0f, %.0f) safe %s, near %s" % [tp.x + 4.5, tp.z, RegionDB.spot_safe("highland", tp + Vector3(4.5, 0, 0)), target["kind"]])
+	travel("highland", "west_road", false)
+	await _wait_travel()
+	Game.camper_durability = 100.0
+	_place_player(Vector3(-80, 0, 1), 0.0)
+	await _seconds(14.0)
+	print("[upg] after 14 s away: durability %d" % ceili(Game.camper_durability))
+	_place_player(tp + Vector3(4.5, 0, 6.0), 0.0)
+	await _seconds(1.0)
+	await _p1_shot("upg_11_camper_attacked", "slimes attacking the parked camper", true)
+	# overnight in that spot
+	Game.request_world(Game.WORLD_INTERIOR)
+	await _frames(8)
+	var dur0 := Game.camper_durability
+	seed(5)
+	sleep(8)
+	await _seconds(6.0)
+	print("[upg] slept 8 h parked there: durability %d -> %d" % [ceili(dur0), ceili(Game.camper_durability)])
+	# --- save / load keeps it all
+	var saved := SaveManager.capture_state()
+	var before := JSON.stringify(Game.camper_mods)
+	Game.camper_mods = {"owned": [], "name": "", "paint": "classic", "parts": [], "rooms": [], "decor": []}
+	SaveManager.apply_state(saved)
+	print("[upg] save/load camper mods identical %s (%d upgrades, name %s)" % [JSON.stringify(Game.camper_mods) == before, Game.camper_mods["owned"].size(), CamperUpgrades.camper_name()])
 	get_tree().quit()
 
 

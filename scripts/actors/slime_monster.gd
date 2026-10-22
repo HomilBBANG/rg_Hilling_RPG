@@ -199,6 +199,20 @@ func _give_up() -> void:
 func _next_hop(to_player: Vector3, dist: float) -> void:
 	match state:
 		State.WANDER:
+			# GDD 9.4: in dangerous places aggressive monsters go for a parked, unattended camper
+			var bait: Vector3 = world.camper_bait(self) if aggressive and world and world.has_method("camper_bait") else Vector3.INF
+			if bait != Vector3.INF:
+				var to := _flat(bait - global_position)
+				if to.length() < 1.3:
+					if _cooldown <= 0.0:
+						_cooldown = 5.0
+						_start_hop(to.normalized() * 0.5, 0.6)
+						world.hit_camper(self)
+					else:
+						_start_hop(Vector3.ZERO, 0.5, true)
+				else:
+					_start_hop(to.normalized() * minf(1.4, to.length() - 0.8), 0.8)
+				return
 			var ang := _rng.randf() * TAU
 			var r := _rng.randf_range(0.6, 1.4)
 			var cand := _flat(global_position) + Vector3(cos(ang), 0.0, sin(ang)) * r

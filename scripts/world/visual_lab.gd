@@ -113,6 +113,7 @@ func _ready() -> void:
 		t_ground - t0, t_nature - t_ground, Time.get_ticks_msec() - t_nature])
 	Game.discovered["region:" + region_id] = true
 	Game.story_changed.connect(_on_story_changed)
+	Game.camper_changed.connect(_on_camper_changed)
 
 
 func is_dungeon() -> bool:
@@ -337,6 +338,8 @@ func _build_camp_props() -> void:
 func _build_landmarks() -> void:
 	for ct in cities:
 		CityBuilder.build(self, ct["data"])
+		if ct["data"].has("parking"):
+			_build_parking_sign(ct["data"]["parking"]["pos"])
 	for pr: Dictionary in region.get("props", []):
 		_build_story_prop(pr)
 	if has_feature("farm"):
@@ -624,7 +627,7 @@ func sprite_targets() -> Array:
 		if is_instance_valid(m) and not m is DragonBoss:  # the dragon stays a 3D model
 			out.append([m, SlimeMonster.sprite_bake_spec(m.kind), "slime" if m.kind in ["meadow_slime", "forest_slime"] else "slime|" + m.kind])
 	if camper_here():
-		out.append([camper, CamperExterior.sprite_bake_spec(CAMPER_YAW_DEG), "camper"])
+		out.append([camper, CamperExterior.sprite_bake_spec(CAMPER_YAW_DEG), "camper|" + CamperUpgrades.look_key()])
 	if cat:
 		out.append([cat, CatCompanion.sprite_bake_spec(), "cat"])
 	for n in npcs:
@@ -957,6 +960,11 @@ func _spawn_region_npcs() -> void:
 		npcs.append(n)
 		var sp := str(spec.get("speaker", spec["look"]))
 		var talk_at := n.counter_pos + Vector3(-sin(n.counter_yaw), 0, -cos(n.counter_yaw)) * float(spec.get("talk_distance", 1.6))
+		var vendor := str(spec.get("upgrades", ""))
+		if vendor != "":  # camper upgrade vendor (GDD 9.2: upgrades come from NPCs for gold / quests)
+			var vip := InteractPoint.make(self, talk_at, "E 캠핑카 개조 — %s" % CamperUpgrades.vendor_name(vendor), Callable(), 1.8)
+			vip.action = func(_pl: Node) -> void: Game.hud.open_upgrades(vendor, vip)
+			continue
 		var ip := InteractPoint.make(self, talk_at, "E 대화 — %s" % DialogueData.speaker_name(sp), Callable(), 1.8)
 		ip.action = func(_pl: Node) -> void: Game.hud.start_dialogue(DialogueData.talk_dialogue(sp))
 
@@ -1394,6 +1402,13 @@ func _apply_camper_owned() -> void:
 		(ip as InteractPoint).visible = owned
 
 
+## Paint / attachments changed at the mechanic: repaint the model and re-bake its sprite.
+func _on_camper_changed() -> void:
+	if camper:
+		camper.apply_look()
+		Game.sprites_dirty = true
+
+
 func _on_story_changed() -> void:
 	_apply_camper_owned()
 	if Game.cat_joined and cat and cat.mode == CatCompanion.Mode.ENCOUNTER:
@@ -1433,6 +1448,7 @@ func exit_vehicle() -> void:
 	camera.target = player
 	camera.snap_to_target()
 	_save_parking()
+	_check_parking_manners(vehicle.global_position)
 	if cat:
 		var c := p + Vector3(0.7, 0, 0.6)
 		cat.global_position = Vector3(c.x, ground_height(c.x, c.z), c.z)
@@ -1566,14 +1582,17 @@ func _build_exit_marker(ex: Dictionary) -> void:
 ## While driving: fuel per metre, engine power from fuel / durability, running into monsters.
 func _drive_costs() -> void:
 	var was := vehicle.power
-	vehicle.power = Game.camper_power()
 	var p := vehicle.global_position
+	# upgrades (GDD 9.2 주행): top speed, and off the roads it is slow without the off-road kit
+	var rough := not CamperUpgrades.offroad() and not on_road(p)
+	vehicle.power = Game.camper_power() * CamperUpgrades.speed_mult() * (CamperUpgrades.OFFROAD_SPEED if rough else 1.0)
+	vehicle.turn_mult = CamperUpgrades.turn_mult()
 	if _last_drive_pos != Vector3.INF:
 		var moved := Vector2(p.x - _last_drive_pos.x, p.z - _last_drive_pos.z).length()
 		if moved < 3.0:  # not a teleport / scene change
 			var before := Game.camper_fuel
-			Game.use_camper_fuel(moved * Game.CAMPER_FUEL_PER_M)
-			var low := Game.CAMPER_FUEL_MAX * 0.15
+			Game.use_camper_fuel(moved * CamperUpgrades.fuel_per_m())
+			var low := Game.camper_fuel_max() * 0.15
 			if before > low and Game.camper_fuel <= low and Game.camper_fuel > 0.0:
 				Game.boot.hud.toast("연료가 얼마 안 남았다 (%d L)" % roundi(Game.camper_fuel))
 	_last_drive_pos = p
@@ -1593,7 +1612,7 @@ func _drive_costs() -> void:
 			continue
 		_ram_cd[key] = _age + 0.8
 		var sp := absf(vehicle.speed)
-		var cost := roundf(RAM_CAMPER_DAMAGE + sp + float(m.profile.get("armor", 0)) * 4.0)  # whole points
+		var cost := roundf((RAM_CAMPER_DAMAGE + sp + float(m.profile.get("armor", 0)) * 4.0) * CamperUpgrades.ram_mult())  # whole points
 		m.receive_ram(roundi(4.0 + sp * 2.5), vehicle)
 		Game.damage_camper(cost)
 		vehicle.speed *= 0.45
@@ -1605,6 +1624,83 @@ func _drive_costs() -> void:
 			Game.boot.hud.toast("캠핑카가 고장났다! 멈춘 뒤 E로 내리자 — 수리: 대장간 브론 / 응급 수리 공구")
 		elif Game.camper_durability < Game.CAMPER_DURABILITY_MAX * Game.CAMPER_WEAK and Game.camper_durability + cost >= Game.CAMPER_DURABILITY_MAX * Game.CAMPER_WEAK:
 			Game.boot.hud.toast("캠핑카가 많이 상했다 — 속도가 떨어진다")
+
+
+# ---------------------------------------------------------------- parked camper and the world (GDD 9.4)
+
+var _camper_hit_toast_at := 0.0
+
+
+func camper_parked_safe() -> bool:
+	return RegionDB.spot_safe(region_id, vehicle.global_position)
+
+
+## Nearest point on the parked camper's body for a monster to attack, or INF (not here, being
+## driven, parked somewhere safe, or too far from this monster / its home).
+func camper_bait(m: SlimeMonster) -> Vector3:
+	if not camper_here() or vehicle.driving or camper_parked_safe():
+		return Vector3.INF
+	var local := vehicle.global_transform.affine_inverse() * m.global_position
+	local.x = clampf(local.x, -CamperExterior.LENGTH * 0.5 - 0.4, CamperExterior.LENGTH * 0.5 + 0.4)
+	local.z = clampf(local.z, -CamperExterior.WIDTH * 0.5 - 0.4, CamperExterior.WIDTH * 0.5 + 0.4)
+	local.y = 0.0
+	var w := vehicle.global_transform * local
+	if Vector2(w.x - m.global_position.x, w.z - m.global_position.z).length() > 7.0 \
+			or Vector2(w.x - m.home.x, w.z - m.home.z).length() > m.leash:
+		return Vector3.INF
+	return w
+
+
+func hit_camper(m: SlimeMonster) -> void:
+	if Game.camper_broken():
+		return
+	var dmg := 2.0
+	Game.damage_camper(dmg)
+	Game.hud.float_text(vehicle.global_position + Vector3(0, 3.4, 0), "내구도 -%d" % roundi(dmg), Color(1.0, 0.55, 0.3))
+	Game.combat_log.add("%s이(가) 캠핑카를 공격 (-%d)" % [m.display_name, roundi(dmg)], "세워 둔 캠핑카가 공격받았다 — 내구도 %d/%d" % [ceili(Game.camper_durability), roundi(Game.CAMPER_DURABILITY_MAX)], "hurt")
+	if _age > _camper_hit_toast_at:
+		_camper_hit_toast_at = _age + 6.0
+		Game.boot.hud.toast("캠핑카가 공격받고 있다! (내구도 %d) — 쫓아내거나, 안전한 곳에 세우자" % ceili(Game.camper_durability))
+
+
+## Parking inside a town anywhere but its parking spot: a resident complains (penalty [미정]).
+func _check_parking_manners(p: Vector3) -> void:
+	for ct in cities:
+		if not (ct["rect"] as Rect2).grow(2.0).has_point(Vector2(p.x, p.z)):
+			continue
+		var pk: Dictionary = ct["data"].get("parking", {})
+		if not pk.is_empty() and Vector2(p.x - float(pk["pos"][0]), p.z - float(pk["pos"][1])).length() < 7.0:
+			return
+		Game.camper_mods["complaints"] = int(Game.camper_mods.get("complaints", 0)) + 1
+		Game.hud.float_text(p + Vector3(1.5, 2.6, 2.0), "주민: 여기 세우시면 곤란해요!", Color(1.0, 0.85, 0.6), true)
+		Game.combat_log.add("%s 주민의 항의" % ct["name"], "마을 안 아무 데나 세운 캠핑카에 주민이 항의했다 — 마을 입구의 주차 자리(P 표지)에 세워 달라고 한다", "info")
+		Game.boot.hud.toast("%s 주민이 항의했다 — 주차 자리(P 표지)에 세워 달라고 한다" % ct["name"])
+		return
+
+
+func _build_parking_sign(pos: Variant) -> void:
+	var p := RegionDB.v3(pos)
+	var root := _on_ground(Node3D.new(), p.x - 2.0, p.z + 3.2)
+	var white := ProtoMesh.mat(Color(0.95, 0.95, 0.95))
+	ProtoMesh.cylinder(root, 0.05, 2.0, Vector3(0, 1.0, 0), ProtoMesh.mat(Color(0.5, 0.52, 0.55), 0.4), Vector3.ZERO, 6)
+	ProtoMesh.box(root, Vector3(0.7, 0.7, 0.05), Vector3(0, 2.1, 0.03), ProtoMesh.mat(Color(0.2, 0.4, 0.8)))
+	ProtoMesh.box(root, Vector3(0.1, 0.5, 0.06), Vector3(-0.12, 2.1, 0.06), white)
+	ProtoMesh.box(root, Vector3(0.28, 0.08, 0.06), Vector3(0.0, 2.31, 0.06), white)
+	ProtoMesh.box(root, Vector3(0.28, 0.08, 0.06), Vector3(0.0, 2.1, 0.06), white)
+	ProtoMesh.box(root, Vector3(0.08, 0.2, 0.06), Vector3(0.12, 2.2, 0.06), white)
+	# painted bay on the ground
+	var bay := ProtoMesh.box(self, Vector3(8.0, 0.02, 3.4), Vector3(p.x, ground_height(p.x, p.z) + 0.03, p.z), ProtoMesh.mat(Color(0.62, 0.62, 0.6)))
+	bay.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+
+
+## Roads, town streets and the camp clearing count as road; everything else is rough ground.
+func on_road(p: Vector3) -> bool:
+	if is_dungeon() or terrain.path_distance(p.x, p.z) < 3.5:
+		return true
+	for ct in cities:
+		if (ct["rect"] as Rect2).has_point(Vector2(p.x, p.z)):
+			return true
+	return has_feature("camp") and Vector2(p.x - CAMPER_POS.x, p.z - CAMPER_POS.z).length() < 14.0
 
 
 func _process(delta: float) -> void:
