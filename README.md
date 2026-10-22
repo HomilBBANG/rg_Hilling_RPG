@@ -72,6 +72,18 @@ git clone -b claude/gallant-edison-84bkyp https://github.com/HomilBBANG/rg_Hilli
 그다음 Godot 프로젝트 매니저 → **가져오기(Import)** → `C:/Game/denial/project.godot`을 선택합니다.
 처음 열 때 `.godot/` 캐시가 자동 생성됩니다(커밋하지 않음).
 
+## 최신 버전 받기 (git pull)
+
+Godot 에디터는 프로젝트를 열거나 대화 에디터로 저장할 때 `project.godot`·`data/dialogues/*.json` 같은 파일을 스스로 다시 씁니다.
+그 상태에서 같은 파일이 바뀐 커밋을 받으면 git이 "local changes would be overwritten"으로 멈춥니다. 처음 한 번만 아래를 실행해 두면
+`git pull`이 로컬 변경을 잠깐 치워 두었다가 받은 뒤 다시 얹어 주므로 더 이상 멈추지 않습니다(정말로 같은 줄을 서로 다르게 고쳤을 때만 충돌 표시).
+
+```bat
+cd C:\Game\denial
+git config merge.autoStash true
+git pull
+```
+
 ## 실행
 
 - **F5**: 메인 씬 `scenes/bootstrap.tscn` 실행 → 타이틀 화면에서 새 게임/불러오기/설정/종료.
