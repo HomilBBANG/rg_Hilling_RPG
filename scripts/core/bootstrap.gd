@@ -1486,8 +1486,10 @@ func _run_p1_tour() -> void:
 	for i in 240:
 		if Game.cat_joined:
 			break
-		if game_hud.dialogue_active():  # the roadside meeting scene + dialogue
+		if game_hud.dialogue_active():  # the roadside meeting scene + dialogue (keys go through)
+			_touring = false
 			await _talk_through(["pet"], "[p1]", 400)
+			_touring = true
 			continue
 		p.scripted_move = Vector2(1, -0.2)
 		await get_tree().physics_frame
@@ -2206,10 +2208,17 @@ func _run_p2_tour() -> void:
 		if target == null:
 			break
 		var swings := 0
+		var walk := 0.0
 		while is_instance_valid(target) and swings < 40:
 			var d := target.global_position - p.global_position
 			d.y = 0
 			if d.length() > 1.2:
+				# slimes are 비선공 now and stay put: walk to them (capped, in case one is blocked off),
+				# kept topped up against the ones already fighting back
+				walk += get_physics_process_delta_time()
+				if walk > 8.0:
+					break
+				st.hp = st.max_hp()
 				p.scripted_move = Vector2(d.x, d.z).normalized()
 				await get_tree().physics_frame
 				continue
