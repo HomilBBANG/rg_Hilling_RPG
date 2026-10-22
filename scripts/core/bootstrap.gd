@@ -546,6 +546,8 @@ func _parse_args() -> void:
 		_run_preset_tour()
 	elif tour == "collide":
 		_run_collide_tour()
+	elif tour == "monsterai":
+		_run_monster_ai_tour()
 	elif tour == "wind":
 		_run_wind_check()
 	elif tour == "catfollow":
@@ -1703,6 +1705,80 @@ func _drive_reset(v: CamperVehicle, pos: Vector3, yaw: float, mask: int) -> void
 ## Bodies that must not be walked through (user request): the hero pushes for 2 s straight at a
 ## villager, a slime, the cat, the camper, a tree, a big rock and a building and must stop at
 ## its surface; a slime hopping at the hero stops too; the cat steps aside.
+## Monster AI graphs: slimes are 비선공 by default — they leave the hero alone, fight back when hit,
+## and their own species doesn't answer the call; the 선공 graph (old behaviour) still works.
+func _run_monster_ai_tour() -> void:
+	Game.clock_running = false
+	Game.minute_of_day = 11.0 * 60.0
+	await wait_for_sprites()
+	var p: PrototypePlayer = world.player
+	var st := Game.player_state
+	var a: SlimeMonster = null
+	var b: SlimeMonster = null
+	for m in world.monsters:
+		if a == null:
+			a = m
+		elif b == null and m.kind == a.kind:
+			b = m
+	for m in world.monsters:
+		print("[monsterai] %s (%s) aggressive %s, graph %s, loaded %s" % [m.display_name, m.kind, m.aggressive, m.ai_id, not m._ai.is_empty()])
+		if m != a and m != b:
+			m.set_physics_process(false)  # only the two under test move
+			m.global_position += Vector3(0, 0, 200)
+	b.global_position = a.global_position + Vector3(3.0, 0, 0)
+	b.home = Vector3(b.global_position.x, 0, b.global_position.z)
+	# 1) passive: the hero stands next to it for 6 s
+	_place_player(a.global_position + Vector3(0, 0, 2.2), 0.0)
+	st.restore_all()
+	var hp0 := st.hp
+	await _seconds(6.0)
+	print("[monsterai] passive, hero 2.2 m away for 6 s: %s state %s provoked %s, hero HP %d -> %d -> %s" % [a.display_name,
+		SlimeMonster.State.keys()[a.state], a.provoked, roundi(hp0), roundi(st.hp), "공격 안 함 ✔" if st.hp >= hp0 and not a.provoked else "공격함 ✘"])
+	await _p1_shot("monsterai_01_passive", "passive slime ignores the hero", true)
+	# 2) hit it: it fights back, its neighbour of the same species stays out
+	a.receive_attack(st.combat_profile(), p)
+	hp0 = st.hp
+	var b_fought := false
+	var t := 0.0
+	while t < 6.0:
+		await get_tree().physics_frame
+		t += get_physics_process_delta_time()
+		b_fought = b_fought or b.provoked
+		if st.hp < st.max_hp() * 0.3:
+			st.restore_all()
+	print("[monsterai] after a hit: %s provoked %s state %s, hero hit %s; same species %s 3 m away joined %s -> %s" % [a.display_name, a.provoked,
+		SlimeMonster.State.keys()[a.state], st.hp < hp0 or a._cooldown > 0.0, b.display_name, b_fought, "반격만, 동족 합류 없음 ✔" if a.provoked and not b_fought else "✘"])
+	await _p1_shot("monsterai_02_fights_back", "hit slime fights back, neighbour stays out", true)
+	# 3) the hero walks away: it gives up and goes home
+	_place_player(a.home + Vector3(0, 0, 30.0), 0.0)
+	await _seconds(11.0)
+	print("[monsterai] hero left: %s provoked %s state %s, %.1f m from home" % [a.display_name, a.provoked, SlimeMonster.State.keys()[a.state],
+		Vector2(a.global_position.x - a.home.x, a.global_position.z - a.home.z).length()])
+	# 4) switch both to the 선공 graph (what "aggressive": true / the editor does): spotted + joined
+	var g := MonsterAI.load_graph("ai.slime.aggressive")
+	for m in [a, b]:
+		m._ai = g
+		m.provoked = false
+		m.state = SlimeMonster.State.WANDER
+		m.global_position = m.home
+	await _seconds(1.0)
+	_place_player(b.global_position + Vector3(0, 0, 3.0), 0.0)
+	st.restore_all()
+	var a_joined := false
+	t = 0.0
+	while t < 5.0:
+		await get_tree().physics_frame
+		t += get_physics_process_delta_time()
+		a_joined = a_joined or a.provoked
+	print("[monsterai] 선공 graph: %s spotted the hero %s, %s answered the call %s -> %s" % [b.display_name, b.provoked, a.display_name, a_joined,
+		"선공 + 동족 합류 ✔" if b.provoked and a_joined else "✘"])
+	await _p1_shot("monsterai_03_aggressive", "aggressive graph: spots and calls allies", true)
+	# 5) a graph with an error falls back to the built-in rules (and says so)
+	var bad := {"nodes": [{"id": "start", "type": "start", "next": "nowhere"}]}
+	print("[monsterai] broken graph check: %s" % [MonsterAI.validate(bad).map(func(e: Dictionary) -> String: return e["message"])])
+	get_tree().quit()
+
+
 func _run_collide_tour() -> void:
 	Game.clock_running = false
 	Game.minute_of_day = 11.0 * 60.0
@@ -1754,7 +1830,7 @@ func _run_collide_tour() -> void:
 	# a slime hopping at the hero stops at its body (and still lands its hit)
 	var aggro: SlimeMonster = null
 	for m in world.monsters:
-		if m.aggressive:
+		if m.state != SlimeMonster.State.DEAD:
 			aggro = m
 			break
 	if aggro:
@@ -2987,12 +3063,13 @@ func _run_upgrades_tour() -> void:
 	world.exit_vehicle()
 	await _frames(4)
 	print("[upg] complaints: plaza %d, parking spot %d" % [c1, int(Game.camper_mods.get("complaints", 0))])
-	# --- monsters go for a camper parked in a dangerous spot
+	# --- monsters go for a camper parked in a dangerous spot (slimes are 비선공 now: this run
+	# switches the highland ones to the 선공 setting in memory, the way monsters.json would)
 	var target: Dictionary = {}
 	for m: Dictionary in RegionDB.info("highland").get("monsters", []):
-		if MonsterDB.info(str(m["kind"])).get("aggressive", false):
+		MonsterDB.info(str(m["kind"]))["aggressive"] = true
+		if target.is_empty():
 			target = m
-			break
 	var tp := RegionDB.v3(target["pos"])
 	Game.camper = {"region": "highland", "pos": tp + Vector3(4.5, 0, 0), "yaw": 0.0}
 	print("[upg] highland spot (%.0f, %.0f) safe %s, near %s" % [tp.x + 4.5, tp.z, RegionDB.spot_safe("highland", tp + Vector3(4.5, 0, 0)), target["kind"]])

@@ -1,3 +1,4 @@
+@tool
 class_name MonsterDB
 extends RefCounted
 ## Monster definitions (res://data/monsters.json). GDD 7.5 [확정]: strength is fixed by the
@@ -17,6 +18,10 @@ static func all() -> Dictionary:
 		var d: Variant = DialogueData.read_json(PATH)
 		_cache = d.get("monsters", {}) if d is Dictionary else {}
 	return _cache
+
+
+static func reload() -> void:
+	_cache = {}
 
 
 static func info(kind: String) -> Dictionary:

@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "_comment": "Monster definitions (GDD 7.5: strength is fixed per monster / region, no level scaling). Numbers are [미정] placeholders.",
+  "_comment": "Monster definitions (GDD 7.5: strength is fixed per monster / region, no level scaling). Numbers are [미정] placeholders. 'ai' = data/ai/<id>.json 결정 그래프(몬스터 AI 탭에서 편집), 없으면 선공 여부로 ai.slime.aggressive / ai.slime.passive.",
   "monsters": {
     "meadow_slime": {
       "name": "풀밭 슬라임",
@@ -48,7 +48,7 @@
     },
     "forest_slime": {
       "name": "숲 슬라임",
-      "aggressive": true,
+      "aggressive": false,
       "hp": 9,
       "exp": 6,
       "profile": {
@@ -143,7 +143,7 @@
     },
     "rock_slime": {
       "name": "바위 슬라임",
-      "aggressive": true,
+      "aggressive": false,
       "hp": 18,
       "exp": 15,
       "profile": {
@@ -203,7 +203,7 @@
     },
     "cave_slime": {
       "name": "동굴 슬라임",
-      "aggressive": true,
+      "aggressive": false,
       "hp": 12,
       "exp": 9,
       "profile": {
@@ -250,7 +250,7 @@
     },
     "slime_king": {
       "name": "슬라임 왕",
-      "aggressive": true,
+      "aggressive": false,
       "boss": true,
       "hp": 60,
       "exp": 60,
@@ -303,7 +303,7 @@
     },
     "rift_slime": {
       "name": "미궁 슬라임",
-      "aggressive": true,
+      "aggressive": false,
       "hp": 26,
       "exp": 24,
       "profile": {
@@ -350,7 +350,7 @@
     },
     "ember_slime": {
       "name": "불씨 슬라임",
-      "aggressive": true,
+      "aggressive": false,
       "hp": 24,
       "exp": 24,
       "profile": {

@@ -6,6 +6,8 @@ extends CharacterBody3D
 ## gives up past its leash distance or when the player is inside a safe checkpoint (7.3).
 ## Attack = a lunge hop; damage only if its body physically touches the player (6.2).
 ## Ranges, timings and stats are [미정] prototype values (notes/IMPLEMENTATION_ASSUMPTIONS.md).
+## What it decides after each hop comes from its AI graph (MonsterAI, data/ai/*.json, edited in
+## the editor's 몬스터 AI tab); without a usable graph the built-in rules below still run.
 
 enum State { WANDER, CHASE, ATTACK, HURT, RETURN, DEAD }
 
@@ -52,6 +54,13 @@ var _knock := Vector3.ZERO
 var _flash := 0.0
 var _attack_done := false
 var _cooldown := 0.0
+## AI graph (MonsterAI). provoked = fighting (hit, spotted the hero, or joined a call).
+var provoked := false
+var ai_id := ""
+var _ai := {}
+var _called_at := -1.0e9
+var _heal_on_home := true
+var _bait := Vector3.INF
 
 
 func _ready() -> void:
@@ -77,6 +86,11 @@ func _ready() -> void:
 	add_child(_rig)
 	_setup_silhouette(Color(1.0, 0.35, 0.3, 0.45))
 	hp = max_hp
+	ai_id = MonsterAI.ai_for(kind)
+	_ai = MonsterAI.load_graph(ai_id)
+	if _ai.is_empty() or MonsterAI.validate(_ai).any(func(e: Dictionary) -> bool: return e["severity"] == "error"):
+		push_warning("[monster ai] %s: '%s' 그래프가 없거나 오류 — 기본 규칙으로" % [kind, ai_id])
+		_ai = {}
 	home = Vector3(global_position.x, 0.0, global_position.z)
 	_yaw = _rng.randf() * TAU
 	_start_hop(Vector3.ZERO, 1.1)
@@ -147,9 +161,19 @@ func engage() -> void:
 		return
 	if not _player_valid():
 		return
+	provoked = true
 	state = State.CHASE
 	if world and world.has_method("alert_species"):
 		world.alert_species(self)
+
+
+## Another of its species called for help (VisualLab.alert_species). Its AI graph decides whether
+## to answer ("같은 종족이 불렀는가"); without a graph the old rule joins at once.
+func hear_call(_source: SlimeMonster) -> void:
+	if _ai.is_empty():
+		engage()
+	else:
+		_called_at = Time.get_ticks_msec() / 1000.0
 
 
 func _physics_process(delta: float) -> void:
@@ -163,14 +187,16 @@ func _physics_process(delta: float) -> void:
 	match state:
 		State.WANDER:
 			var radius := aggro_radius * (NIGHT_AGGRO_MULT if Game.is_night() else 1.0)
-			if aggressive and dist < radius and _player_valid():
+			if _ai.is_empty() and aggressive and dist < radius and _player_valid():
 				engage()
 		State.CHASE, State.ATTACK:
-			if not _player_valid() or from_home > leash:
+			if _ai.is_empty() and (not _player_valid() or from_home > leash):
 				_give_up()
 		State.RETURN:
 			if from_home < 0.8:
-				hp = max_hp  # resets after giving up [미정 assumption]
+				if _heal_on_home:
+					hp = max_hp  # resets after giving up [미정 assumption]
+				provoked = false
 				state = State.WANDER
 		State.HURT:
 			_hurt_t -= delta
@@ -193,10 +219,126 @@ func _physics_process(delta: float) -> void:
 
 
 func _give_up() -> void:
+	provoked = false
 	state = State.RETURN
 
 
 func _next_hop(to_player: Vector3, dist: float) -> void:
+	if not _ai.is_empty():
+		_ai_hop(to_player, dist)
+		return
+	_legacy_hop(to_player, dist)
+
+
+# ---------------------------------------------------------------- AI graph (MonsterAI)
+
+func _ai_hop(to_player: Vector3, dist: float) -> void:
+	if state == State.RETURN:  # finish going home before deciding again
+		var back := home - _flat(global_position)
+		_start_hop(back.normalized() * minf(1.6, back.length()), 0.6)
+		return
+	var r := MonsterAI.decide(_ai, self)
+	if r.has("error"):
+		push_warning("[monster ai] %s %s: %s" % [kind, ai_id, r["error"]])
+		_ai = {}
+		_legacy_hop(to_player, dist)
+		return
+	var n: Dictionary = r["node"]
+	var reach := (RADIUS * body_scale - RADIUS) * 2.0
+	match str(n.get("action", "")):
+		"wander":
+			state = State.WANDER if not provoked else State.CHASE
+			var ang := _rng.randf() * TAU
+			var rr := _rng.randf_range(0.6, 1.4)
+			var cand := _flat(global_position) + Vector3(cos(ang), 0.0, sin(ang)) * rr
+			if _flat(cand - home).length() > MonsterAI.param(n, "radius"):
+				cand = _flat(global_position) + (home - _flat(global_position)).normalized() * rr
+			_start_hop(cand - _flat(global_position), MonsterAI.param(n, "hop"))
+		"chase":
+			state = State.CHASE
+			var step := minf(MonsterAI.param(n, "step"), maxf(0.0, dist - 1.0 - reach))
+			if step < 0.3:
+				_start_hop(Vector3.ZERO, 0.4, true)  # close enough: wait for the next lunge
+			else:
+				_start_hop(to_player.normalized() * step, MonsterAI.param(n, "hop"))
+		"attack":
+			state = State.ATTACK
+			_attack_done = false
+			_cooldown = MonsterAI.param(n, "cooldown")
+			_start_hop(to_player.normalized() * minf(dist + 0.2, 1.5), 0.6)
+		"flee":
+			state = State.CHASE
+			var away := -to_player.normalized() if dist > 0.01 else Vector3.FORWARD
+			_start_hop(away * MonsterAI.param(n, "step"), 0.6)
+		"return_home":
+			provoked = false
+			_heal_on_home = MonsterAI.param(n, "heal") > 0.5
+			state = State.RETURN
+			var back2 := home - _flat(global_position)
+			_start_hop(back2.normalized() * minf(1.6, back2.length()), 0.6)
+		"idle":
+			_start_hop(Vector3.ZERO, MonsterAI.param(n, "seconds"), true)
+		"attack_camper":
+			state = State.WANDER
+			var bait: Vector3 = _bait if _bait != Vector3.INF else (world.camper_bait(self) if world and world.has_method("camper_bait") else Vector3.INF)
+			if bait == Vector3.INF:
+				_start_hop(Vector3.ZERO, 0.5, true)
+				return
+			var to := _flat(bait - global_position)
+			if to.length() < 1.3:
+				if _cooldown <= 0.0:
+					_cooldown = MonsterAI.param(n, "cooldown")
+					_start_hop(to.normalized() * 0.5, 0.6)
+					world.hit_camper(self)
+				else:
+					_start_hop(Vector3.ZERO, 0.5, true)
+			else:
+				_start_hop(to.normalized() * minf(1.4, to.length() - 0.8), 0.8)
+
+
+## Condition answers for MonsterAI.decide.
+func ai_check(check: String, n: Dictionary) -> bool:
+	var p := _player()
+	var dist := _flat(p.global_position - global_position).length() if p else INF
+	match check:
+		"provoked":
+			return provoked
+		"player_near":
+			var night := MonsterAI.param(n, "night_mult") if Game.is_night() else 1.0
+			return _player_valid() and dist < MonsterAI.param(n, "distance") * night
+		"player_in_reach":
+			var reach := (RADIUS * body_scale - RADIUS) * 2.0
+			return _player_valid() and dist < MonsterAI.param(n, "reach") + reach and _cooldown <= 0.0
+		"player_gone":
+			return not _player_valid()
+		"far_from_home":
+			return _flat(global_position - home).length() > MonsterAI.param(n, "distance")
+		"hp_below":
+			return hp < max_hp * MonsterAI.param(n, "percent") / 100.0
+		"ally_called":
+			return Time.get_ticks_msec() / 1000.0 - _called_at < MonsterAI.param(n, "seconds")
+		"camper_near":
+			_bait = world.camper_bait(self) if world and world.has_method("camper_bait") else Vector3.INF
+			return _bait != Vector3.INF
+		"is_night":
+			return Game.is_night()
+		"random":
+			return _rng.randf() * 100.0 < MonsterAI.param(n, "percent")
+	return false
+
+
+func ai_engage(n: Dictionary) -> void:
+	if not _player_valid():
+		return
+	var was := provoked
+	provoked = true
+	state = State.CHASE
+	if not was and MonsterAI.param(n, "call_allies") > 0.5 and world and world.has_method("alert_species"):
+		world.alert_species(self)
+
+
+## Built-in rules (before AI graphs; still used when a monster's graph is missing / broken).
+func _legacy_hop(to_player: Vector3, dist: float) -> void:
 	match state:
 		State.WANDER:
 			# GDD 9.4: in dangerous places aggressive monsters go for a parked, unattended camper
@@ -284,6 +426,7 @@ func receive_attack(attacker_profile: Dictionary, from: Node3D) -> void:
 		if hp <= 0:
 			_die()
 			return
+		provoked = true  # GDD 7.2: even a passive monster fights back
 		state = State.HURT
 		_hurt_t = 0.28
 		_hop_t = _hop_time  # interrupt the hop
@@ -312,6 +455,7 @@ func receive_ram(damage: int, from: Node3D) -> void:
 	if hp <= 0:
 		_die()
 		return
+	provoked = true
 	state = State.HURT
 	_hurt_t = 0.35
 	_hop_t = _hop_time

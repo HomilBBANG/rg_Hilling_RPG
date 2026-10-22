@@ -1055,11 +1055,13 @@ func _spawn_monster(spec: Dictionary) -> SlimeMonster:
 	return m
 
 
+## A monster in a fight calls the same species nearby (GDD 7.2); each one's AI graph decides
+## whether it answers (선공 graphs do, 비선공 ones don't).
 func alert_species(source: SlimeMonster) -> void:
 	for m in monsters:
-		if m != source and is_instance_valid(m) and m.state != SlimeMonster.State.DEAD \
+		if m != source and is_instance_valid(m) and m.state != SlimeMonster.State.DEAD and m.kind == source.kind \
 				and m.global_position.distance_to(source.global_position) < source.join_radius:
-			m.engage()
+			m.hear_call(source)
 
 
 ## GDD 7.4 [확정]: bosses / special monsters can appear only once.

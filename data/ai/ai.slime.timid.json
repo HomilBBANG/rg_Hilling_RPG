@@ -1,0 +1,194 @@
+{
+  "version": 1,
+  "ai_id": "ai.slime.timid",
+  "title": "겁 많은 슬라임 (예시)",
+  "notes": "비선공 + 체력이 40% 아래로 떨어지면 도망친다. 아직 어느 몬스터도 쓰지 않는 예시 — 몬스터 AI 탭에서 몬스터에 붙여 볼 수 있다.",
+  "start_node_id": "start",
+  "nodes": [
+    {
+      "id": "start",
+      "type": "start"
+    },
+    {
+      "id": "c_prov",
+      "type": "condition",
+      "check": "provoked",
+      "params": {}
+    },
+    {
+      "id": "c_hp",
+      "type": "condition",
+      "check": "hp_below",
+      "params": {
+        "percent": 40.0
+      }
+    },
+    {
+      "id": "a_flee",
+      "type": "action",
+      "action": "flee",
+      "params": {
+        "step": 1.8
+      }
+    },
+    {
+      "id": "a_wander",
+      "type": "action",
+      "action": "wander",
+      "params": {
+        "radius": 3.5,
+        "hop": 1.1
+      }
+    },
+    {
+      "id": "c_gone",
+      "type": "condition",
+      "check": "player_gone",
+      "params": {}
+    },
+    {
+      "id": "c_leash",
+      "type": "condition",
+      "check": "far_from_home",
+      "params": {
+        "distance": 14.0
+      }
+    },
+    {
+      "id": "c_reach",
+      "type": "condition",
+      "check": "player_in_reach",
+      "params": {
+        "reach": 1.7
+      }
+    },
+    {
+      "id": "a_home",
+      "type": "action",
+      "action": "return_home",
+      "params": {
+        "heal": 1.0
+      }
+    },
+    {
+      "id": "a_attack",
+      "type": "action",
+      "action": "attack",
+      "params": {
+        "cooldown": 1.3
+      }
+    },
+    {
+      "id": "a_chase",
+      "type": "action",
+      "action": "chase",
+      "params": {
+        "step": 1.5,
+        "hop": 0.7
+      }
+    }
+  ],
+  "connections": [
+    {
+      "from": "start",
+      "port": "next",
+      "to": "c_prov"
+    },
+    {
+      "from": "c_prov",
+      "port": "true",
+      "to": "c_hp"
+    },
+    {
+      "from": "c_hp",
+      "port": "true",
+      "to": "a_flee"
+    },
+    {
+      "from": "c_hp",
+      "port": "false",
+      "to": "c_gone"
+    },
+    {
+      "from": "c_prov",
+      "port": "false",
+      "to": "a_wander"
+    },
+    {
+      "from": "c_gone",
+      "port": "true",
+      "to": "a_home"
+    },
+    {
+      "from": "c_gone",
+      "port": "false",
+      "to": "c_leash"
+    },
+    {
+      "from": "c_leash",
+      "port": "true",
+      "to": "a_home"
+    },
+    {
+      "from": "c_leash",
+      "port": "false",
+      "to": "c_reach"
+    },
+    {
+      "from": "c_reach",
+      "port": "true",
+      "to": "a_attack"
+    },
+    {
+      "from": "c_reach",
+      "port": "false",
+      "to": "a_chase"
+    }
+  ],
+  "editor_positions": {
+    "start": [
+      0,
+      0
+    ],
+    "c_prov": [
+      240,
+      0
+    ],
+    "c_hp": [
+      480,
+      -40
+    ],
+    "a_flee": [
+      760,
+      -220
+    ],
+    "a_wander": [
+      520,
+      300
+    ],
+    "c_gone": [
+      760,
+      0
+    ],
+    "c_leash": [
+      1040,
+      80
+    ],
+    "c_reach": [
+      1320,
+      160
+    ],
+    "a_home": [
+      1320,
+      -120
+    ],
+    "a_attack": [
+      1600,
+      100
+    ],
+    "a_chase": [
+      1600,
+      260
+    ]
+  }
+}
