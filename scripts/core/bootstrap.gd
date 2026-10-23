@@ -560,6 +560,8 @@ func _parse_args() -> void:
 		_run_inv_ui_tour()
 	elif tour == "skillui":
 		_run_skill_ui_tour()
+	elif tour == "minimap":
+		_run_minimap_tour()
 	elif tour == "wind":
 		_run_wind_check()
 	elif tour == "catfollow":
@@ -3555,6 +3557,65 @@ func _ui_click(c: Control, double := false) -> void:
 			Input.parse_input_event(ev)
 			await _frames(2)
 	await _frames(4)
+
+
+## Minimap (top right): follows the hero (arrow in the middle), wheel zoom, click = world map,
+## hidden in the camper interior and during dialogue, shows the new region after travelling.
+func _run_minimap_tour() -> void:
+	Game.clock_running = false
+	Game.minute_of_day = 10.5 * 60.0
+	await wait_for_sprites()
+	var mm: Minimap = game_hud.minimap
+	var p: PrototypePlayer = world.player
+	await _frames(3)
+	var m0 := mm.player_map_pos()
+	print("[minimap] meadow: shown %s at %s size %s, region '%s', hero at map %s" % [mm._active and mm.is_visible_in_tree(), mm.position, mm.size, mm._region_label.text, m0])
+	await _p1_shot("minimap_01_meadow", "minimap in the meadow", true)
+	var t := 0.0
+	while t < 2.0:
+		p.scripted_move = Vector2(1, 0.4)
+		await get_tree().physics_frame
+		t += get_physics_process_delta_time()
+	p.scripted_move = Vector2.ZERO
+	await _frames(3)
+	var m1 := mm.player_map_pos()
+	print("[minimap] walked 2 s east: map pos %s -> %s (moved %.1f m)" % [m0, m1, m0.distance_to(m1)])
+	var z0 := mm.zoom
+	for i in 2:
+		var ev := InputEventMouseButton.new()
+		ev.button_index = MOUSE_BUTTON_WHEEL_UP
+		ev.pressed = true
+		var c := mm.get_global_rect().get_center()
+		ev.position = c
+		ev.global_position = c
+		get_viewport().warp_mouse(c)
+		Input.parse_input_event(ev)
+		await _frames(2)
+	print("[minimap] wheel up x2: zoom %.2f -> %.2f" % [z0, mm.zoom])
+	await _p1_shot("minimap_02_zoomed", "zoomed in", true)
+	await _ui_click(mm)
+	print("[minimap] click -> panel '%s'" % game_hud._panel_kind)
+	game_hud.close_panel()
+	await _frames(3)
+	game_hud.start_dialogue("dialogue.npc.rosa.main")
+	await _frames(5)
+	print("[minimap] during dialogue: visible %s" % mm.is_visible_in_tree())
+	while game_hud.dialogue_active():
+		game_hud.dialogue.advance() if game_hud.dialogue.event.get("type", "") != "choice" else game_hud.dialogue.choose_index(0)
+		await _frames(3)
+	await _frames(5)
+	print("[minimap] after dialogue: visible %s" % mm.is_visible_in_tree())
+	Game.request_world(Game.WORLD_INTERIOR)
+	await _frames(10)
+	print("[minimap] camper interior: active %s (hidden)" % game_hud.minimap._active)
+	Game.request_world(Game.WORLD_EXTERIOR)
+	await _frames(10)
+	travel("capital", "south_road", false)
+	await _wait_travel()
+	await _frames(10)
+	print("[minimap] capital: active %s, region '%s', hero at map %s" % [game_hud.minimap._active, game_hud.minimap._region_label.text, game_hud.minimap.player_map_pos()])
+	await _p1_shot("minimap_03_capital", "minimap in the capital", true)
+	get_tree().quit()
 
 
 ## Skill window (K): 스킬 tab (일반 스킬 learned with EXP, 마법 with quickslots 5-8) and 생활 스킬

@@ -38,6 +38,7 @@ var cutscene: CutsceneRunner
 var _caption: Label
 var _tracker: Label
 var _tracker_t := 0.0
+var minimap: Minimap
 ## Boss HP bar across the top (the dragon): the boss node it follows, or null when hidden.
 var boss: Node
 var _boss_box: Control
@@ -102,7 +103,12 @@ func _ready() -> void:
 	_fade_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	_fade_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_fade_label.modulate.a = 0.0
-	_tracker = _label("", 19, Vector2(1440, 18))
+	minimap = Minimap.new()
+	minimap.font = font
+	minimap.hud = self
+	minimap.position = Vector2(1920 - 22 - Minimap.SIZE, 18)
+	add_child(minimap)
+	_tracker = _label("", 19, Vector2(1440, 18 + Minimap.SIZE + 34))  # under the minimap
 	_tracker.size = Vector2(458, 0)
 	_tracker.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	_tracker.add_theme_color_override("font_color", Color(1.0, 0.93, 0.75))

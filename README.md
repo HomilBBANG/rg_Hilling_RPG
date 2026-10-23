@@ -26,6 +26,7 @@
 | 전투 로그 | 좌하단. `G`(또는 클릭)로 1 아이콘 → 2 한 줄 → 3 상세(주사위·계산식) |
 | 시체 조사 | 처치한 자리의 시체 앞에서 `E` → 원하는 것만 "가져가기"/"모두"/"전부 가져가기". 게임 시간 60분 뒤 사라짐 |
 | 중량 | `Tab` 소지품(게임은 계속 진행). **가방 + 착용 장비를 모두 합쳐** 30kg 초과 시 느려지고 45kg을 넘기는 획득은 거부. 캠프의 **보급 상자**(철광석)로 시험 |
+| 미니맵 | 화면 **오른쪽 위**. 주변 지형(큰 지도와 같은 그림, 북쪽이 위)과 **가운데 빨간 화살표 = 나**(바라보는 방향). ■ 세워 둔 캠핑카, ● 도시, ▲ 가 본 체크포인트, ◆ 찾은 이야기 장소, ◉ 동굴 입구, 노란 점 = 지역 출구, 붉은 점 = 근처 몬스터(싸우는 중이면 진하게). 아래에 지역 이름·위험도. **휠 = 확대/축소, 클릭 = 큰 지도(M)**. 캠핑카 실내·변덕의 미궁에서는 숨김, 대화·컷씬 중에도 숨김. 퀘스트 추적은 미니맵 아래로 옮김 |
 | 소지품·장비 창 | `Tab` / `C` / `K` = 한 창의 세 탭(위쪽 **소지품·장비** / **능력치** / **스킬**, 탭 클릭으로도 전환). 능력치 탭에는 레벨업·능력치·세부 능력치만, 스킬·생활 기술은 스킬 탭(아래 `K`). 왼쪽: **장비 칸**(등·머리·목걸이 / 허리띠·몸·반지1 / 장갑·신발·반지2 / 주무기·보조무기), 그 아래 **소지 중량 막대**(노란 선 = 느려지기 시작, 막대 끝 = 한계)와 숫자, 선택한 아이템의 설명·버튼(장착·해제·사용·읽기·퀵슬롯 1~4·배치·주유/수리). 오른쪽: **가방 칸** 7열(최소 7×7, 칸 제한 없음 — 많아지면 아래로 늘어남), 아래 **정렬**(장비 → 소모품 → 재료 → 캠핑카 용품 → 소품, 같은 종류는 이름순). 칸 위에 마우스 = 설명창(무게·효과·설명), 클릭 = 선택, **더블클릭 = 바로 장착/사용/해제** |
 | 캠핑카 | 문 앞 `E` 실내, 운전석(앞바퀴 옆) `E` 운전: **GTA식: `W` 가속, `S` 브레이크→멈춘 채 계속 누르면 천천히 후진, `W`+`S` 제자리 정지, `A`/`D` 핸들(달리는 동안만, 후진 땐 차 뒤가 그쪽으로)**, 키를 놓으면 굴러가다 정지, 멈춘 뒤 `E` 하차. `F` 외부 라이트 ([운전 조작 개선](notes/DRIVING.md)) |
 | 충돌 (뚫고 지나가지 않기) | **NPC·몬스터(드래곤 포함)·고양이·큰 돌·나무·캠핑카·건물**은 모두 몸이 있어서 주인공이 통과하지 못함. 몬스터도 주인공·고양이·NPC·벽을 뚫지 않음(덮쳐 와도 몸에 닿아 멈추고 공격은 그대로). **고양이**는 주인공이 다가와 부딪히면 옆으로 비켜 줌. 운전하는 캠핑카는 벽·NPC에 막히고, 몬스터는 들이받음. 작은 돌·덤불·풀·꽃은 그대로 지나감. 물리 층은 `scripts/core/phys_layers.gd` 한 곳에 정리 |
@@ -171,7 +172,7 @@ scripts/world/     visual_lab.gd, camper_interior_lab.gd, terrain_field.gd, natu
 scripts/actors/    prototype_player.gd, player_rig.gd, slime_monster.gd(P1 AI), slime_visual.gd, slime_rig.gd,
                    cat_companion.gd, cat_rig.gd (검은 고양이)
 scripts/game/      dice.gd, combat.gd, player_state.gd, inventory.gd, item_db.gd, combat_log.gd (P1 규칙·데이터)
-scripts/ui/        game_hud.gd (HP/SP/MP, 전투 로그, 조사·소지품·창고·수면·상점·게시판·퀘스트 기록), dialogue_box.gd
+scripts/ui/        minimap.gd (오른쪽 위 미니맵), game_hud.gd (HP/SP/MP, 전투 로그, 조사·소지품·창고·수면·상점·게시판·퀘스트 기록), dialogue_box.gd
 scripts/dialogue/  dialogue_data.gd(포맷·검증), dialogue_runner.gd, dialogue_context.gd, game_dialogue_context.gd, cutscene_runner.gd
 scripts/game/      quest_db.gd, quest_manager.gd, narrative_state.gd, shop_db.gd (P2 데이터 시스템)
 addons/dialogue_editor/  대화 에디터 플러그인 (에디터 전용, 게임 빌드에는 불필요)
@@ -231,6 +232,8 @@ Godot.exe --path C:/Game/denial -- --tour=drivegta --capture-dir=C:/Game/denial/
 Godot.exe --path C:/Game/denial -- --tour=collide --capture-dir=C:/Game/denial/captures/p1
 :: 몬스터 AI: 비선공 슬라임 옆에 6초 서 있기(공격 안 함) → 한 대 치기(그 한 마리만 반격, 3 m 옆 같은 종족은 안 끼어듦) → 멀리 가기(포기·복귀) → 선공 그래프로 바꾸기(먼저 덤비고 동족 합류) (콘솔에 [monsterai] 결과)
 Godot.exe --path C:/Game/denial -- --tour=monsterai --capture-dir=C:/Game/denial/captures/p1
+:: 미니맵: 초원에서 표시·내 위치, 걸으면 따라감, 휠 확대, 클릭 = 큰 지도, 대화 중 숨김, 캠핑카 실내 숨김, 왕도로 이동 후 지역 이름 (콘솔에 [minimap] 결과)
+Godot.exe --path C:/Game/denial -- --tour=minimap --capture-dir=C:/Game/denial/captures/p3
 :: 스킬 창(K): 능력치 탭엔 능력치만, K → 스킬 탭(일반 스킬 호버·배우기 클릭, 마법 퀵슬롯), 생활 스킬 탭(채집·낚시·요리·제작 구역, 채집 요령 배우기), 위쪽 탭 전환, K 두 번 = 닫기 (콘솔에 [skillui] 결과)
 Godot.exe --path C:/Game/denial -- --tour=skillui --capture-dir=C:/Game/denial/captures/p2
 :: 소지품·장비 창: 가방 + 착용 장비 중량, 창 화면, 가방 칸 호버, 클릭 선택, 더블클릭 장착(중량 그대로), 장비 칸 호버, 정렬, 능력치 탭·소지품 탭 클릭 전환 (콘솔에 [invui] 결과)
