@@ -24,6 +24,11 @@ var _body: AnimatableBody3D  # solid: the hero, monsters, the cat and the camper
 var _meshes: Array[MeshInstance3D] = []
 var _yaw := 0.0
 var _phase := 0.0
+## Scripted walking (cutscene actor_move) and chasing (the chapter-1 escape) override the routine.
+var chase: Node3D
+var chase_speed := 4.2
+var _walk_goal := Vector3.INF
+var _walk_speed := 2.0
 
 
 func _ready() -> void:
@@ -105,7 +110,51 @@ func _ground(p: Vector3) -> float:
 	return height_func.call(p.x, p.z) if height_func.is_valid() else 0.0
 
 
+## Solid or not (escape guards pass through the camper they chase; catching is by distance).
+func set_solid(on: bool) -> void:
+	if _body:
+		_body.collision_layer = PhysLayers.NPC if on else 0
+
+
+func scripted_walk_to(goal: Vector3, speed: float) -> void:
+	_walk_goal = goal
+	_walk_speed = maxf(speed, 0.5)
+
+
+func scripted_walking() -> bool:
+	return _walk_goal != Vector3.INF
+
+
+func face(pos: Vector3) -> void:
+	var d := pos - global_position
+	if Vector2(d.x, d.z).length() > 0.05:
+		_yaw = atan2(-d.x, -d.z)
+
+
+## Walks toward goal; true while still on the way.
+func _step_toward(goal: Vector3, speed: float, stop: float, delta: float) -> bool:
+	var d := Vector3(goal.x - global_position.x, 0, goal.z - global_position.z)
+	if d.length() <= stop:
+		return false
+	global_position += d.normalized() * minf(speed * delta, d.length() - stop)
+	global_position.y = _ground(global_position)
+	_yaw = atan2(-d.x, -d.z)
+	return true
+
+
 func _process(delta: float) -> void:
+	if _walk_goal != Vector3.INF or (chase and is_instance_valid(chase)):
+		var moving_s := false
+		if _walk_goal != Vector3.INF:
+			moving_s = _step_toward(_walk_goal, _walk_speed, 0.08, delta)
+			if not moving_s:
+				_walk_goal = Vector3.INF
+		else:
+			moving_s = _step_toward(chase.global_position, chase_speed, 1.2, delta)
+			if not moving_s:
+				face(chase.global_position)
+		_animate(moving_s, delta, chase_speed if chase else _walk_speed)
+		return
 	var open := _on_duty()
 	if open and where == Where.HOME:
 		_set_at(Where.HOME)
@@ -135,8 +184,12 @@ func _process(delta: float) -> void:
 			_yaw = lerp_angle(_yaw, atan2(-to_p.x, -to_p.z), 1.0 - exp(-5.0 * delta))
 		else:
 			_yaw = lerp_angle(_yaw, counter_yaw, 1.0 - exp(-3.0 * delta))
+	_animate(moving, delta, WALK_SPEED)
+
+
+func _animate(moving: bool, delta: float, speed: float) -> void:
 	if moving:
-		_phase += delta * 7.0
+		_phase += delta * 7.0 * maxf(1.0, speed / WALK_SPEED * 0.6)
 	_rig.rotation.y = _yaw
 	var col: int
 	if moving:

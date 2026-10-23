@@ -45,6 +45,9 @@ const ACTIONS := {
 	"receive_camper": {"label": "캠핑카 받기 (왕의 소원)", "args": []},
 	"give_map": {"label": "지도 주기", "args": [{"name": "region", "type": "text", "label": "지역 ID (data/maps)"}]},
 	"cat_join": {"label": "고양이 동행 시작", "args": [{"name": "affection", "type": "int", "label": "호감도 +", "default": 0}]},
+	"give_item": {"label": "아이템 주기", "args": [{"name": "item", "type": "item", "label": "아이템"},
+		{"name": "count", "type": "int", "label": "개수", "default": 1}]},
+	"wish_ceremony": {"label": "소원 의식 시작 (광장 → 캠핑카 추락 → 탈출)", "args": []},
 }
 
 ## Read-only queries for Condition nodes and choice-option conditions.
@@ -487,6 +490,9 @@ static func _validate_node(n: Dictionary, cat: Dictionary, err: Callable, warn: 
 					"quest":
 						if not cat["quests"].has(str(v)):
 							err.call(id, "존재하지 않는 퀘스트 ID '%s'" % v)
+					"item":
+						if not ItemDB.ITEMS.has(str(v)):
+							err.call(id, "존재하지 않는 아이템 ID '%s'" % v)
 					"recipe":
 						if not cat.get("recipes", {}).has(str(v)):
 							err.call(id, "존재하지 않는 레시피 ID '%s' (data/recipes.json)" % v)

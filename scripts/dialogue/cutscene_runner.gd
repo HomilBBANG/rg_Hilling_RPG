@@ -157,6 +157,16 @@ func _step(s: Dictionary) -> void:
 				Game.quests.accept(qid)
 		"set_flag":
 			Game.narrative.set_flag(str(s.get("key", "")), bool(s.get("value", true)))
+		"camper_drop":
+			var w: Node = Game.boot.world if Game.boot else null
+			var who := _actor(str(s.get("target", "king")))
+			if w and w.has_method("drop_camper"):
+				var at: Vector3 = who.global_position if who else Vector3(Game.camper.get("pos", Vector3.ZERO))
+				await w.drop_camper(at, 0.0 if _skip_all else float(s.get("seconds", 1.0)), who)
+		"actor_hide":
+			var h := _actor(str(s.get("actor", "")))
+			if h:
+				h.visible = false
 	if dialogue and s.get("type", "") != "line":
 		dialogue.end_cutscene_line()
 

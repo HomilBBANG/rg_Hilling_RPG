@@ -339,8 +339,8 @@ func current_world_id() -> StringName:
 func _unhandled_input(event: InputEvent) -> void:
 	if _touring or not event.is_pressed() or event.is_echo() or title_open() or _arriving:
 		return
-	if _busy and not event.is_action("pause"):
-		return
+	if _busy and not event.is_action("pause") and not game_hud.cutscene.playing:
+		return  # (a cutscene inside a busy sequence — the escape ending — still takes its keys)
 	# Dialogue / cutscene own the keys while open (ESC still pauses).
 	if not event.is_action("pause") and game_hud.fishing.active:
 		game_hud.fishing.handle_key(event)
@@ -874,12 +874,73 @@ func is_busy() -> bool:
 	return _busy
 
 
+var _locked_toast_at := 0
+
+
+# ---------------------------------------------------------------- chapter 1 ending (user story)
+
+## Dialogue action wish_ceremony (the king's wish): to the plaza in front of the castle, where the
+## court wizard summons the camper — which falls out of the sky onto the king (cutscene.camper_wish).
+## The hero is wanted from that moment: the escape (EscapeSequence) starts right after.
+func start_wish_ceremony() -> void:
+	while game_hud.dialogue_active():
+		await get_tree().process_frame
+	_busy = true
+	var cer: Dictionary = CutsceneData.story().get("wish_ceremony", {})
+	await game_hud.fade_to(1.0, 0.8, "성 앞 광장 — 소원의 의식")
+	var w: Dictionary = CutsceneData.story().get("camper_wish", {})
+	Game.has_camper = true  # owned from now on; hidden in the sky until it drops
+	Game.camper = {"region": "capital", "pos": RegionDB.v3(w.get("pos", [0, 0])), "yaw": float(w.get("yaw", -PI * 0.5))}
+	Game.camper_fuel = Game.camper_fuel_max()
+	Game.camper_durability = Game.CAMPER_DURABILITY_MAX
+	Game.narrative.set_flag("story.camper_received")
+	var pl: Dictionary = cer.get("player", {})
+	Game.spawn_override = {"kind": "ceremony", "pos": RegionDB.v3(pl.get("pos", [0, 0])), "yaw": float(pl.get("yaw", 0.0)),
+		"actors": cer.get("actors", [])}
+	Game.region = "capital"
+	Game.request_world(Game.WORLD_EXTERIOR)
+	await _frames(3)
+	await wait_for_sprites()
+	await _frames(6)
+	await game_hud.fade_to(0.0, 0.6)
+	_busy = false
+	await game_hud.cutscene.play("cutscene.camper_wish")
+	# the king is dead: the dragon quest closes, the hero is wanted and flees
+	Game.narrative.set_flag("story.king_dead")
+	Game.narrative.set_flag("story.wanted")
+	Game.narrative.mark_event("story.camper_wish")
+	Game.quests.complete("quest.main.dragon", "")
+	Game.quests.accept("quest.main.escape")
+	Game.combat_log.add("수배되었다", "하늘에서 떨어진 캠핑카에 왕이 깔렸다 — 왕 시해범으로 수배. 캠핑카를 몰고 남문으로 탈출하자.", "info")
+	Game.story_changed.emit()
+	if world is VisualLab:
+		world.start_escape()
+
+
+## Driving out of the capital while wanted: the end of chapter 1 (cutscene.escape), then on into
+## the meadow as usual. The capital is closed for good (Game.region_locked).
+func _escape_ending() -> void:
+	Game.narrative.set_flag("story.escaped")
+	await game_hud.cutscene.play("cutscene.escape", true)
+	Game.quests.advance("quest.main.escape", "gate")
+	Game.quests.complete("quest.main.escape", "")
+	Game.narrative.set_flag("story.chapter1_done")
+
+
 ## Road exit (GDD 11.1 [확정]): loading screen, then the other region. Driving through takes the
 ## camper along (parked at the arrival point); on foot the camper stays where it was (9.4).
 func travel(to_region: String, entry_id: String, driving: bool) -> void:
 	if _busy or not RegionDB.all().has(to_region):
 		return
+	var locked := Game.region_locked(to_region)
+	if locked != "":
+		if Time.get_ticks_msec() > _locked_toast_at:
+			_locked_toast_at = Time.get_ticks_msec() + 3000
+			hud.toast(locked)
+		return
 	_busy = true
+	if Game.region == "capital" and Game.narrative.get_flag("story.wanted") and not Game.narrative.get_flag("story.escaped"):
+		await _escape_ending()  # out through the gate while wanted: the end of chapter 1
 	game_hud.close_panel()
 	var info := RegionDB.info(to_region)
 	var tips: Array = info.get("tips", [])
@@ -900,6 +961,8 @@ func travel(to_region: String, entry_id: String, driving: bool) -> void:
 	await _frames(3)
 	await wait_for_sprites()
 	await _frames(8)
+	if game_hud.cutscene.overlay and game_hud.cutscene.overlay.is_black():
+		game_hud.cutscene.overlay.reset()  # a cutscene that ended on black (escape) clears under the loading screen
 	Game.combat_log.add("%s → %s" % [RegionDB.region_name(from), info.get("name", to_region)], "지역 이동%s — %s (위험도 %s)" % [
 		" (캠핑카와 함께)" if driving else " (캠핑카는 %s에)" % RegionDB.region_name(str(Game.camper.get("region", ""))) if Game.has_camper else "",
 		info.get("name", to_region), RegionDB.danger_text(to_region)], "info")
@@ -908,6 +971,9 @@ func travel(to_region: String, entry_id: String, driving: bool) -> void:
 	if RegionDB.is_dungeon(to_region) and not Game.lantern_on and str(info.get("style", "")) not in ["hall", "lair"]:
 		arrive += (" · 어둡다 — L로 등불을 켜자" if Game.player_state.has_lantern() else " · 어둡다 — 횃불 빛을 따라가자")
 	hud.toast(arrive)
+	if Game.narrative.get_flag("story.chapter1_done") and not Game.narrative.get_flag("story.chapter1_note"):
+		Game.narrative.set_flag("story.chapter1_note")
+		game_hud.toast_quest("챕터 1 끝 — 왕도로는 다시 돌아갈 수 없다 (챕터 2: 바다 건너 다른 대륙 — 준비 중)")
 	_busy = false
 	_autosave()
 
@@ -941,6 +1007,9 @@ func fast_travel_quote(city_id: String) -> Dictionary:
 		return {"ok": false, "why": "그런 도시는 없다"}
 	if not Game.discovered.has("city:" + city_id):
 		return {"ok": false, "why": "아직 가 보지 않은 도시다"}
+	var locked := Game.region_locked(str(cities[city_id]["region"]))
+	if locked != "":
+		return {"ok": false, "why": locked}
 	if Game.in_run() or (world is VisualLab and world.is_dungeon()):
 		return {"ok": false, "why": "던전 안에서는 빠른 이동을 할 수 없다"}
 	if not (world is VisualLab):
@@ -2208,13 +2277,15 @@ func _run_preset_tour() -> void:
 		1:
 			print("[preset] loaded slot %d: %s, stage %s, cat joined %s (affection %d), camper here %s at %s" % [Game.slot, Game.region,
 				Game.STAGE_NAMES[Game.story_stage()], Game.cat_joined, Game.cat_affection, world.camper_here(), Game.camper.get("pos", "")])
-			print("[preset] quests: audience %s, dragon %s · events king %s wish %s · flags dragon %s camper %s" % [Game.quests.state("quest.main.audience"),
-				Game.quests.state("quest.main.dragon"), Game.narrative.event_done("story.king_audience"), Game.narrative.event_done("story.camper_wish"),
-				Game.narrative.get_flag("story.dragon_defeated"), Game.narrative.get_flag("story.camper_received")])
-			print("[preset] hero: Lv %d, stats %s, HP %d/%d, gold %d, weapon %s, armor %s, scales %d, fang %d" % [st.level, st.stats, roundi(st.hp), roundi(st.max_hp()),
-				st.gold, st.equipment.get("main", ""), st.equipment.get("body", ""), st.inventory.count("dragon_scale"), st.inventory.count("dragon_fang")])
+			print("[preset] quests: audience %s, dragon %s, escape %s · events king %s wish %s · flags dragon left %s camper %s king dead %s escaped %s, capital locked '%s'" % [
+				Game.quests.state("quest.main.audience"), Game.quests.state("quest.main.dragon"), Game.quests.state("quest.main.escape"),
+				Game.narrative.event_done("story.king_audience"), Game.narrative.event_done("story.camper_wish"), Game.narrative.get_flag("story.dragon_left"),
+				Game.narrative.get_flag("story.camper_received"), Game.narrative.get_flag("story.king_dead"), Game.narrative.get_flag("story.escaped"),
+				Game.region_locked("capital")])
+			print("[preset] hero: Lv %d, stats %s, HP %d/%d, gold %d, weapon %s, armor %s, dragon token %d" % [st.level, st.stats, roundi(st.hp), roundi(st.max_hp()),
+				st.gold, st.equipment.get("main", ""), st.equipment.get("body", ""), st.inventory.count("dragon_token")])
 			await _seconds(1.0)
-			await _p1_shot("preset_03_loaded_plaza", "chapter 1 cleared: plaza, camper, cat", true)
+			await _p1_shot("preset_03_loaded_meadow", "chapter 1 cleared: meadow after the escape, camper, cat", true)
 			game_hud.toggle_map()
 			await _frames(6)
 			await _p1_shot("preset_04_map", "map after chapter 1", true)
@@ -2222,7 +2293,7 @@ func _run_preset_tour() -> void:
 			travel("dragon_nest", "entrance", false)
 			await _wait_travel()
 			var dragons: int = world.monsters.filter(func(m: SlimeMonster) -> bool: return m is DragonBoss).size()
-			print("[preset] the nest: dragons %d, remains %s" % [dragons, Game.field.get("remains", {})])
+			print("[preset] the nest: dragons %d (flew off)" % dragons)
 			Game.remove_meta("preset_tour")
 			for i in range(1, SaveManager.SLOTS + 1):
 				SaveManager.delete(i)
@@ -2935,17 +3006,19 @@ func _run_dragon_road_tour() -> void:
 	get_tree().quit()
 
 
-## The nest and the dragon fight: down the pit into the lair, the sleeping dragon, waking it,
-## each attack (its red area first, a step out of the bite circle dodges), backing off to the
-## safe spot, half HP rage + the dive, the kill (EXP, corpse, quest, victory scene) and coming back
-## to its remains. Player AC is lowered and HP topped up between attacks so every hit lands.
+## The nest and the dragon (user design: it can't be beaten, it has to be talked out of the nest):
+## down the pit into the lair, the sleeping dragon, waking it (it speaks first), a rude answer →
+## angry fight (red areas, sword bounces off: HP never drops), backing off to the safe spot → it
+## calms and listens (E), talking it round → it flies off, the scale token, the departure scene,
+## the quest objective, and coming back to an empty nest.
 func _run_dragon_tour() -> void:
 	Game.clock_running = false
 	Game.minute_of_day = 11.0 * 60.0
 	await wait_for_sprites()
 	var st := Game.player_state
-	var cerr := CutsceneData.validate(CutsceneData.load_cutscene("cutscene.dragon_defeated"))
-	print("[dragon] victory cutscene data: %d issues %s" % [cerr.size(), cerr])
+	var derr := DialogueData.validate(DialogueData.load_dialogue(DragonBoss.PARLEY))
+	var cerr := CutsceneData.validate(CutsceneData.load_cutscene("cutscene.dragon_departs"))
+	print("[dragon] data: parley dialogue %d issues %s, departure cutscene %d issues %s" % [derr.size(), derr, cerr.size(), cerr])
 	Game.narrative.set_flag("story.new_game_seen")
 	Game.quests.accept("quest.main.dragon")
 	Game.narrative.set_flag("story.pass_reached")
@@ -2962,17 +3035,9 @@ func _run_dragon_tour() -> void:
 	for m in world.monsters:
 		if m is DragonBoss:
 			dr = m
-	print("[dragon] pit -> %s (%s) at (%.1f, %.1f); dragon %s, mode %s, HP %d, arena %s r%.0f" % [Game.region, world.world_title(),
-		world.player.global_position.x, world.player.global_position.z, dr != null, dr.mode if dr else "-", dr.max_hp if dr else 0,
-		dr.arena_center if dr else Vector3.ZERO, dr.arena_radius if dr else 0.0])
-	await _seconds(0.6)
+	print("[dragon] pit -> %s; dragon %s, mode %s" % [Game.region, dr != null, dr.mode if dr else "-"])
 	await _p1_shot("dragon_10_nest_entrance", "nest entrance + safe spot", true)
-	_place_player(Vector3(0, 0, 6), 0.0)
-	await _seconds(0.5)
-	_place_player(Vector3(0, 0, -6.2), 0.0)
-	await _seconds(0.8)
-	print("[dragon] lair flag %s, still asleep %s at %.1f m" % [Game.narrative.get_flag("story.nest_entered"), dr.mode, world.player.global_position.distance_to(dr.global_position)])
-	dr.set_physics_process(false)  # (shot only) hold it asleep while the camera gets close enough to see it
+	dr.set_physics_process(false)
 	_place_player(Vector3(-2.5, 0, -10.5), 0.0)
 	await _seconds(0.6)
 	await _p1_shot("dragon_11_sleeping", "dragon asleep on its hoard", true)
@@ -2981,135 +3046,80 @@ func _run_dragon_tour() -> void:
 	dr.set_physics_process(true)
 	await _walk_to(world.player, Vector2(0, -8.5))
 	world.player.scripted_move = Vector2.ZERO
-	await _frames(4)
-	print("[dragon] walked close -> mode %s, boss bar %s, caption '%s'" % [dr.mode, game_hud._boss_box.visible, game_hud._caption.text])
-	await _seconds(0.5)
-	await _p1_shot("dragon_12_wakes", "the dragon wakes", true)
-	await _seconds(1.6)
-	st.armor_class = 1  # every hit lands (except a natural 1)
-	var hold := func(pos: Vector3) -> void:
-		dr._cd = 99.0
-		_place_player(pos, 0.0)
-		st.hp = st.max_hp()
-	# --- bite: stay in the circle, then dodge one by stepping out
-	for dodge in [false, true]:
-		hold.call(dr.global_position + dr._forward() * 3.4)
-		await _frames(2)
-		dr._spot = dr.global_position + dr._forward() * DragonBoss.BITE_REACH
-		dr._set_mode("bite")
-		var hp0 := st.hp
-		await _seconds(0.4)
-		if not dodge:
-			await _p1_shot("dragon_13_bite_warning", "bite: red circle first", true)
-		else:
-			_place_player(dr.global_position + dr._forward() * 3.4 + dr._forward().cross(Vector3.UP) * 4.0, 0.0)
-		await _seconds(1.4)
-		print("[dragon] bite (%s): HP %d -> %d" % ["stepped out" if dodge else "stayed in", hp0, st.hp])
-	# --- tail sweep from behind: hit + shove
-	hold.call(dr.global_position - dr._forward() * 3.0)
+	for i in 60:
+		if game_hud.dialogue_active():
+			break
+		await _frames(5)
+	print("[dragon] walked close -> mode %s, dialogue open %s (it speaks first), boss bar %s" % [dr.mode, game_hud.dialogue_active(), game_hud._boss_box.visible])
+	await _seconds(0.4)
+	await _p1_shot("dragon_12_speaks", "the dragon wakes and speaks", true)
+	# 1) a rude answer: it gets angry
+	await _talk_through(["fight"], "[dragon] talk 1:")
+	await _frames(10)
+	print("[dragon] after 'I came for your head': mode %s, angry for %.0f s, caption '%s'" % [dr.mode, dr._angry_t, game_hud._caption.text])
+	st.armor_class = 1
+	dr._cd = 99.0
+	_place_player(dr.global_position + dr._forward() * 3.4, 0.0)
+	st.hp = st.max_hp()
 	await _frames(2)
-	var at0: Vector3 = world.player.global_position
-	var hp1 := st.hp
-	dr._set_mode("tail")
-	await _seconds(0.5)
-	await _p1_shot("dragon_14_tail_warning", "tail: red ring", true)
+	dr._spot = dr.global_position + dr._forward() * DragonBoss.BITE_REACH
+	dr._set_mode("bite")
+	await _seconds(0.4)
+	await _p1_shot("dragon_13_angry_bite", "angry: bite circle first", true)
 	await _seconds(1.4)
-	print("[dragon] tail: HP %d -> %d, shoved %.1f m" % [hp1, st.hp, world.player.global_position.distance_to(at0)])
-	# --- fire breath at mid range
-	hold.call(dr.global_position + dr._forward() * 8.0)
-	await _frames(2)
-	var hp2 := st.hp
-	dr._set_mode("breath")
-	dr._show_cone()
-	await _seconds(0.7)
-	await _p1_shot("dragon_15_fire_warning", "fire: red cone", true)
-	await _seconds(0.9)
-	await _p1_shot("dragon_16_fire", "fire breath", true)
-	await _seconds(1.6)
-	print("[dragon] fire: HP %d -> %d (ticks while standing in the cone)" % [hp2, st.hp])
-	dr._end_attack(1.0)
-	# --- the player's own sword reaches the big body
-	hold.call(dr.global_position + dr._forward() * 3.8)
+	dr._end_attack(99.0)
+	# 2) the sword can't hurt it
+	_place_player(dr.global_position + dr._forward() * 3.8, 0.0)
 	await _frames(3)
-	var dhp := dr.hp
+	var hp0 := dr.hp
 	var log0 := Game.combat_log.entries.size()
-	for i in 6:
+	for i in 4:
 		st.sp = st.max_sp()
 		world.player.start_attack(dr.global_position + Vector3(0, 1, 0))
 		await _seconds(0.7)
-	var swings := PackedStringArray()
+	var bounced := 0
 	for e: Dictionary in Game.combat_log.entries.slice(log0):
-		if str(e.get("short", "")).begins_with("주인공") or str(e.get("short", "")).begins_with("치명타! 주인공"):
-			swings.append(str(e["short"]))
-	print("[dragon] 6 sword swings (hit bonus %+d vs AC %d): dragon HP %d -> %d  %s" % [st.total_hit_bonus(), dr.profile["ac"], dhp, dr.hp, swings])
-	# --- back off to the safe spot: it goes home and lies down again (no healing)
+		if str(e.get("short", "")).contains("튕겨"):
+			bounced += 1
+	print("[dragon] 4 sword swings: dragon HP %d -> %d, bounced %d -> %s" % [hp0, dr.hp, bounced, "상처 없음 ✔" if dr.hp == hp0 and bounced > 0 else "✘"])
+	st.armor_class = 10
+	# 3) back off to the safe spot: it calms down and listens
 	_place_player(Vector3(0, 0, 19), PI)
-	var hp_before := dr.hp
-	await _seconds(7.0)
-	print("[dragon] player at the safe spot -> dragon %s, boss bar %s, HP kept %s" % [dr.mode, game_hud._boss_box.visible, dr.hp == hp_before])
-	# --- half HP: rage, then the dive
-	hold.call(dr.global_position + dr._forward() * 9.0)
-	dr.engage()
-	await _seconds(2.0)
-	var strong := {"name": "시험 일격", "hit_bonus": 99, "crit_chance": 0, "phys": "1d1", "str_mult": 1.0, "phys_bonus": 0, "ac": 0}
-	while dr.hp > dr.max_hp / 2:
-		strong["phys"] = "%dd1" % maxi(1, dr.hp - dr.max_hp / 2)
-		dr.receive_attack(strong, world.player)
-	dr._cd = 99.0
-	await _frames(4)
-	print("[dragon] HP %d/%d -> phase %d, mode %s, caption '%s'" % [dr.hp, dr.max_hp, dr.phase, dr.mode, game_hud._caption.text])
-	await _p1_shot("dragon_17_rage", "rage", true)
-	await _seconds(1.6)
-	hold.call(dr.global_position + dr._forward() * 9.0)
-	await _frames(2)
-	var hp3 := st.hp
-	dr._from = dr.global_position
-	dr._set_mode("dive")
-	for s2 in dr._shapes:
-		s2.disabled = true
-	await _seconds(1.5)
-	await _p1_shot("dragon_18_dive_warning", "dive: circle follows the player", true)
-	await _seconds(2.0)
-	await _p1_shot("dragon_19_dive_impact", "dive impact", true)
-	print("[dragon] dive: HP %d -> %d, dragon landed at (%.1f, %.1f) inside the lair %s" % [hp3, st.hp, dr.global_position.x, dr.global_position.z,
-		dr._in_arena(dr.global_position)])
-	await _seconds(0.6)
-	# --- the kill
-	st.hp = st.max_hp()
-	var exp0 := st.gen_exp
-	strong["phys"] = "999d1"
-	dr.receive_attack(strong, world.player)
-	await _seconds(1.5)
-	await _p1_shot("dragon_20_down", "the dragon falls", true)
-	var corpse := ""
-	for d: Dictionary in Game.field["loot"]:
-		if str(d["id"]).begins_with("corpse_dragon"):
-			var parts := PackedStringArray()
-			for it: Dictionary in (d["inv"] as Inventory).items:
-				parts.append("%s×%d" % [ItemDB.item_name(str(it["id"])), int(it["count"])])
-			corpse = "%s: %s" % [d["title"], ", ".join(parts)]
-	print("[dragon] dead: flag %s, EXP +%d, quest %s (%s), corpse '%s', once %s" % [Game.narrative.get_flag("story.dragon_defeated"),
-		st.gen_exp - exp0 if st.gen_exp >= exp0 else -1, Game.quests.state("quest.main.dragon"), " / ".join(Game.quests.objectives_text("quest.main.dragon")),
-		corpse, Game.field.get("defeated", {}).keys()])
 	for i in 40:
+		if dr.mode == "listen":
+			break
+		await _seconds(0.5)
+	print("[dragon] backed off -> mode %s, caption '%s'" % [dr.mode, game_hud._caption.text])
+	_place_player(dr.global_position + dr._forward() * 5.0, 0.0)
+	await _frames(6)
+	print("[dragon] near it: prompt '%s'" % (world.player.focus.prompt_text() if world.player.focus else ""))
+	await _p1_shot("dragon_14_listening", "calm again: E to talk", true)
+	# 4) talk it round
+	await _key(KEY_E)
+	await _frames(6)
+	var said := await _talk_through(["again", "fear", "sea"], "[dragon] talk 2:")
+	await _frames(10)
+	print("[dragon] persuaded: flag %s, mode %s, token %d, quest %s (%s)" % [Game.narrative.get_flag("story.dragon_left"), dr.mode if is_instance_valid(dr) else "gone",
+		st.inventory.count("dragon_token"), Game.quests.state("quest.main.dragon"), " / ".join(Game.quests.objectives_text("quest.main.dragon"))])
+	await _seconds(1.6)
+	await _p1_shot("dragon_15_takes_off", "it takes off", true)
+	for i in 60:
 		if game_hud.cutscene.playing:
 			break
 		await _frames(5)
-	print("[dragon] victory cutscene playing %s (%s)" % [game_hud.cutscene.playing, game_hud.cutscene.current])
-	await _seconds(2.0)
-	await _p1_shot("dragon_21_victory", "victory scene", true)
+	print("[dragon] departure cutscene %s (%s); dragon left the world %s, once-record %s" % [game_hud.cutscene.playing, game_hud.cutscene.current,
+		not is_instance_valid(dr), Game.field.get("defeated", {}).keys()])
+	await _seconds(1.2)
+	await _p1_shot("dragon_16_departs", "departure scene", true)
 	for i in 12:
 		if not game_hud.cutscene.playing:
 			break
 		await _key(KEY_E)
 		await _seconds(0.4)
-	print("[dragon] cutscene over %s" % (not game_hud.cutscene.playing))
-	st.armor_class = 10
-	# --- out and back in: no dragon, its remains where it fell
+	# 5) out and back in: an empty nest
 	_place_player(Vector3(0, 0, 25.6), PI)
 	await _seconds(1.5)
 	await _wait_travel()
-	print("[dragon] left -> %s" % Game.region)
 	_place_player(Vector3(0, 0, -97.6), 0.0)
 	await _frames(6)
 	await _key(KEY_E)
@@ -3119,104 +3129,142 @@ func _run_dragon_tour() -> void:
 	for m in world.monsters:
 		if m is DragonBoss:
 			again += 1
-	print("[dragon] back in the nest: dragons %d, remains %s" % [again, Game.field.get("remains", {})])
+	print("[dragon] back in the nest: dragons %d -> %s" % [again, "빈 둥지 ✔" if again == 0 else "✘"])
 	_place_player(Vector3(0, 0, -6), 0.0)
 	await _seconds(0.8)
-	await _p1_shot("dragon_22_remains", "remains in the lair", true)
+	await _p1_shot("dragon_17_empty_nest", "the empty nest", true)
 	get_tree().quit()
 
 
-## Reporting the dragon to the king: dragon quest done (stage B, no camper yet) → throne room →
-## "think about it" first (nothing changes) → the camper wish → wish cutscene → quest complete →
-## camper parked in front of the castle (stage C) → out of the castle to the camper, into the
-## driver's seat → talking to the king once more.
+## The end of chapter 1 (user story): reporting the dragon to the king → "think about it" first →
+## the camper wish → the plaza ceremony (cutscene: the camper falls out of the sky onto the king) →
+## wanted, guards chase the camper → stopping lets them catch up (back to the plaza) → out through
+## the south gate = the escape scene → meadow; the capital is closed for good.
 func _run_wish_tour() -> void:
 	Game.clock_running = false
 	Game.minute_of_day = 11.0 * 60.0
 	await wait_for_sprites()
 	var derr := DialogueData.validate(DialogueData.load_dialogue("dialogue.story.king_audience"))
 	var cerr := CutsceneData.validate(CutsceneData.load_cutscene("cutscene.camper_wish"))
-	print("[wish] data check: king dialogue %d issues %s, wish cutscene %d issues %s" % [derr.size(), derr, cerr.size(), cerr])
+	var eerr := CutsceneData.validate(CutsceneData.load_cutscene("cutscene.escape"))
+	print("[wish] data: king dialogue %d %s, wish cutscene %d %s, escape cutscene %d %s" % [derr.size(), derr, cerr.size(), cerr, eerr.size(), eerr])
 	Game.narrative.set_flag("story.new_game_seen")
 	Game.set_story_stage(1)  # with the cat, no camper yet
 	Game.quests.accept("quest.main.audience")
 	Game.quests.advance("quest.main.audience", "audience")
 	Game.quests.complete("quest.main.audience")
 	Game.quests.accept("quest.main.dragon")
-	for f in ["story.pass_reached", "story.nest_found", "story.dragon_defeated"]:
+	for f in ["story.pass_reached", "story.nest_found", "story.dragon_left"]:
 		Game.narrative.set_flag(f)
-	Game.quests.advance("quest.main.dragon", "dragon")
-	print("[wish] before: stage %s, camper %s, dragon quest %s" % ["ABC"[Game.story_stage()], Game.has_camper, Game.quests.state("quest.main.dragon")])
+	Game.discovered["city:capital"] = true
+	print("[wish] before: camper %s, dragon quest %s" % [Game.has_camper, Game.quests.state("quest.main.dragon")])
 	travel("throne_room", "entrance", false)
 	await _wait_travel()
-	var talk := func(pick: String, shots: Dictionary) -> PackedStringArray:
-		_place_player(Vector3(0, 0, -5.2), 0.0)
-		await _frames(6)
-		await _key(KEY_E)
-		await _frames(4)
-		var said := PackedStringArray()
-		var shot_cut := false
-		for i in 60:
-			if not game_hud.dialogue_active() and not game_hud.cutscene.playing:
-				break
-			if game_hud.cutscene.playing:
-				await _seconds(0.5)
-				if not shot_cut and shots.has("cutscene"):
-					shot_cut = true
-					await _seconds(2.0)  # past the fade: the illustration card + narration
-					await _p1_shot(shots["cutscene"], "wish cutscene", true)
-				if game_hud.cutscene.playing:  # (it may have just ended: then E belongs to the next line)
-					var tag := "[컷씬 %s]" % game_hud.cutscene.current
-					said.append(tag if not said.has(tag) else "")
-					await _key(KEY_E)
-				continue
-			var ev: Dictionary = game_hud.dialogue.event
-			await _seconds(0.2)
-			if shots.has(ev.get("node", "")):
-				await _p1_shot(shots[ev["node"]], ev["node"], true)
-			match ev.get("type", ""):
-				"line":
-					said.append("%s: %s" % [ev["name"], str(ev["text"]).split("\n")[0].substr(0, 34)])
-					await _key(KEY_E)
-				"choice":
-					said.append("[선택 %s]" % pick)
-					game_hud.dialogue.choose(pick)
-					await _frames(3)
-				_:
-					await _frames(3)
-		var out := PackedStringArray()
-		for t in said:
-			if t != "":
-				out.append(t)
-		return out
-	var s1: PackedStringArray = await talk.call("later", {"wish": "wish_01_report_choice"})
-	print("[wish] talk 1:   %s" % " | ".join(s1))
-	print("[wish] after 'later': quest %s, camper %s" % [Game.quests.state("quest.main.dragon"), Game.has_camper])
-	await _seconds(0.6)
-	var exp0 := Game.player_state.gen_exp
-	var s2: PackedStringArray = await talk.call("camper", {"r4": "wish_02_camper", "cutscene": "wish_03_cutscene", "r8": "wish_04_got_it"})
-	print("[wish] talk 2:   %s" % " | ".join(s2))
-	print("[wish] after the wish: quest %s, EXP +%d, stage %s, camper %s at %s %s, flag %s, event %s" % [Game.quests.state("quest.main.dragon"),
-		Game.player_state.gen_exp - exp0, "ABC"[Game.story_stage()], Game.has_camper, Game.camper.get("region", ""), Game.camper.get("pos", ""),
-		Game.narrative.get_flag("story.camper_received"), Game.narrative.event_done("story.camper_wish")])
-	await _seconds(0.6)
-	var s3: PackedStringArray = await talk.call("", {})
-	print("[wish] talk 3:   %s" % " | ".join(s3))
-	# out of the castle: the camper waits in front of it
-	_place_player(Vector3(0, 0, 8.6), PI)
-	await _seconds(1.2)
-	await _wait_travel()
-	await _seconds(0.8)
-	print("[wish] castle -> %s at (%.1f, %.1f): camper here %s, visible %s at (%.1f, %.1f), cat %s" % [Game.region, world.player.global_position.x,
-		world.player.global_position.z, world.camper_here(), world.vehicle.visible, world.vehicle.global_position.x, world.vehicle.global_position.z,
-		world.cat != null])
-	_place_player(Vector3(-4.0, 0, -16.0), PI)
-	await _seconds(1.0)
-	await _p1_shot("wish_05_camper_at_castle", "the camper on the plaza in front of the castle", true)
-	world.enter_vehicle()
+	_place_player(Vector3(0, 0, -5.2), 0.0)
+	await _frames(6)
+	await _key(KEY_E)
 	await _frames(4)
-	print("[wish] driver's seat: driving %s, power %.2f, %s" % [world.vehicle.driving, world.vehicle.power, Game.camper_status_text()])
+	await _talk_through(["later"], "[wish] talk 1:")
+	print("[wish] after 'later': quest %s, camper %s, region %s" % [Game.quests.state("quest.main.dragon"), Game.has_camper, Game.region])
+	await _seconds(0.6)
+	_place_player(Vector3(0, 0, -5.2), 0.0)
+	await _frames(6)
+	await _key(KEY_E)
+	await _frames(4)
+	var exp0 := Game.player_state.gen_exp
+	await _talk_through(["camper"], "[wish] talk 2:")
+	for i in 120:
+		if game_hud.cutscene.playing:
+			break
+		await _frames(5)
+	print("[wish] ceremony: region %s, cutscene %s, npcs %s, camper hidden %s" % [Game.region, game_hud.cutscene.current,
+		world.npcs.map(func(n: Npc) -> String: return n.look), not world.vehicle.visible])
+	# walk the cutscene, shooting the ceremony, the drop and the aftermath
+	var shots := {2: "wish_01_ceremony", 7: "wish_02_falling", 8: "wish_03_crushed", 12: "wish_04_guards"}
+	var shot_done := {}
+	for i in 200:
+		if not game_hud.cutscene.playing:
+			break
+		var si: int = game_hud.cutscene.step_index
+		if shots.has(si) and not shot_done.has(si):
+			shot_done[si] = true
+			if si == 7:
+				await _seconds(0.25)  # mid-fall
+			else:
+				await _seconds(0.3)
+			await _p1_shot(shots[si], "ceremony step %d" % si, true)
+		if si in [2, 3, 4, 9, 10, 12, 13, 14]:
+			await _key(KEY_E)
+		else:
+			await _frames(4)
+	await _frames(10)
+	print("[wish] after the drop: king gone %s, flags dead %s wanted %s, dragon quest %s, EXP +%d, escape quest %s, camper %s at %s, driving %s, guards %d" % [
+		not world.npcs.any(func(n: Npc) -> bool: return n.look == "king"), Game.narrative.get_flag("story.king_dead"), Game.narrative.get_flag("story.wanted"),
+		Game.quests.state("quest.main.dragon"), Game.player_state.gen_exp - exp0, Game.quests.state("quest.main.escape"), Game.has_camper,
+		Game.camper.get("pos", ""), world.vehicle.driving, world.escape.guards.size() if world.escape else 0])
+	await _seconds(1.0)
+	await _p1_shot("wish_05_escape_start", "wanted: guards closing in", true)
+	# stand still: the guards catch up -> back to the plaza
+	var caught0: int = world.escape.caught_count
+	for i in 40:
+		if world.escape.caught_count > caught0:
+			break
+		await _seconds(0.5)
+	await _seconds(1.6)
+	print("[wish] standing still: caught %d -> %d (back at the plaza, driving %s)" % [caught0, world.escape.caught_count, world.vehicle.driving])
+	# drive out: steer along the street to the south gate (tour helper drives straight lines)
+	var ok := await _drive_to_gate()
+	print("[wish] drove to the south gate: reached %s" % ok)
+	for i in 120:
+		if game_hud.cutscene.playing:
+			break
+		await _frames(5)
+	await _seconds(3.0)  # past the fade: the first narration on black
+	await _p1_shot("wish_06_escape_scene", "escape cutscene", true)
+	for i in 30:
+		if not game_hud.cutscene.playing:
+			break
+		await _key(KEY_E)
+		await _seconds(0.3)
+	await _wait_travel()
+	await _seconds(1.0)
+	print("[wish] after the gate: region %s, escaped %s, chapter1 %s, escape quest %s, camper in %s, driving %s" % [Game.region,
+		Game.narrative.get_flag("story.escaped"), Game.narrative.get_flag("story.chapter1_done"), Game.quests.state("quest.main.escape"),
+		Game.camper.get("region", ""), world.vehicle.driving])
+	await _p1_shot("wish_07_meadow_after", "out in the meadow", true)
+	# the capital is closed for good
+	var fq := fast_travel_quote("capital")
+	print("[wish] locked: region_locked '%s', fast travel '%s'" % [Game.region_locked("capital"), fq.get("why", "")])
+	world.exit_vehicle()
+	await _frames(3)
+	_place_player(Vector3(-20, 0, -82), PI)
+	await _frames(8)
+	print("[wish] at the north road: hint '%s'" % world.context_hint())
+	_place_player(Vector3(-20, 0, -86), PI)
+	await _seconds(1.5)
+	print("[wish] walked into the road to the capital -> still in %s %s" % [Game.region, "✔" if Game.region == "meadow" else "✘"])
 	get_tree().quit()
+
+
+## Tour helper: drives the camper from the plaza down the main street to the south gate.
+func _drive_to_gate() -> bool:
+	var v: CamperVehicle = world.vehicle
+	var route := [Vector2(-3.0, -6.5), Vector2(0.0, 0.0), Vector2(0.0, 30.0), Vector2(0.0, 58.0)]
+	for wp: Vector2 in route:
+		var t := 0.0
+		while t < 14.0:
+			if not (world is VisualLab) or Game.region != "capital" or _busy:
+				return true
+			var to := Vector2(wp.x - v.global_position.x, wp.y - v.global_position.z)
+			if to.length() < 2.5:
+				break
+			var fwd := Vector2(v.forward().x, v.forward().z)
+			var turn := fwd.angle_to(to.normalized())
+			v.scripted = {"throttle": 1.0, "steer": clampf(-turn * 2.5, -1.0, 1.0)}
+			await get_tree().physics_frame
+			t += get_physics_process_delta_time()
+	v.scripted = {}
+	return Game.region != "capital" or _busy
 
 
 ## Camper upgrades (GDD 9): the three capital vendors and their panels, buying in order (and what

@@ -1,0 +1,34 @@
+{
+  "version": 1,
+  "cutscene_id": "cutscene.dragon_departs",
+  "title": "(임시 문안) 드래곤이 둥지를 떠나다",
+  "notes": "드래곤을 대화로 설득하면(dialogue.story.dragon_parley → story.dragon_left) 드래곤이 날아오른 뒤 재생. 드래곤은 다른 대륙에서 다시 만나는 존재.",
+  "skippable": true,
+  "steps": [
+    {
+      "type": "letterbox",
+      "on": true
+    },
+    {
+      "type": "caption",
+      "text": "거대한 날개가 동굴 천장의 틈을 박차고… 붉은 그림자가 바다 쪽 하늘로 멀어져 간다.",
+      "seconds": 3.0
+    },
+    {
+      "type": "line",
+      "speaker_id": "player",
+      "expression": "surprised",
+      "text": "정말로… 가 버렸다. 싸우지도 않고. (임시 대사)"
+    },
+    {
+      "type": "line",
+      "speaker_id": "player",
+      "expression": "thinking",
+      "text": "다른 땅에서 다시 보자, 라… 일단 왕에게 알리러 가자. (임시 대사)"
+    },
+    {
+      "type": "letterbox",
+      "on": false
+    }
+  ]
+}

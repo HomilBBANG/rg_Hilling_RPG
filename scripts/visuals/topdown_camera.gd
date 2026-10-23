@@ -44,6 +44,8 @@ var outline_enabled := true
 var _focus := Vector3.ZERO
 var _has_focus := false
 var _outline_quad: MeshInstance3D
+var _shake_t := 0.0
+var _shake_texels := 0.0
 
 
 func _ready() -> void:
@@ -142,6 +144,12 @@ func snap_to_target() -> void:
 	_has_focus = false
 
 
+## Shakes the view by whole texels for a moment (the camper landing in the wish ceremony).
+func shake(seconds: float, texels := 3.0) -> void:
+	_shake_t = seconds
+	_shake_texels = texels
+
+
 func _texel_height() -> int:
 	return render.render_texel_height() if render else 1080
 
@@ -193,6 +201,11 @@ func _process(delta: float) -> void:
 		var sy := roundf(local.y / texel) * texel
 		offset = Vector2(local.x - sx, local.y - sy) / texel
 		desired = b * Vector3(sx, sy, local.z)
+	if _shake_t > 0.0:
+		_shake_t -= delta
+		var tx := view_height() / float(_texel_height())
+		var amp := roundf(_shake_texels * clampf(_shake_t * 2.0, 0.0, 1.0))
+		desired += b * Vector3(randf_range(-amp, amp) * tx, randf_range(-amp, amp) * tx, 0.0)
 	global_transform = Transform3D(b, desired)
 	if render:
 		render.set_subtexel_offset(offset)

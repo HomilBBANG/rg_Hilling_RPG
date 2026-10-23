@@ -632,7 +632,13 @@ func _spawn_actors() -> void:
 	_spawn_cat(ov.get("kind", "") == "checkpoint" and Game.cat_joined)
 	if has_feature("trade_post"):
 		_spawn_npcs()
-	_spawn_region_npcs()
+	if ov.get("kind", "") == "ceremony":
+		_set_up_ceremony(ov)
+	else:
+		_spawn_region_npcs()
+		if region_id == "capital" and Game.narrative.get_flag("story.wanted") and not Game.narrative.get_flag("story.escaped") \
+				and camper_here():
+			start_escape.call_deferred()  # loaded in the middle of the escape: run it again from the plaza
 
 	camera = TopdownCamera.new()
 	camera.name = "Camera"
@@ -995,6 +1001,117 @@ func _spawn_region_npcs() -> void:
 			continue
 		var ip := InteractPoint.make(self, talk_at, "E 대화 — %s" % DialogueData.speaker_name(sp), Callable(), 1.8)
 		ip.action = func(_pl: Node) -> void: Game.hud.start_dialogue(DialogueData.talk_dialogue(sp))
+
+
+# ---------------------------------------------------------------- chapter 1 ending: wish ceremony + escape
+
+var escape: EscapeSequence
+
+
+## A story NPC that just stands there (wish ceremony cast, escape guards); not a shop, no dialogue.
+func spawn_story_npc(look: String, pos: Vector3, yaw: float) -> Npc:
+	var n := Npc.new()
+	n.name = "Story_" + look
+	n.look = look
+	n.shop_id = ""
+	n.counter_pos = Vector3(pos.x, ground_height(pos.x, pos.z), pos.z)
+	n.counter_yaw = yaw
+	n.door_pos = n.counter_pos
+	n.height_func = Callable(self, "ground_height")
+	n.player = player
+	add_child(n)
+	npcs.append(n)
+	Game.sprites_dirty = true
+	return n
+
+
+## The plaza set for the wish (data/story.json "wish_ceremony"): king, court wizard, guards; the
+## camper already belongs to the hero but stays hidden in the sky until cutscene step camper_drop.
+func _set_up_ceremony(ov: Dictionary) -> void:
+	for a: Dictionary in ov.get("actors", []):
+		spawn_story_npc(str(a["look"]), RegionDB.v3(a["pos"]), float(a.get("yaw", 0.0)))
+	if vehicle:
+		vehicle.visible = false
+		vehicle.collision_layer = 0
+
+
+## Cutscene step camper_drop: the wished-for camper falls out of the sky onto `at` (crushing
+## whoever stands there), with dust, a rolling crown and a shaking view.
+func drop_camper(at: Vector3, seconds: float, crushed: Node3D = null) -> void:
+	var ground := ground_height(at.x, at.z)
+	var w: Dictionary = CutsceneData.story().get("camper_wish", {})
+	vehicle.process_mode = Node.PROCESS_MODE_INHERIT
+	vehicle.rotation.y = float(w.get("yaw", -PI * 0.5))
+	vehicle.call("_sync_visual")
+	vehicle.global_position = Vector3(at.x, ground + (26.0 if seconds > 0.0 else 0.0), at.z)
+	vehicle.visible = true
+	var t := 0.0
+	while t < seconds:
+		await get_tree().process_frame
+		t += get_process_delta_time()
+		var k := clampf(t / seconds, 0.0, 1.0)
+		vehicle.global_position.y = ground + 26.0 * (1.0 - k * k)
+	vehicle.global_position = Vector3(at.x, ground, at.z)
+	vehicle.collision_layer = 1
+	if crushed and is_instance_valid(crushed):
+		crushed.visible = false
+		if crushed is Npc:
+			npcs.erase(crushed)
+			crushed.queue_free()
+	camera.shake(0.7, 3.0)
+	var dust := CPUParticles3D.new()
+	dust.one_shot = true
+	dust.amount = 46
+	dust.lifetime = 1.4
+	dust.explosiveness = 1.0
+	dust.direction = Vector3(0, 0.25, 0)
+	dust.spread = 180.0
+	dust.flatness = 0.7
+	dust.initial_velocity_min = 3.0
+	dust.initial_velocity_max = 6.5
+	dust.damping_min = 3.0
+	dust.damping_max = 5.0
+	dust.gravity = Vector3(0, 0.6, 0)
+	dust.scale_amount_min = 1.0
+	dust.scale_amount_max = 2.2
+	var puff := SphereMesh.new()
+	puff.radius = 0.28
+	puff.height = 0.56
+	puff.radial_segments = 6
+	puff.rings = 3
+	puff.material = ProtoMesh.mat(Color(0.82, 0.76, 0.66))
+	dust.mesh = puff
+	dust.position = Vector3(at.x, ground + 0.3, at.z)
+	add_child(dust)
+	dust.emitting = true
+	get_tree().create_timer(2.0).timeout.connect(dust.queue_free)
+	# the crown rolls out from under the camper
+	var crown := Node3D.new()
+	var gold := ProtoMesh.mat(Color(0.95, 0.76, 0.26), 0.4)
+	ProtoMesh.cylinder(crown, 0.2, 0.1, Vector3(0, 0.05, 0), gold, Vector3.ZERO, 10)
+	for i in 5:
+		var a := TAU * i / 5.0
+		ProtoMesh.cylinder(crown, 0.045, 0.1, Vector3(sin(a) * 0.17, 0.14, cos(a) * 0.17), gold, Vector3.ZERO, 4, 0.0)
+	add_child(crown)
+	var from := Vector3(at.x + 1.0, ground, at.z + 2.6)
+	var to := Vector3(at.x + 2.4, ground_height(at.x + 2.4, at.z + 4.4), at.z + 4.4)
+	crown.global_position = from
+	crown.rotation.z = PI * 0.5
+	var tw := create_tween().set_parallel()
+	tw.tween_property(crown, "global_position", to, 0.9).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	tw.tween_property(crown, "rotation:y", TAU * 1.5, 0.9)
+	tw.chain().tween_property(crown, "rotation:z", 0.0, 0.25)
+
+
+## The chase to the south gate (EscapeSequence). Once per world.
+func start_escape() -> void:
+	if escape or not camper_here():
+		return
+	escape = EscapeSequence.new()
+	escape.name = "Escape"
+	escape.world = self
+	add_child(escape)
+	escape.begin()
 
 
 ## Highland cave mouth: two big rocks around a dark opening, a lantern-less warning sign.
@@ -1860,6 +1977,8 @@ func context_hint() -> String:
 			return "%s → %s" % [ex.get("name", "출구"), RegionDB.region_name(ex["to_region"])]
 		if ex.get("style", "") == "cave":
 			return "%s — 들어가면 → %s (위험도 %s, 캠핑카로는 못 들어감)" % [ex.get("name", "동굴"), RegionDB.region_name(ex["to_region"]), RegionDB.danger_text(ex["to_region"])]
+		if Game.region_locked(str(ex["to_region"])) != "":
+			return "%s 쪽 길 — %s" % [RegionDB.region_name(ex["to_region"]), Game.region_locked(str(ex["to_region"]))]
 		return "이 길을 따라가면 → %s (위험도 %s)" % [RegionDB.region_name(ex["to_region"]), RegionDB.danger_text(ex["to_region"])]
 	if player_near_camper():
 		return "캠핑카 근처 — F: 외부 라이트"

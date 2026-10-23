@@ -5,12 +5,75 @@
     "cutscene.opening"
   ],
   "camper_wish": {
-    "_comment": "왕의 소원으로 받은 캠핑카가 처음 세워지는 자리 (dialogue action receive_camper)",
+    "_comment": "왕의 소원으로 받은 캠핑카가 떨어지는 자리 = 소원 의식 때 왕이 서 있는 자리 (성 앞 광장 분수 옆). yaw -1.5708 = 앞머리가 남쪽(남문 쪽).",
     "region": "capital",
     "pos": [
       -6.3,
       -12.0
     ],
-    "yaw": 0.0
+    "yaw": -1.5708
+  },
+  "wish_ceremony": {
+    "_comment": "챕터 1 끝(사용자 이야기): 소원 의식 — 왕의 알현 대화 액션 wish_ceremony로 시작. 성 앞 광장에 왕·궁정 마법사·경비병을 세우고 cutscene.camper_wish 재생(캠핑카가 왕 위로 떨어짐) → 수배 → 탈출(경비병이 쫓아옴, 남문 = 탈출 성공 → cutscene.escape). 자리는 [x, z] (왕도 지역 좌표).",
+    "player": {
+      "pos": [
+        -6.3,
+        -6.4
+      ],
+      "yaw": 0.0
+    },
+    "actors": [
+      {
+        "look": "king",
+        "pos": [
+          -6.3,
+          -12.0
+        ],
+        "yaw": 3.1416
+      },
+      {
+        "look": "mage",
+        "pos": [
+          -10.0,
+          -8.6
+        ],
+        "yaw": 2.2
+      },
+      {
+        "look": "guard",
+        "pos": [
+          -2.6,
+          -14.6
+        ],
+        "yaw": 3.1416
+      },
+      {
+        "look": "guard",
+        "pos": [
+          -10.0,
+          -14.6
+        ],
+        "yaw": 3.1416
+      }
+    ],
+    "escape_guards": [
+      [
+        7.0,
+        2.0
+      ],
+      [
+        -6.0,
+        14.0
+      ],
+      [
+        5.0,
+        24.0
+      ],
+      [
+        -4.0,
+        32.0
+      ]
+    ],
+    "gate": "south_road"
   }
 }

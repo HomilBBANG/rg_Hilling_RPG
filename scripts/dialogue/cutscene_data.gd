@@ -57,12 +57,17 @@ const STEPS := {
 		{"name": "action", "type": "enum", "label": "할 일", "default": "accept",
 			"options": [["accept", "퀘스트 시작 (수락)"], ["complete", "퀘스트 완료 (보상)"]]},
 		{"name": "quest_id", "type": "quest", "label": "퀘스트", "default": ""}]},
+	"camper_drop": {"label": "캠핑카가 하늘에서 떨어짐", "fields": [
+		{"name": "target", "type": "actor", "label": "어디에 (그 인물 위 — 깔림)", "default": "king"},
+		{"name": "seconds", "type": "float", "label": "떨어지는 시간 (초)", "default": 1.0}]},
+	"actor_hide": {"label": "인물 숨기기", "fields": [
+		{"name": "actor", "type": "actor", "label": "누구를", "default": "king"}]},
 	"set_flag": {"label": "플래그 설정", "fields": [
 		{"name": "key", "type": "line", "label": "플래그 키", "default": ""},
 		{"name": "value", "type": "bool", "label": "값 (켜기)", "default": true}]},
 }
-const ORDER := ["fade", "image", "narration", "line", "caption", "wait", "letterbox", "actor_move", "actor_face", "quest", "set_flag"]
-const ACTOR_NAMES := {"player": "주인공", "cat": "검은 고양이", "rosa": "로사", "bron": "브론"}
+const ORDER := ["fade", "image", "narration", "line", "caption", "wait", "letterbox", "actor_move", "actor_face", "quest", "set_flag", "camper_drop", "actor_hide"]
+const ACTOR_NAMES := {"player": "주인공", "cat": "검은 고양이", "rosa": "로사", "bron": "브론", "king": "왕", "mage": "궁정 마법사 엘라", "guard": "경비병"}
 
 
 static func path_for(cutscene_id: String) -> String:
@@ -203,6 +208,10 @@ static func step_text(s: Dictionary) -> String:
 			return "퀘스트 %s: %s" % ["시작" if s.get("action", "accept") == "accept" else "완료", QuestDB.info(str(s.get("quest_id", ""))).get("title", s.get("quest_id", ""))]
 		"set_flag":
 			return "플래그 %s = %s" % [s.get("key", ""), bool(s.get("value", true))]
+		"camper_drop":
+			return "캠핑카 추락 → %s 위 (%.1f초)" % [actor_name(str(s.get("target", "king"))), float(s.get("seconds", 1.0))]
+		"actor_hide":
+			return "%s 숨기기" % actor_name(str(s.get("actor", "?")))
 	return "알 수 없는 단계 '%s'" % t
 
 
@@ -248,6 +257,10 @@ static func validate(doc: Dictionary) -> Array[Dictionary]:
 			var target: Variant = s.get("to", "player") if t == "actor_move" else s.get("target", "player")
 			if target is String and not target in actors:
 				add.call("error", i, "알 수 없는 대상 '%s'" % target)
+		if t in ["camper_drop", "actor_hide"]:
+			var who := str(s.get("target", "king") if t == "camper_drop" else s.get("actor", ""))
+			if not who in actors:
+				add.call("error", i, "알 수 없는 인물 '%s'" % who)
 		if t == "quest" and QuestDB.info(str(s.get("quest_id", ""))).is_empty():
 			add.call("error", i, "존재하지 않는 퀘스트 '%s' (data/quests)" % s.get("quest_id", ""))
 		if t == "set_flag" and str(s.get("key", "")).strip_edges() == "":

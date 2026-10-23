@@ -1,16 +1,18 @@
 class_name DragonBoss
 extends SlimeMonster
-## The dragon of the nest — the main quest's boss (GDD 2.1; 7.1 boss = several attack patterns and
-## special moves). Sleeps on its hoard until the player comes close or hits it, then fights in its
-## lair with four patterns:
+## The dragon of the nest — the main quest's goal. User design: it **can't be beaten in a fight**;
+## the way through is talking it into leaving the nest (it returns on another continent later).
+## Sleeps on its hoard; coming close wakes it and it speaks first (dialogue.story.dragon_parley).
+## Answer well and it flies off for good; anger it (wrong answers, or hitting it) and it fights
+## for a while — blades bounce off its scales — then calms down and listens again (E to talk).
+## While angry it uses these patterns:
 ##   물기   front, close: a red circle in front of the head, then the bite
 ##   꼬리   all around, close: a red ring, then a full spin that shoves the player away
 ##   화염   front, mid range: a red cone, then 1.6 s of fire that keeps burning whoever stands in it
 ##   덮치기 from half HP: takes off, a red circle follows the player, then it dives onto that spot
 ## Every attack shows its area on the ground first; walking out of it is the dodge (no timing
-## input, GDD 6.1). Hits still go through the TRPG roll (6.2). It never leaves the lair (boss chase
-## rule, 7.3) and does not heal when the player backs off. All numbers are [미정] prototype values
-## (data/monsters.json "dragon").
+## input, GDD 6.1). Its hits still go through the TRPG roll (6.2). It never leaves the lair (boss
+## chase rule, 7.3). All numbers are [미정] prototype values (data/monsters.json "dragon").
 
 const WAKE_RADIUS := 10.0
 const FRONT_DEG := 55.0
@@ -18,6 +20,9 @@ const ATTACK_NAMES := {"bite": "물기", "tail": "꼬리 휘두르기", "fire": 
 const FIRE_RANGE := 11.0
 const FIRE_HALF_DEG := 28.0
 const DIVE_RADIUS := 4.0
+const PARLEY := "dialogue.story.dragon_parley"
+const ANGER_SECONDS := 22.0  ## how long an angry dragon fights before it calms down
+const LEAVE_SECONDS := 4.5
 const TAIL_RADIUS := 5.6
 const BITE_RADIUS := 2.3
 const BITE_REACH := 3.8
@@ -27,8 +32,11 @@ var arena_center := Vector3.ZERO
 var arena_radius := 16.0
 var attacks := {}
 var phase := 1
-## sleep, wake, fight, bite, tail, breath, dive, rage, return, dead
+## sleep, wake, talk, listen, fight, bite, tail, breath, dive, rage, return, leave, dead
 var mode := "sleep"
+var interact_range := 6.5  ## E = talk while it listens (InteractPoint duck type)
+var _angry_t := 0.0
+var _hint_shown := false
 var _t := 0.0
 var _cd := 2.0
 var _breath_cd := 3.0
@@ -43,7 +51,6 @@ var _decal_mat: StandardMaterial3D
 var _fire: CPUParticles3D
 var _fire_light: OmniLight3D
 var _shapes: Array[CollisionShape3D] = []
-var _victory_t := -1.0
 
 
 func _ready() -> void:
@@ -90,6 +97,19 @@ func _ready() -> void:
 	rotation.y = _yaw
 	_build_effects()
 	add_to_group("enemies")
+	add_to_group("interactable")
+
+
+func prompt_text() -> String:
+	return "E 드래곤에게 말 걸기"
+
+
+func can_interact() -> bool:
+	return mode == "listen"
+
+
+func interact(_p: Node) -> void:
+	_start_talk()
 
 
 ## No baked sprite: the dragon stays a 3D model (much bigger than the sprite cell).
@@ -274,22 +294,69 @@ func _hit(key: String, shove_from := Vector3.INF, shove := 0.0) -> void:
 # ---------------------------------------------------------------- AI
 
 func engage() -> void:
-	if mode in ["sleep", "return"] and _player_valid():
+	if mode == "sleep" and _player_valid():
 		_set_mode("wake")
 		state = State.CHASE
 		if Game.hud:
-			Game.hud.show_boss(self)
 			Game.hud.show_caption("%s 깨어났다!" % _subj())
-		Game.combat_log.add("%s 깨어났다" % _subj(), "보스 — 공격 전에 바닥에 붉은 범위가 보인다. 범위 밖으로 피하자.", "info")
+		Game.combat_log.add("%s 깨어났다" % _subj(), "거대한 눈이 주인공을 내려다본다 — 싸워서는 이길 수 없는 상대다.", "info")
+
+
+## The dragon speaks (dialogue.story.dragon_parley); what it decides comes back as flags.
+func _start_talk() -> void:
+	_decal.visible = false
+	_fire.emitting = false
+	rig.lift = 0.0
+	Game.narrative.set_flag("story.dragon_angry", false)
+	if Game.hud:
+		Game.hud.show_caption("")
+	_set_mode("talk")
+	state = State.WANDER
+	if not (Game.hud and Game.hud.start_dialogue(PARLEY)):
+		_set_mode("listen")
+
+
+## Angry: fights for a while (it can't be hurt), then calms down and listens again.
+func _anger() -> void:
+	Game.narrative.set_flag("story.dragon_angry", false)
+	_angry_t = ANGER_SECONDS
+	_cd = 1.2
+	state = State.CHASE
+	_set_mode("fight")
+	if Game.hud:
+		Game.hud.show_caption("%s 화났다! — 싸워서는 이길 수 없다. 공격을 피하며 진정되기를 기다리자" % _subj())
+	Game.combat_log.add("%s 화났다" % _subj(), "칼은 비늘에 튕겨 나간다. 붉은 범위를 피하며 물러나 있으면 진정하고 다시 이야기를 들어 준다.", "info")
+
+
+## Persuaded: rears up, spreads its wings and flies out of the nest for good.
+func _start_leave() -> void:
+	_set_mode("leave")
+	state = State.WANDER
+	if Game.hud:
+		Game.hud.show_caption("")
+	for sh in _shapes:
+		sh.set_deferred("disabled", true)
+	Game.combat_log.add("%s 둥지를 떠난다" % _subj(), "대화로 설득했다 — 드래곤은 바다 건너 다른 땅으로 날아갔다.", "info")
+
+
+func _finish_leave() -> void:
+	mode = "dead"
+	state = State.DEAD
+	visible = false
+	remove_from_group("enemies")
+	remove_from_group("interactable")
+	var dfd: Dictionary = Game.field.get("defeated", {})
+	dfd[monster_id] = Game.total_minutes()  # gone for good: never respawns (GDD 7.4 once-only)
+	Game.field["defeated"] = dfd
+	if world and "monsters" in world:
+		world.monsters.erase(self)
+	if Game.hud and Game.hud.cutscene:
+		Game.hud.cutscene.play("cutscene.dragon_departs")
+	queue_free()
 
 
 func _physics_process(delta: float) -> void:
 	if mode == "dead":
-		if _victory_t >= 0.0:
-			_victory_t += delta
-			if _victory_t > 2.8:
-				_victory_t = -1.0
-				_victory()
 		return
 	_t += delta
 	_cd = maxf(0.0, _cd - delta)
@@ -306,9 +373,29 @@ func _physics_process(delta: float) -> void:
 		"wake":
 			_turn_to(to_p, delta, 1.2)
 			if _t > 1.8:
-				if Game.hud:
-					Game.hud.show_caption("")
-				_set_mode("fight")
+				_start_talk()
+		"talk":
+			_turn_to(to_p, delta, 1.5)
+			if _t > 0.3 and not (Game.hud and Game.hud.dialogue_active()):
+				if Game.narrative.get_flag("story.dragon_left"):
+					_start_leave()
+				elif Game.narrative.get_flag("story.dragon_angry"):
+					_anger()
+				else:
+					_set_mode("listen")
+		"listen":
+			if dist < arena_radius:
+				_turn_to(to_p, delta, 1.0)
+		"leave":
+			var tl := _t
+			if tl > 1.0:
+				var k := clampf((tl - 1.0) / (LEAVE_SECONDS - 1.0), 0.0, 1.0)
+				rig.lift = k * k * 18.0
+				move = Vector3(0, 0, -1) * k * 7.0
+				_yaw = lerp_angle(_yaw, 0.0, 1.0 - exp(-2.0 * delta))  # turns north, out over the sea
+			if tl > LEAVE_SECONDS:
+				_finish_leave()
+				return
 		"rage":
 			if _t > 1.5:
 				if Game.hud:
@@ -317,23 +404,20 @@ func _physics_process(delta: float) -> void:
 		"return":
 			var back := home - _flat(global_position)
 			if back.length() < 0.8:
-				_set_mode("sleep")
+				_set_mode("listen")
 				state = State.WANDER
 				if Game.hud:
-					Game.hud.show_boss(null)
+					Game.hud.show_caption("%s 숨을 고른다 — 다시 말을 걸 수 있다 (E)" % _subj())
 			else:
 				_turn_to(back, delta, 1.6)
 				move = back.normalized() * _speed()
-			if _player_valid() and _in_arena(p.global_position) and dist < WAKE_RADIUS:
-				_set_mode("fight")
 		"fight":
-			if not _player_valid() or not _in_arena(p.global_position, 2.0):
+			_angry_t -= delta
+			if not _player_valid() or not _in_arena(p.global_position, 2.0) or _angry_t <= 0.0:
 				_set_mode("return")
 			elif _rage_pending:
 				_rage_pending = false
 				_set_mode("rage")
-				if Game.hud:
-					Game.hud.show_caption("%s 격노했다! — 날아올라 덮쳐 온다" % _subj())
 			else:
 				_turn_to(to_p, delta, 1.4 if phase == 1 else 2.0)
 				if _cd <= 0.0:
@@ -466,76 +550,30 @@ func _clamp_arena(p: Vector3) -> Vector3:
 
 # ---------------------------------------------------------------- taking hits / dying
 
-func receive_attack(attacker_profile: Dictionary, from: Node3D) -> void:
-	if mode == "dead":
+## Blades bounce off: no damage, ever (user design — it can't be beaten in a fight). Hitting a
+## sleeping or listening dragon makes it angry.
+func receive_attack(_attacker_profile: Dictionary, _from: Node3D) -> void:
+	if mode in ["dead", "leave", "talk"]:
 		return
-	var res := Combat.resolve(attacker_profile, profile)
-	var top := global_position + Vector3(0, 3.4, 0)
-	if res["hit"]:
-		hp -= res["damage"]
-		res["detail"] += " · 남은 HP %d/%d" % [maxi(hp, 0), max_hp]
-		Game.combat_log.add(Combat.short_text(res), res["detail"], "crit" if res["crit"] else "hit")
-		if Game.hud:
-			Game.hud.float_text(top, ("치명타 %d" if res["crit"] else "%d") % res["damage"],
-				Color(1.0, 0.62, 0.2) if res["crit"] else Color(1.0, 0.96, 0.85), res["crit"])
-		_flash = 1.0
-		if hp <= 0:
-			_die()
-			return
-		if phase == 1 and hp <= max_hp / 2:
-			phase = 2
-			_rage_pending = true
-			_dive_cd = 1.0
-	else:
-		Game.combat_log.add(Combat.short_text(res), res["detail"], "miss")
-		if Game.hud:
-			Game.hud.float_text(top, "빗나감", Color(0.75, 0.78, 0.82))
-	engage()
-
-
-func receive_ram(damage: int, _from: Node3D) -> void:
-	if mode == "dead":
-		return
-	hp -= maxi(1, damage - int(profile.get("armor", 0)))
-	_flash = 1.0
-	if hp <= 0:
-		_die()
-		return
-	engage()
-
-
-## Down for good: EXP, the quest kill, the once-only record and a corpse to search right away
-## (GDD 8.2); the body stays where it fell and the victory scene plays once it has collapsed.
-func _die() -> void:
-	mode = "dead"
-	state = State.DEAD
-	_decal.visible = false
-	_fire.emitting = false
-	_fire_light.light_energy = 0.0
-	rig.lift = 0.0
-	for s in _shapes:
-		s.set_deferred("disabled", true)
-	remove_from_group("enemies")
-	Game.player_state.add_exp(exp_reward)
-	Game.combat_log.add("%s 처치 · EXP +%d" % [display_name, exp_reward], "%s 처치 — 일반 EXP +%d · 시체를 조사해 전리품을 얻을 수 있다" % [display_name, exp_reward], "death")
+	_flash = 0.6
+	Game.combat_log.add("칼날이 비늘에 튕겨 나갔다", "드래곤에게는 상처 하나 나지 않는다 — 싸워서는 이길 수 없다. 대화로 설득해 보자.", "miss")
 	if Game.hud:
-		Game.hud.float_text(global_position + Vector3(0, 3.6, 0), "EXP +%d" % exp_reward, Color(0.6, 0.85, 1.0), true)
-		Game.hud.show_boss(null)
-	Game.narrative.set_flag("story.dragon_defeated")
-	Game.field["remains"] = {"pos": [global_position.x, global_position.z], "yaw": _yaw}
-	Game.quests.on_kill(monster_id)
-	if world and world.has_method("on_monster_killed"):
-		world.on_monster_killed(self)
-	_victory_t = 0.0
+		Game.hud.float_text(global_position + Vector3(0, 3.4, 0), "튕겨 나감", Color(0.8, 0.82, 0.86))
+		if not _hint_shown:
+			_hint_shown = true
+			Game.boot.hud.toast("칼이 통하지 않는다… 싸워서는 이길 수 없다. 진정시킨 뒤 말을 걸어 보자")
+	if mode in ["sleep", "wake", "listen", "return"]:
+		_anger()
+	elif mode == "fight":
+		_angry_t = maxf(_angry_t, 8.0)  # keeps it angry a little longer
 
 
-func _victory() -> void:
-	if Game.hud and Game.hud.cutscene and not Game.hud.cutscene.playing and not Game.hud.dialogue_active():
-		Game.hud.cutscene.play("cutscene.dragon_defeated")
+func receive_ram(_damage: int, from: Node3D) -> void:
+	receive_attack({}, from)
 
 
 func is_engaged() -> bool:
-	return mode not in ["sleep", "return", "dead"]
+	return mode not in ["sleep", "wake", "talk", "listen", "return", "leave", "dead"]
 
 
 func _process(delta: float) -> void:
@@ -551,6 +589,15 @@ func _process(delta: float) -> void:
 			want["jaw"] = 1.0
 			want["wings"] = 1.0
 			want["flap"] = 6.0
+		"talk", "listen":
+			want["neck"] = 0.8
+			want["jaw"] = 0.15 + 0.15 * sin(_t * 2.0) if mode == "talk" else 0.0
+			want["wings"] = 0.15
+		"leave":
+			want["neck"] = 1.0
+			want["wings"] = 1.0
+			want["flap"] = 8.0 if _t > 0.8 else 2.0
+			want["jaw"] = 0.5 if _t < 1.0 else 0.0
 		"fight", "return":
 			want["walk"] = 7.0 if velocity.length() > 0.3 else 0.0
 			want["wings"] = 0.25

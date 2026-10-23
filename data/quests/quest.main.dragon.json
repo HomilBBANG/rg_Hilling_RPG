@@ -2,7 +2,7 @@
   "version": 1,
   "quest_id": "quest.main.dragon",
   "title": "드래곤 토벌",
-  "desc": "(임시 문안) 왕은 세계를 위협하는 드래곤을 쓰러뜨려 달라고 부탁했다. 해내면 소원 하나를 들어주겠다고 한다. 드래곤의 둥지는 솔바람 고원 북쪽, 잿빛 산길 끝에 있다고 한다. 쓰러뜨린 뒤에는 왕도 알현실의 왕에게 보고하자.",
+  "desc": "(임시 문안) 왕은 세계를 위협하는 드래곤을 처치해 달라고 부탁했다. 해내면 소원 하나를 들어주겠다고 한다. 드래곤의 둥지는 솔바람 고원 북쪽, 잿빛 산길 끝에 있다고 한다. 끝나면 왕도 알현실의 왕에게 보고하자.",
   "giver": "king",
   "source": "npc",
   "accept": "direct",
@@ -23,15 +23,14 @@
     },
     {
       "id": "dragon",
-      "type": "kill",
-      "target": "dragon_nest_D",
-      "count": 1,
-      "text": "둥지 안의 드래곤 쓰러뜨리기"
+      "type": "flag",
+      "flag": "story.dragon_left",
+      "text": "둥지의 드래곤을 둥지에서 내보내기 (싸워서는 이길 수 없다 — 말로 설득하자)"
     }
   ],
   "consume_items": false,
   "rewards": {
-    "gen_exp": 50,
+    "gen_exp": 350,
     "life_exp": 0,
     "gold": 0,
     "items": {}

@@ -1179,7 +1179,7 @@ func _pv_play(s: Dictionary) -> void:
 			for b in _pv_bars:
 				b.visible = bool(s.get("on", true))
 			await _pv_wait(0.3)
-		"actor_move", "actor_face", "set_flag", "quest":
+		"actor_move", "actor_face", "set_flag", "quest", "camper_drop", "actor_hide":
 			_pv_note.text = "(게임에서) " + CutsceneData.step_text(s)
 			await _pv_wait(0.9)
 

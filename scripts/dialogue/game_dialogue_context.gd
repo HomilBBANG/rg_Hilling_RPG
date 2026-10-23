@@ -57,6 +57,19 @@ func _apply(action: String, args: Dictionary) -> String:
 		"give_map":
 			var r := str(args.get("region", ""))
 			return "지도 받음: %s%s" % [MapDB.title(r), "" if MapDB.give(r) else " (이미 있음)"]
+		"give_item":
+			var it := str(args.get("item", ""))
+			var n := maxi(1, int(args.get("count", 1)))
+			Game.player_state.inventory.add(it, n)
+			Game.combat_log.add("획득: %s ×%d" % [ItemDB.item_name(it), n], "", "info")
+			if Game.hud:
+				Game.hud.toast_quest("받았다: %s ×%d" % [ItemDB.item_name(it), n])
+			return "아이템 받음: %s ×%d" % [ItemDB.item_name(it), n]
+		"wish_ceremony":
+			if Game.boot and Game.boot.has_method("start_wish_ceremony"):
+				Game.boot.start_wish_ceremony.call_deferred()
+				return "소원 의식 시작"
+			return "소원 의식: 게임 밖에서는 실행할 수 없다"
 		"cat_join":
 			var aff := int(args.get("affection", 0))
 			var first := not Game.cat_joined

@@ -82,6 +82,11 @@ func _apply(action: String, args: Dictionary) -> String:
 			return "캠핑카 받음(미리보기)"
 		"give_map":
 			return "지도 받음(미리보기): %s" % args.get("region", "")
+		"give_item":
+			items[str(args.get("item", ""))] = item_count(str(args.get("item", ""))) + int(args.get("count", 1))
+			return "아이템 받음(미리보기): %s ×%d" % [args.get("item", ""), int(args.get("count", 1))]
+		"wish_ceremony":
+			return "소원 의식 시작(미리보기 — 게임에서는 광장으로 이동해 컷씬과 탈출이 이어짐)"
 		"cat_join":
 			return "고양이 동행 시작(미리보기)%s" % (" · 호감도 +%d" % int(args.get("affection", 0)) if int(args.get("affection", 0)) > 0 else "")
 	return "지원하지 않는 액션 %s — 무시" % action

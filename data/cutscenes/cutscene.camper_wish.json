@@ -1,8 +1,8 @@
 {
   "version": 1,
   "cutscene_id": "cutscene.camper_wish",
-  "title": "(임시 문안) 왕의 소원 — 캠핑카가 나타나다",
-  "notes": "왕 알현 대화(dialogue.story.king_audience)에서 소원으로 캠핑카를 고르면 재생. 삽화 camper_wish_01.png 자리.",
+  "title": "(임시 문안) 소원의 의식 — 하늘에서 떨어진 캠핑카",
+  "notes": "사용자 이야기(챕터 1 끝): 드래곤을 설득해 내보낸 뒤 왕에게 캠핑카를 소원으로 빌자, 성 앞 광장의 의식에서 캠핑카가 하늘에서 떨어져 왕이 깔려 죽는다 → 수배 → 탈출. 왕 알현 대화의 액션 wish_ceremony가 광장으로 옮겨 이 컷씬을 재생한다(인물 배치: data/story.json wish_ceremony). 대사는 임시.",
   "skippable": true,
   "steps": [
     {
@@ -10,44 +10,80 @@
       "on": true
     },
     {
-      "type": "fade",
-      "to": "black",
+      "type": "caption",
+      "text": "성 앞 광장 — 소원의 의식을 보려고 사람들이 모여들었다.",
+      "seconds": 2.4
+    },
+    {
+      "type": "line",
+      "speaker_id": "king",
+      "expression": "",
+      "text": "백성들이여! 드래곤을 물리친 이방의 여행자에게, 약속대로 소원 하나를 내리노라! (임시 대사)"
+    },
+    {
+      "type": "line",
+      "speaker_id": "mage",
+      "expression": "",
+      "text": "준비되었습니다, 폐하. 이 그림대로… 바퀴 달린 집을 불러내겠습니다. (임시 대사)"
+    },
+    {
+      "type": "line",
+      "speaker_id": "player",
+      "expression": "happy",
+      "text": "(진짜로… 진짜로 캠핑카가 생기는 거야…!) (임시 대사)"
+    },
+    {
+      "type": "caption",
+      "text": "엘라가 주문을 외자, 광장 위 하늘이 갈라지듯 빛났다…",
+      "seconds": 2.4
+    },
+    {
+      "type": "wait",
+      "seconds": 0.6
+    },
+    {
+      "type": "camper_drop",
+      "target": "king",
       "seconds": 1.0
     },
     {
-      "type": "image",
-      "path": "res://assets/cutscenes/camper_wish_01.png",
-      "seconds": 0.0
+      "type": "wait",
+      "seconds": 1.4
     },
     {
-      "type": "fade",
-      "to": "clear",
-      "seconds": 1.0
+      "type": "line",
+      "speaker_id": "player",
+      "expression": "surprised",
+      "text": "…어? (임시 대사)"
     },
     {
-      "type": "narration",
-      "text": "궁정 마법사들이 주인공이 그린 서툰 그림을 둘러싸고 머리를 맞댔다.\n바퀴 달린 집… 침대와 부엌이 있고, 말 없이 달리는 수레.",
-      "seconds": 0
+      "type": "line",
+      "speaker_id": "mage",
+      "expression": "",
+      "text": "폐… 폐하…? 폐하아아?! (임시 대사)"
     },
     {
-      "type": "narration",
-      "text": "사흘 밤낮의 주문 끝에 — 성 앞 광장에, 이 세계에 없던 물건이 나타났다.",
-      "seconds": 0
+      "type": "caption",
+      "text": "캠핑카 아래에서… 왕관 하나가 데굴데굴 굴러 나왔다.",
+      "seconds": 2.8
     },
     {
-      "type": "fade",
-      "to": "black",
-      "seconds": 0.8
+      "type": "line",
+      "speaker_id": "guard",
+      "expression": "",
+      "text": "왕께서… 돌아가셨다! 저 이방인이 하늘에서 쇳덩이를 떨어뜨렸다! (임시 대사)"
     },
     {
-      "type": "image",
-      "path": "",
-      "seconds": 0.0
+      "type": "line",
+      "speaker_id": "guard",
+      "expression": "",
+      "text": "왕을 시해한 놈이다! 잡아라!! (임시 대사)"
     },
     {
-      "type": "fade",
-      "to": "clear",
-      "seconds": 1.0
+      "type": "line",
+      "speaker_id": "player",
+      "expression": "scared",
+      "text": "아, 아니에요! 이건 사고… 사고라고요!\n— 안 되겠다, 일단 타고 도망쳐야 해! (임시 대사)"
     },
     {
       "type": "letterbox",

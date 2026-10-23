@@ -1,0 +1,47 @@
+{
+  "version": 1,
+  "cutscene_id": "cutscene.escape",
+  "title": "(임시 문안) 탈출 — 챕터 1 끝",
+  "notes": "사용자 이야기: 수배된 주인공이 캠핑카로 왕도 남문을 빠져나가면 재생(bootstrap._escape_ending). 이후 왕도로는 돌아갈 수 없다. 챕터 2는 다른 대륙에서 시작(드래곤이 날아간 곳). 대사는 임시. 화면은 검게 끝나고, 이어지는 지역 이동 화면 뒤에 초원에서 밝아진다.",
+  "skippable": true,
+  "steps": [
+    {
+      "type": "fade",
+      "to": "black",
+      "seconds": 0.8
+    },
+    {
+      "type": "narration",
+      "text": "캠핑카는 닫히기 직전의 남문을 아슬아슬하게 빠져나갔다.\n등 뒤에서 종이 울리고, 기사들의 함성이 멀어져 갔다.",
+      "seconds": 0
+    },
+    {
+      "type": "narration",
+      "text": "그날 밤, 왕도 곳곳에 수배 전단이 붙었다.\n'왕을 시해한 이방인 — 하늘에서 쇳덩이를 떨어뜨림. 바퀴 달린 집을 타고 다님.'",
+      "seconds": 0
+    },
+    {
+      "type": "line",
+      "speaker_id": "player",
+      "expression": "sad",
+      "text": "…이 섬에는 더 이상 있을 수 없겠어. (임시 대사)"
+    },
+    {
+      "type": "line",
+      "speaker_id": "cat",
+      "expression": "curious",
+      "text": "냐아. (임시 대사)"
+    },
+    {
+      "type": "line",
+      "speaker_id": "player",
+      "expression": "thinking",
+      "text": "바다 건너… 그 드래곤이 날아간 대륙. 거기라면, 다시 시작할 수 있을지도. (임시 대사)"
+    },
+    {
+      "type": "narration",
+      "text": "— 챕터 1 끝 —\n\n이야기는 바다 건너 다른 대륙에서 계속된다. (챕터 2 준비 중)",
+      "seconds": 0
+    }
+  ]
+}

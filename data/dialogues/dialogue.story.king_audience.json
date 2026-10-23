@@ -7,7 +7,7 @@
       "story",
       "main"
     ],
-    "notes": "GDD 2.1 [확정]: 세계에 온 직후 혼자 여행 → 왕에게 드래곤 처치 퀘스트를 받고 모험을 떠난다 → 그 뒤 고양이가 나타남. 처치 후 소원(→ 캠핑카). 대사는 임시. 드래곤 처치 후(퀘스트 '목표 달성') 보고 → 소원 선택 → 컷씬 → 퀘스트 완료 → 캠핑카 받기."
+    "notes": "GDD 2.1 [확정]: 세계에 온 직후 혼자 여행 → 왕에게 드래곤 처치 퀘스트를 받고 모험을 떠난다 → 그 뒤 고양이가 나타남. 사용자 이야기: 드래곤은 대화로 설득해 내보냄 → 보고 → 소원(캠핑카) → 액션 wish_ceremony = 성 앞 광장 의식으로 이동 → cutscene.camper_wish(캠핑카가 왕 위로 떨어짐) → 수배·탈출. 대사는 임시."
   },
   "start_node_id": "start",
   "nodes": [
@@ -28,19 +28,19 @@
       "id": "r1",
       "type": "line",
       "speaker_id": "king",
-      "text": "돌아왔는가…! 북쪽 하늘의 연기가 걷혔다는 보고가 들어왔다.\n정말로 드래곤을 쓰러뜨렸단 말인가! (임시 대사)"
+      "text": "돌아왔는가…! 북쪽 하늘의 연기가 걷혔다는 보고가 들어왔다.\n정말로 드래곤을 물리쳤단 말인가! (임시 대사)"
     },
     {
       "id": "r2",
       "type": "line",
       "speaker_id": "player",
-      "text": "네… 어떻게든 해냈어요. 솔직히 아직도 실감이 안 나지만요. (임시 대사)"
+      "text": "물리친 건 아니고요… 이야기를 해서, 둥지에서 나가 달라고 했어요. 바다 건너로 날아갔어요. (임시 대사)"
     },
     {
       "id": "r3",
       "type": "line",
       "speaker_id": "king",
-      "text": "예언이 옳았구나. 약속대로 무엇이든 소원 하나를 들어주겠다. 말해 보아라. (임시 대사)"
+      "text": "말로…? 허허, 기사단도 못 한 일을! 어쨌든 위협은 사라졌다.\n약속대로 무엇이든 소원 하나를 들어주겠다. 말해 보아라. (임시 대사)"
     },
     {
       "id": "wish",
@@ -83,45 +83,12 @@
       "id": "r6",
       "type": "line",
       "speaker_id": "king",
-      "text": "허허, 기묘한 소원이로군. 좋다 — 궁정 마법사들을 불러라! (임시 대사)"
-    },
-    {
-      "id": "cut_wish",
-      "type": "cutscene",
-      "cutscene_id": "cutscene.camper_wish"
-    },
-    {
-      "id": "act_report",
-      "type": "action",
-      "action": "quest_complete",
-      "args": {
-        "quest_id": "quest.main.dragon",
-        "outcome": ""
-      }
-    },
-    {
-      "id": "act_camper",
-      "type": "action",
-      "action": "receive_camper",
-      "args": {}
-    },
-    {
-      "id": "r7",
-      "type": "line",
-      "speaker_id": "king",
-      "text": "그대의 '캠핑카'는 성 앞 광장에 두었다. 이제 그대의 것이다.\n이 나라를 구해 주어 고맙다, 이방의 여행자여. (임시 대사)"
-    },
-    {
-      "id": "r8",
-      "type": "line",
-      "speaker_id": "player",
-      "text": "진짜… 캠핑카다…! (임시 대사)",
-      "expression": "surprised"
+      "text": "허허, 기묘한 소원이로군. 좋다 — 궁정 마법사를 불러라!\n성 앞 광장에서 백성들 앞에 소원의 의식을 치르겠다. (임시 대사)"
     },
     {
       "id": "end_wish",
       "type": "end",
-      "complete_event": "story.camper_wish"
+      "complete_event": ""
     },
     {
       "id": "cond_done",
@@ -271,6 +238,12 @@
       "args": {
         "region": "ashen_pass"
       }
+    },
+    {
+      "id": "act_ceremony",
+      "type": "action",
+      "action": "wish_ceremony",
+      "args": {}
     }
   ],
   "connections": [
@@ -405,36 +378,6 @@
       "to": "r6"
     },
     {
-      "from": "r6",
-      "port": "next",
-      "to": "cut_wish"
-    },
-    {
-      "from": "cut_wish",
-      "port": "next",
-      "to": "act_report"
-    },
-    {
-      "from": "act_report",
-      "port": "next",
-      "to": "act_camper"
-    },
-    {
-      "from": "act_camper",
-      "port": "next",
-      "to": "r7"
-    },
-    {
-      "from": "r7",
-      "port": "next",
-      "to": "r8"
-    },
-    {
-      "from": "r8",
-      "port": "next",
-      "to": "end_wish"
-    },
-    {
       "from": "cond_ready",
       "port": "false",
       "to": "cond_done"
@@ -463,6 +406,16 @@
       "from": "act_map",
       "port": "next",
       "to": "l7"
+    },
+    {
+      "from": "r6",
+      "port": "next",
+      "to": "act_ceremony"
+    },
+    {
+      "from": "act_ceremony",
+      "port": "next",
+      "to": "end_wish"
     }
   ],
   "editor_positions": {
@@ -578,28 +531,8 @@
       2060,
       -420
     ],
-    "cut_wish": [
-      2320,
-      -420
-    ],
-    "act_report": [
-      2580,
-      -420
-    ],
-    "act_camper": [
-      2840,
-      -420
-    ],
-    "r7": [
-      3100,
-      -420
-    ],
-    "r8": [
-      3360,
-      -420
-    ],
     "end_wish": [
-      3620,
+      2660,
       -420
     ],
     "r_later": [
@@ -617,6 +550,10 @@
     "act_map": [
       3580,
       660
+    ],
+    "act_ceremony": [
+      2360,
+      -420
     ]
   }
 }

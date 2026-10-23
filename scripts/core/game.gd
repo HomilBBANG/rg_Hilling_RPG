@@ -326,7 +326,8 @@ func set_story_stage(stage: int) -> void:
 
 
 ## The king's wish (GDD 2.1 / 2.3 step 5): the camper appears where data/story.json "camper_wish"
-## parks it (in front of the castle), tank full and undamaged. Only once; false if already owned.
+## parks it (in front of the castle; the wish ceremony drops it there), tank full and undamaged.
+## Only once; false if already owned.
 func receive_camper() -> bool:
 	if has_camper:
 		return false
@@ -338,6 +339,14 @@ func receive_camper() -> bool:
 	narrative.set_flag("story.camper_received")
 	story_changed.emit()
 	return true
+
+
+## Places the hero can't go back to, and why ("" = free to go). Chapter 1 (user story): after the
+## camper fell on the king the hero is wanted — the capital and its castle are closed for good.
+func region_locked(rid: String) -> String:
+	if rid in ["capital", "throne_room"] and narrative.get_flag("story.king_dead"):
+		return "수배 중 — 왕도로는 다시 돌아갈 수 없다"
+	return ""
 
 
 func camper_fuel_max() -> float:

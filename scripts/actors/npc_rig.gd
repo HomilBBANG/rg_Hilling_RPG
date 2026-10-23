@@ -28,6 +28,10 @@ const LOOKS := {
 	"mage": {"skin": Color(0.95, 0.78, 0.66), "hair": Color(0.82, 0.84, 0.9), "style": "wizard",
 		"shirt": Color(0.22, 0.26, 0.56), "apron": Color(0.32, 0.36, 0.7), "pants": Color(0.2, 0.22, 0.42),
 		"boots": Color(0.18, 0.14, 0.2), "beard": false},
+	# 왕도 경비병 (소원 의식·탈출): steel helmet, red tabard over grey mail
+	"guard": {"skin": Color(0.9, 0.7, 0.55), "hair": Color(0.3, 0.22, 0.16), "style": "helmet",
+		"shirt": Color(0.56, 0.58, 0.62), "apron": Color(0.7, 0.16, 0.16), "pants": Color(0.3, 0.3, 0.34),
+		"boots": Color(0.22, 0.2, 0.2), "beard": false},
 	# 가구 장인 토마: brown hair in a bun, mustard shirt, canvas apron
 	"carpenter": {"skin": Color(0.86, 0.64, 0.48), "hair": Color(0.4, 0.26, 0.16), "style": "bun",
 		"shirt": Color(0.86, 0.66, 0.28), "apron": Color(0.7, 0.62, 0.48), "pants": Color(0.36, 0.3, 0.24),
@@ -85,6 +89,11 @@ func _init(look_id := "rosa") -> void:
 		ProtoMesh.cylinder(hips, 0.4, 0.04, Vector3(0, 1.2, 0.02), hat, Vector3.ZERO, 14)
 		ProtoMesh.cylinder(hips, 0.24, 0.62, Vector3(0, 1.5, 0.06), hat, Vector3(-12, 0, 0), 10, 0.0)
 		ProtoMesh.sphere(hips, 0.05, Vector3(0, 1.78, 0.14), ProtoMesh.mat(Color(1.0, 0.86, 0.3), 0.4, Color(1.0, 0.8, 0.3), 1.0), Vector3.ONE, 6, 4)
+	elif look["style"] == "helmet":  # round steel helmet with a nose guard
+		var steel := ProtoMesh.mat(Color(0.72, 0.74, 0.78), 0.35)
+		ProtoMesh.sphere(hips, 0.32, Vector3(0, 1.1, 0.02), steel, Vector3(1.05, 0.72, 1.05), 12, 6)
+		ProtoMesh.cylinder(hips, 0.34, 0.04, Vector3(0, 1.04, 0.02), steel, Vector3.ZERO, 14)
+		ProtoMesh.box(hips, Vector3(0.05, 0.16, 0.04), Vector3(0, 1.0, -0.31), steel)
 	elif look["style"] == "crown":
 		var gold := ProtoMesh.mat(Color(0.95, 0.76, 0.26), 0.4)
 		ProtoMesh.cylinder(hips, 0.2, 0.1, Vector3(0, 1.25, 0.02), gold, Vector3.ZERO, 10)

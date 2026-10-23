@@ -66,6 +66,7 @@ const ITEMS := {
 	"recipe_moon_charm": {"name": "제작서: 달빛 부적", "value": 60, "weight": 0.2, "kind": "consumable", "use": "read",
 		"effect": {"recipe": "moon_charm"}, "desc": "읽으면 '달빛 부적' 제작법을 배운다 (특수 레시피)."},
 	# quest items: no merchant buys them, goblins don't take them
+	"dragon_token": {"name": "드래곤의 비늘 한 장", "cat": "quest", "value": 0, "weight": 0.2, "desc": "둥지를 떠나며 드래곤이 남긴 붉은 비늘. \"언젠가 다른 땅에서 다시 보자\"는 약속."},
 	"lost_parcel": {"name": "흩어진 짐 꾸러미", "cat": "quest", "value": 0, "weight": 1.5, "desc": "대장간 표식이 찍힌 꾸러미."},
 	# --- consumables (GDD 6.4): effect applies when the use motion ends; a hit cancels it
 	"canned_food": {"name": "통조림", "value": 8, "weight": 0.5, "kind": "consumable", "use": "eat", "effect": {"hp": 15},

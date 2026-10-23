@@ -1,0 +1,495 @@
+{
+  "version": 1,
+  "dialogue_id": "dialogue.story.dragon_parley",
+  "metadata": {
+    "title": "(임시 문안) 드래곤 설득 — 둥지에서 내보내기",
+    "tags": [
+      "story",
+      "main",
+      "dragon"
+    ],
+    "notes": "사용자 설계: 드래곤은 싸워서는 못 이기고, 대화로 설득해 둥지에서 내보내야 한다. 잘못 고르면 화가 나서 싸움(무적) → 진정되면 다시 E로 대화. 설득하면 'story.dragon_left' → 드래곤이 날아감. 다른 대륙에서 다시 만나는 존재(징표 비늘). 대사는 임시."
+  },
+  "start_node_id": "start",
+  "nodes": [
+    {
+      "id": "start",
+      "type": "start"
+    },
+    {
+      "id": "c_met",
+      "type": "condition",
+      "check": {
+        "kind": "flag",
+        "key": "story.dragon_met"
+      }
+    },
+    {
+      "id": "f1",
+      "type": "line",
+      "speaker_id": "dragon",
+      "text": "…작은 것이 감히 내 잠을 깨우는구나. 왕이 보낸 칼잡이인가? (임시 대사)"
+    },
+    {
+      "id": "a_met",
+      "type": "action",
+      "action": "set_flag",
+      "args": {
+        "key": "story.dragon_met",
+        "value": true
+      }
+    },
+    {
+      "id": "q1",
+      "type": "choice",
+      "options": [
+        {
+          "port": "talk",
+          "text": "싸우러 온 게 아니야. 이야기하러 왔어."
+        },
+        {
+          "port": "fight",
+          "text": "네 목을 베러 왔다!"
+        },
+        {
+          "port": "honest",
+          "text": "사실 나도 잘 모르겠어… 회사에서 잘리고 정신 차려 보니 여기였거든."
+        }
+      ]
+    },
+    {
+      "id": "q1_honest",
+      "type": "line",
+      "speaker_id": "dragon",
+      "text": "…회사? 잘려? 무슨 소린지 모르겠지만, 거짓말은 아닌 냄새로군. 이상한 놈이다. (임시 대사)"
+    },
+    {
+      "id": "q1_talk",
+      "type": "line",
+      "speaker_id": "dragon",
+      "text": "이야기라. 칼을 차고 와서 이야기라니. 좋다, 들어나 보지. (임시 대사)"
+    },
+    {
+      "id": "g1",
+      "type": "line",
+      "speaker_id": "dragon",
+      "text": "또 왔느냐, 이방인. 이번엔 무슨 헛소리를 하려고? (임시 대사)"
+    },
+    {
+      "id": "gq",
+      "type": "choice",
+      "options": [
+        {
+          "port": "again",
+          "text": "…다시 얘기하자. 이번엔 진지하게."
+        },
+        {
+          "port": "leave",
+          "text": "아, 아니야. 실례했어."
+        }
+      ]
+    },
+    {
+      "id": "g_leave",
+      "type": "line",
+      "speaker_id": "dragon",
+      "text": "흥. 그럼 내 잠을 방해하지 마라. (임시 대사)"
+    },
+    {
+      "id": "end_leave",
+      "type": "end",
+      "complete_event": ""
+    },
+    {
+      "id": "b2",
+      "type": "line",
+      "speaker_id": "dragon",
+      "text": "나는 이 산이 마음에 든다. 금화는 따뜻하고, 아무도 나를 귀찮게 하지 않지.\n그런데 내가 왜 떠나야 하지? (임시 대사)"
+    },
+    {
+      "id": "q2",
+      "type": "choice",
+      "options": [
+        {
+          "port": "fear",
+          "text": "아랫마을 사람들이 무서워해. 네가 있는 한 기사단이 계속 올 거야."
+        },
+        {
+          "port": "gold",
+          "text": "떠나지 않으면 금화를 몽땅 가져가 버리겠어."
+        },
+        {
+          "port": "king",
+          "text": "왕이 시켰으니까."
+        }
+      ]
+    },
+    {
+      "id": "q2_fear",
+      "type": "line",
+      "speaker_id": "dragon",
+      "text": "…칼잡이들이 끝없이 온다라. 귀찮긴 하지. 잠도 제대로 못 자고. (임시 대사)"
+    },
+    {
+      "id": "b3",
+      "type": "line",
+      "speaker_id": "dragon",
+      "text": "그렇다면 어디로 가란 말이냐. 이 좁은 섬에 나를 반기는 곳은 없다. (임시 대사)"
+    },
+    {
+      "id": "q3",
+      "type": "choice",
+      "options": [
+        {
+          "port": "sea",
+          "text": "바다 건너 다른 대륙. 넓으니까 너 같은 존재도 살 곳이 있을 거야."
+        },
+        {
+          "port": "dunno",
+          "text": "그건 네가 알아서 해야지."
+        }
+      ]
+    },
+    {
+      "id": "win1",
+      "type": "line",
+      "speaker_id": "dragon",
+      "text": "바다 건너… 다른 대륙이라. 그래, 이 섬은 내게 너무 좁았는지도 모르지. (임시 대사)"
+    },
+    {
+      "id": "win2",
+      "type": "line",
+      "speaker_id": "dragon",
+      "text": "오랜만에 말이 통하는 인간이로군. 좋다, 떠나 주마.\n하지만 기억해 두마, 이방인. 언젠가 다른 땅에서 다시 보게 될 것이다. (임시 대사)"
+    },
+    {
+      "id": "win_token",
+      "type": "action",
+      "action": "give_item",
+      "args": {
+        "item": "dragon_token",
+        "count": 1
+      }
+    },
+    {
+      "id": "win3",
+      "type": "line",
+      "speaker_id": "player",
+      "text": "(비늘 한 장이 발밑에 떨어졌다. 뜨겁지 않다… 약속의 징표인가.) (임시 대사)",
+      "expression": "thinking"
+    },
+    {
+      "id": "win_flag",
+      "type": "action",
+      "action": "set_flag",
+      "args": {
+        "key": "story.dragon_left",
+        "value": true
+      }
+    },
+    {
+      "id": "end_win",
+      "type": "end",
+      "complete_event": "story.dragon_persuaded"
+    },
+    {
+      "id": "angry",
+      "type": "line",
+      "speaker_id": "dragon",
+      "text": "건방진…! 재로 만들어 주마! (임시 대사)"
+    },
+    {
+      "id": "angry_flag",
+      "type": "action",
+      "action": "set_flag",
+      "args": {
+        "key": "story.dragon_angry",
+        "value": true
+      }
+    },
+    {
+      "id": "end_angry",
+      "type": "end",
+      "complete_event": ""
+    },
+    {
+      "id": "king_angry",
+      "type": "line",
+      "speaker_id": "dragon",
+      "text": "왕이라! 그 겁쟁이 왕의 개가 되어 나를 찾아왔단 말이냐! (임시 대사)"
+    },
+    {
+      "id": "dunno_angry",
+      "type": "line",
+      "speaker_id": "dragon",
+      "text": "무책임한 소리를! 남의 집에서 나가라고 하면서 갈 곳도 모른단 말이냐! (임시 대사)"
+    }
+  ],
+  "connections": [
+    {
+      "from": "start",
+      "port": "next",
+      "to": "c_met"
+    },
+    {
+      "from": "c_met",
+      "port": "false",
+      "to": "f1"
+    },
+    {
+      "from": "c_met",
+      "port": "true",
+      "to": "g1"
+    },
+    {
+      "from": "f1",
+      "port": "next",
+      "to": "a_met"
+    },
+    {
+      "from": "a_met",
+      "port": "next",
+      "to": "q1"
+    },
+    {
+      "from": "q1",
+      "port": "talk",
+      "to": "q1_talk"
+    },
+    {
+      "from": "q1",
+      "port": "honest",
+      "to": "q1_honest"
+    },
+    {
+      "from": "q1",
+      "port": "fight",
+      "to": "angry"
+    },
+    {
+      "from": "q1_talk",
+      "port": "next",
+      "to": "b2"
+    },
+    {
+      "from": "q1_honest",
+      "port": "next",
+      "to": "b2"
+    },
+    {
+      "from": "g1",
+      "port": "next",
+      "to": "gq"
+    },
+    {
+      "from": "gq",
+      "port": "again",
+      "to": "b2"
+    },
+    {
+      "from": "gq",
+      "port": "leave",
+      "to": "g_leave"
+    },
+    {
+      "from": "g_leave",
+      "port": "next",
+      "to": "end_leave"
+    },
+    {
+      "from": "b2",
+      "port": "next",
+      "to": "q2"
+    },
+    {
+      "from": "q2",
+      "port": "fear",
+      "to": "q2_fear"
+    },
+    {
+      "from": "q2",
+      "port": "gold",
+      "to": "angry"
+    },
+    {
+      "from": "q2",
+      "port": "king",
+      "to": "king_angry"
+    },
+    {
+      "from": "king_angry",
+      "port": "next",
+      "to": "angry"
+    },
+    {
+      "from": "q2_fear",
+      "port": "next",
+      "to": "b3"
+    },
+    {
+      "from": "b3",
+      "port": "next",
+      "to": "q3"
+    },
+    {
+      "from": "q3",
+      "port": "sea",
+      "to": "win1"
+    },
+    {
+      "from": "q3",
+      "port": "dunno",
+      "to": "dunno_angry"
+    },
+    {
+      "from": "dunno_angry",
+      "port": "next",
+      "to": "angry"
+    },
+    {
+      "from": "win1",
+      "port": "next",
+      "to": "win2"
+    },
+    {
+      "from": "win2",
+      "port": "next",
+      "to": "win_token"
+    },
+    {
+      "from": "win_token",
+      "port": "next",
+      "to": "win3"
+    },
+    {
+      "from": "win3",
+      "port": "next",
+      "to": "win_flag"
+    },
+    {
+      "from": "win_flag",
+      "port": "next",
+      "to": "end_win"
+    },
+    {
+      "from": "angry",
+      "port": "next",
+      "to": "angry_flag"
+    },
+    {
+      "from": "angry_flag",
+      "port": "next",
+      "to": "end_angry"
+    }
+  ],
+  "editor_positions": {
+    "start": [
+      40,
+      80
+    ],
+    "c_met": [
+      340,
+      80
+    ],
+    "f1": [
+      640,
+      240
+    ],
+    "a_met": [
+      940,
+      240
+    ],
+    "q1": [
+      1240,
+      240
+    ],
+    "q1_honest": [
+      1540,
+      380
+    ],
+    "q1_talk": [
+      1540,
+      200
+    ],
+    "g1": [
+      640,
+      40
+    ],
+    "gq": [
+      940,
+      40
+    ],
+    "g_leave": [
+      1240,
+      -80
+    ],
+    "end_leave": [
+      1540,
+      -80
+    ],
+    "b2": [
+      1840,
+      240
+    ],
+    "q2": [
+      2140,
+      240
+    ],
+    "q2_fear": [
+      2440,
+      200
+    ],
+    "b3": [
+      2740,
+      200
+    ],
+    "q3": [
+      3040,
+      200
+    ],
+    "win1": [
+      3340,
+      160
+    ],
+    "win2": [
+      3640,
+      160
+    ],
+    "win_token": [
+      3940,
+      160
+    ],
+    "win3": [
+      4240,
+      160
+    ],
+    "win_flag": [
+      4540,
+      160
+    ],
+    "end_win": [
+      4840,
+      160
+    ],
+    "angry": [
+      2740,
+      460
+    ],
+    "angry_flag": [
+      3040,
+      460
+    ],
+    "end_angry": [
+      3340,
+      460
+    ],
+    "king_angry": [
+      2440,
+      420
+    ],
+    "dunno_angry": [
+      3340,
+      320
+    ]
+  }
+}

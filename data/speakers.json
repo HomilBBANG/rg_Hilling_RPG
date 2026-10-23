@@ -7,6 +7,9 @@
     "rosa": {"name": "로사", "talk": "dialogue.npc.rosa.main"},
     "bron": {"name": "브론", "talk": "dialogue.npc.bron.main"},
     "king": {"name": "왕", "talk": "dialogue.story.king_audience"},
+    "dragon": {"name": "드래곤"},
+    "mage": {"name": "궁정 마법사 엘라"},
+    "guard": {"name": "경비병"},
     "cat": {"name": "검은 고양이", "expressions": {"playful": "장난", "curious": "궁금", "grumpy": "뾰로통"}}
   }
 }
