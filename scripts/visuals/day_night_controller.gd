@@ -55,9 +55,9 @@ static func make_environment() -> Environment:
 	env.glow_intensity = 0.25
 	env.glow_bloom = 0.0
 	env.glow_hdr_threshold = 1.5
-	env.ssao_radius = 0.9
-	env.ssao_intensity = 1.3
-	env.ssao_power = 1.3
+	env.ssao_radius = 0.6
+	env.ssao_intensity = 0.5
+	env.ssao_power = 1.0
 	env.ssao_detail = 0.5
 	env.fog_mode = Environment.FOG_MODE_DEPTH
 	env.fog_sky_affect = 0.0

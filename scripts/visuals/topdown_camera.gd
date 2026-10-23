@@ -19,7 +19,7 @@ const STYLES: Array[Dictionary] = [
 	# D: C's camera + a Dead Cells-like pixel look: flat colours with two-tone cel light,
 	# violet shadows, warm key light, light bloom, a few particles.
 	{"id": "D", "name": "D 데드셀풍 픽셀", "pitch": 40.0, "zoom": 3, "offset": Vector3(0, 0, -1.0),
-		"outline": true, "grade": true, "ssao": false, "fog": true, "stylized": true, "look": "deadcells", "detail": 0.0,
+		"outline": true, "grade": true, "ssao": true, "fog": true, "stylized": true, "look": "deadcells", "detail": 0.0,
 		"foliage_outline": true},
 ]
 
@@ -111,9 +111,12 @@ func set_look(look: String) -> void:
 	var dc := look == "deadcells"
 	# D: thin dark 1-px silhouette outlines only (no rim light, no crease highlights).
 	m.set_shader_parameter("rim_enabled", false)
-	m.set_shader_parameter("highlight_enabled", not dc)
-	m.set_shader_parameter("outline_darkness", 0.72 if dc else 0.42)
-	m.set_shader_parameter("outline_tint_amount", 0.55 if dc else 0.0)
+	# D (user direction 2026-10-23, pixel-art reference): outlines are a deeper shade of the
+	# neighbouring colour, not black; convex top edges get a light highlight texel.
+	m.set_shader_parameter("highlight_enabled", true)
+	m.set_shader_parameter("highlight_strength", 0.22 if dc else 0.28)
+	m.set_shader_parameter("outline_darkness", 0.5 if dc else 0.42)
+	m.set_shader_parameter("outline_tint_amount", 0.12 if dc else 0.0)
 	m.set_shader_parameter("outline_tint", Color(0.1, 0.08, 0.13))
 
 

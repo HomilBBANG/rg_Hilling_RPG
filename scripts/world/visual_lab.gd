@@ -427,8 +427,28 @@ func _build_camp_framing() -> void:
 	lg.rotation_degrees.y = 25.0
 
 
+## Soft dark patch on the ground around a prop's base (pixel-art reference: things sit in their
+## own contact shade). Transparent, no depth / shadow, roughness 1.0 so the outline pass skips it.
+static var _shade_mats := {}
+
+
+func _contact_shade(x: float, z: float, r: float, strength := 0.3) -> void:
+	var key := snappedf(strength, 0.01)
+	if not _shade_mats.has(key):
+		var sm := StandardMaterial3D.new()
+		sm.albedo_color = Color(0.08, 0.1, 0.2, key)  # the alpha is the shade strength
+		sm.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+		sm.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+		sm.roughness = 1.0
+		sm.render_priority = -1
+		_shade_mats[key] = sm
+	var m := ProtoMesh.cylinder(self, r, 0.02, Vector3(x, ground_height(x, z) + 0.035, z), _shade_mats[key], Vector3.ZERO, 10)
+	m.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+
+
 func _place_tree(kind: NatureProps.TreeKind, x: float, z: float, s: float) -> void:
 	var t := _on_ground(NatureProps.tree(kind, s, _rng), x, z)
+	_contact_shade(x, z, 1.1 * s, 0.16)
 	var radius := (1.5 if kind != NatureProps.TreeKind.BIRCH else 1.0) * s
 	_register_occluder(t, radius, 3.2 * s)
 	ProtoMesh.static_cylinder_collider(self, 0.36 * s, 8.0, t.position)  # trunk (a little wider than drawn: no brushing through)
@@ -437,11 +457,13 @@ func _place_tree(kind: NatureProps.TreeKind, x: float, z: float, s: float) -> vo
 
 func _place_bush(x: float, z: float, kind: int, s: float) -> void:
 	_on_ground(NatureProps.bush(kind, s, _rng), x, z)
+	_contact_shade(x, z, 0.75 * s, 0.11)
 	_block(x, z, 0.8 * s)
 
 
 func _place_rock(x: float, z: float, big: bool, s: float) -> void:
 	var r := _on_ground(NatureProps.rock(big, s, _rng), x, z)
+	_contact_shade(x, z, (1.2 if big else 0.45) * s, 0.15 if big else 0.1)
 	if big:
 		ProtoMesh.static_cylinder_collider(self, 0.8 * s, 6.0, r.position)
 	_block(x, z, (1.0 if big else 0.35) * s)

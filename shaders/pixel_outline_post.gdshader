@@ -70,9 +70,16 @@ void fragment() {
 		normal_edge += max(0.0, along) * same_surface * step(normal_threshold, length(diff));
 	}
 	vec3 base = texture(screen_tex, uv).rgb;
+	// Outline colour = a deeper, slightly more saturated shade of the texel's own colour (pixel-art
+	// style: no black lines, each area is bounded by its own darker tone); a small tint keeps the
+	// deepest lines cool. The same for foliage with its green tint.
+	vec3 deep = base * (1.0 - outline_darkness);
+	float lum = dot(deep, vec3(0.3, 0.59, 0.11));
+	deep = mix(vec3(lum), deep, 1.25);  // a touch more saturated than the plain darkening
+	deep = mix(deep, deep * vec3(0.85, 0.9, 1.12), 0.5);
 	if (is_foliage || foliage_only) {
 		if (depth_edge > depth_threshold) {
-			ALBEDO = mix(base * 0.42, foliage_outline_tint, 0.35);
+			ALBEDO = mix(max(deep, vec3(0.0)), foliage_outline_tint, 0.18);
 		} else {
 			discard;
 		}
@@ -80,11 +87,9 @@ void fragment() {
 		if (rim_enabled && dot(c_nr.xyz, normalize(rim_dir)) > 0.25) {
 			ALBEDO = mix(base, max(base, rim_color), rim_strength);
 		} else {
-			vec3 dark = base * (1.0 - outline_darkness);
-			dark = mix(dark, dark * vec3(0.85, 0.8, 1.0), 0.5);
-			ALBEDO = mix(dark, outline_tint, outline_tint_amount);
+			ALBEDO = mix(max(deep, vec3(0.0)), outline_tint, outline_tint_amount);
 		}
-	} else if (highlight_enabled && normal_edge > 0.2 && c_nr.w < 0.8) {
+	} else if (highlight_enabled && normal_edge > 0.2 && c_nr.w < 0.96) {
 		ALBEDO = base + (vec3(1.0, 0.97, 0.88) - base) * highlight_strength;
 	} else {
 		discard;

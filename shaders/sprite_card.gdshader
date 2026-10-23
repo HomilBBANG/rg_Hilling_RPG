@@ -45,7 +45,10 @@ void fragment() {
 		border = texture(albedo_tex, uv + vec2(px.x, 0.0)).a < 0.5 || texture(albedo_tex, uv - vec2(px.x, 0.0)).a < 0.5
 			|| texture(albedo_tex, uv + vec2(0.0, px.y)).a < 0.5 || texture(albedo_tex, uv - vec2(0.0, px.y)).a < 0.5;
 		if (border) {
-			ALBEDO = outline_color;
+			// a deeper shade of the texel's own colour, lightly tinted (no black outlines)
+			vec3 deep = a.rgb * 0.5;
+			deep = mix(deep, deep * vec3(0.85, 0.9, 1.12), 0.5);
+			ALBEDO = mix(deep, outline_color, 0.22);
 		}
 	}
 	if (inner_lines && !border) {

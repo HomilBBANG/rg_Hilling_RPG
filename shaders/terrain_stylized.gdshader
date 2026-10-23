@@ -32,6 +32,14 @@ void vertex() {
 	masks = COLOR;
 }
 
+// Two-tone border with a 2-texel checker dither band (pixel-art soft edge): 1 above the edge,
+// 0 below, the checker only within ~1.5 texels of it (fwidth = change per screen texel).
+float dither_step(float edge, float v, vec2 cell) {
+	float d = (v - edge) / max(fwidth(v), 1e-5);
+	float checker = mod(cell.x + cell.y, 2.0);
+	return abs(d) < 1.5 ? checker : step(0.0, d);
+}
+
 void fragment() {
 	vec2 p = wpos.xz;
 	float n_large = texture(noise_large, p * 0.011).r;
@@ -92,10 +100,20 @@ void fragment() {
 	vec3 col = mix(g, d, path);
 	col = mix(col, s, shore * (1.0 - path));
 	if (detail < 0.5) {
-		// Flat cel: grass in two broad tones, flat dirt and sand, crisp irregular borders.
-		vec3 fg = mix(grass_mid, grass_dark, step(0.62, n_large) * 0.55);
-		fg = mix(fg, grass_dark * 0.92, step(0.5, masks.b));
-		vec3 flat_col = mix(fg, dirt_mid, path);
+		// Flat cel (pixel-art reference): grass in three broad tones whose borders are dithered
+		// texel by texel, a few light blades / dark gaps, forest floor a shade darker, the dirt
+		// path with a darker rim and pebble specks, flat sand.
+		vec2 scell = floor(SCREEN_UV * VIEWPORT_SIZE);  // render texels: the checker stays 1 texel
+		vec3 fg = mix(grass_mid, grass_dark, dither_step(0.62, n_large, scell) * 0.55);
+		fg = mix(fg, grass_light, dither_step(0.74, n_mid, scell) * 0.5);
+		fg = mix(fg, grass_light * 1.06, step(0.985, h) * 0.5);
+		fg = mix(fg, grass_dark * 0.82, step(h, 0.012) * 0.6);
+		fg = mix(fg, grass_dark * 0.9, dither_step(0.5, masks.b, scell));
+		vec3 fd = dirt_mid;
+		fd = mix(fd, dirt_dark * 0.9, rim * 0.6);
+		fd = mix(fd, pebble, step(0.978, ph) * 0.7);
+		fd = mix(fd, dirt_dark * 0.85, step(ph, 0.012) * 0.7);
+		vec3 flat_col = mix(fg, fd, path);
 		flat_col = mix(flat_col, sand, shore * (1.0 - path));
 		col = flat_col;
 	}
