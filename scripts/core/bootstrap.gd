@@ -3822,6 +3822,15 @@ func _run_expressions_tour() -> void:
 		var want := "player%s.png" % ("_" + e if e != "" else "")
 		print("[expr] %s -> %s %s" % [exprs.get(e, "기본"), file, "✔" if file == want else "✘"])
 		await _p1_shot("expr_%s" % (e if e != "" else "default"), "expression %s" % e, true)
+	var cat_exprs: Dictionary = DialogueData.speakers()["cat"].get("expressions", {})
+	for e: String in [""] + cat_exprs.keys():
+		box._spotlight("cat", e)
+		await _seconds(0.3)
+		var ctex: Texture2D = box._right._image.texture
+		var cfile := ctex.resource_path.get_file() if ctex else "(없음)"
+		var cwant := "cat%s.png" % ("_" + e if e != "" else "")
+		print("[expr] cat %s -> %s %s" % [cat_exprs.get(e, "기본"), cfile, "✔" if cfile == cwant else "✘"])
+		await _p1_shot("expr_cat_%s" % (e if e != "" else "default"), "cat expression %s" % e, true)
 	box._spotlight("player", str(box.event.get("expression", "")))  # back to the line's own look
 	var said := PackedStringArray()
 	for i in 60:
@@ -3833,6 +3842,8 @@ func _run_expressions_tour() -> void:
 				await _seconds(0.25)
 				if ev.get("speaker", "") == "player":
 					said.append("%s[%s → %s]" % [str(ev["text"]).left(12), ev.get("expression", ""), box._left._image.texture.resource_path.get_file()])
+				elif ev.get("speaker", "") == "cat":
+					said.append("고양이 %s[%s → %s]" % [str(ev["text"]).left(8), ev.get("expression", ""), box._right._image.texture.resource_path.get_file()])
 					if ev.get("expression", "") in ["sad", "happy"]:
 						await _p1_shot("expr_line_%s" % ev["expression"], "cat meeting line", true)
 				box.advance()

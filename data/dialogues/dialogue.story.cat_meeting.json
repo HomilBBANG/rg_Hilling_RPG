@@ -24,7 +24,8 @@
       "id": "l1",
       "type": "line",
       "speaker_id": "cat",
-      "text": "…야옹."
+      "text": "…야옹.",
+      "expression": "curious"
     },
     {
       "id": "l2",
@@ -90,7 +91,8 @@
       "id": "g3",
       "type": "line",
       "speaker_id": "cat",
-      "text": "야옹!"
+      "text": "야옹!",
+      "expression": "playful"
     },
     {
       "id": "act_go",

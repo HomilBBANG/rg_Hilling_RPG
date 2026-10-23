@@ -568,7 +568,7 @@ GDD 17은 저장/불러오기(저장 지점, 자동 저장, 사망 시 저장 �
 | 장면 | 영화 띠 → 자막 "길가 풀숲이 바스락거린다" → 주인공이 고양이 쪽을 봄 → 고양이가 주인공 앞까지 걸어와 마주 봄 → 자막 → 대화. `ESC`로 장면 건너뛰기 가능 | `data/cutscenes/cutscene.cat.meeting.json` |
 | 대화 | 임시 문안. 선택지 "쓰다듬어 본다"(호감도 +5) / "미안, 갈 길이 멀어"(따라옴) — **어느 쪽이든 동행 시작**(고양이가 고르는 것, 2.3 간택) | 같은 대화 파일, 새 대화 액션 `cat_join` |
 | 조작 정지 | 장면·대화 동안 주인공 이동·공격 잠금(기존 대화 잠금과 같음), 끝나면 다시 조작 | `dialogue_box.gd` → `PrototypePlayer.set_talking()` |
-| 고양이 초상화 | 그림 파일이 아직 없어 자리표시(`assets/portraits/cat.png`를 넣으면 바로 쓰임) | `data/speakers.json` |
+| 고양이 초상화 | `cat.png`(기본) + 표정 3가지 `cat_playful`(장난)·`cat_curious`(궁금)·`cat_grumpy`(뾰로통). 만남 대화에서 "…야옹."=궁금, "야옹!"=장난. 장난 그림은 얼굴이 대화창에 가리지 않게 왼쪽에 투명 여백을 더함 | `data/speakers.json`, `assets/portraits/` |
 | 기존 테스트 데이터 | `dialogue.demo.cat_first_appearance` / `cutscene.cat.first_appearance`(테스트용)는 그대로 둠 | — |
 
 ## 능력치 창 UI 개편 (사용자 요청)
