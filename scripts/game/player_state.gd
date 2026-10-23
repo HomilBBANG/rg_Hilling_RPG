@@ -44,7 +44,7 @@ const STAT_INFO := {
 	"DIV": ["신성력", "최대 MP"],
 	"VIT": ["체력", "최대 HP, SP 회복 속도"],
 	"MNT": ["멘탈", "정신계 상태이상 저항(미구현), MP 회복 속도"],
-	"HLT": ["건강", "불리한 상태이상 저항 (아직 효과 없음)"],
+	"HLT": ["건강", "불리한 상태이상 저항 (중독 시간 1포인트당 −6 %)"],
 }
 ## Hover text per stat (character sheet): what it affects and what one point does — the numbers
 ## follow the formulas below (max_hp() etc.), so change both together.
@@ -55,7 +55,7 @@ const STAT_HELP := {
 	"DIV": "최대 MP에 영향을 준다 — 마법에 MP를 쓴다.\n1포인트마다 최대 MP +2.",
 	"VIT": "최대 HP와 SP 회복 속도에 영향을 준다.\n1포인트마다 최대 HP +4, SP 회복 +0.4/초.",
 	"MNT": "정신계 상태이상 저항(아직 없음)과 MP 회복 속도에 영향을 준다.\n1포인트마다 MP 회복 +0.04/초.",
-	"HLT": "불리한 상태이상(독·질병 등) 저항에 영향을 준다.\n상태이상이 아직 없어 지금은 수치 효과가 없다.",
+	"HLT": "불리한 상태이상(독·질병 등) 저항에 영향을 준다.\n지금은 중독 시간이 1포인트당 6 %씩 줄어든다 (5 기준, 최소 40 %).",
 }
 ## Derived numbers on the character sheet: [key, label, value format, hover text].
 const DERIVED := [
@@ -548,12 +548,58 @@ func take_damage(amount: int) -> void:
 		died.emit()
 
 
+## Poison (식충식물의 독액). 상태이상 목록·지속시간은 GDD [미정] — prototype rule: a little HP every
+## POISON_TICK seconds for a while; HLT shortens it (HLT 5 = as written, each point ±6 %, 40-150 %).
+## Poison never takes the last HP (stops at 1). Cleared by restore_all (sleep, respawn). Not saved.
+const POISON_TICK := 1.5
+var poison_left := 0.0
+var poison_damage := 1
+var _poison_t := 0.0
+
+
+func poison_seconds(base: float) -> float:
+	return base * clampf(1.0 - (stat("HLT") - 5) * 0.06, 0.4, 1.5)
+
+
+func apply_poison(seconds: float, damage: int, source := "") -> void:
+	var s := poison_seconds(seconds)
+	var fresh := poison_left <= 0.0
+	poison_left = maxf(poison_left, s)
+	poison_damage = maxi(poison_damage if not fresh else 0, damage)
+	if fresh:
+		_poison_t = POISON_TICK
+	if Game.combat_log:
+		Game.combat_log.add("중독! (%.0f초)" % s, "%s의 독액에 중독 — %.1f초 동안 %.1f초마다 HP -%d (건강 HLT %d: 기본 %.0f초 × %.2f) · 독으로는 쓰러지지 않음" % [
+			source if source != "" else "독", s, POISON_TICK, damage, stat("HLT"), seconds, s / seconds], "hurt")
+	changed.emit()
+
+
+## Called every physics frame by the player while poisoned; returns the damage dealt now (0 most frames).
+func tick_poison(delta: float) -> int:
+	if poison_left <= 0.0:
+		return 0
+	poison_left = maxf(0.0, poison_left - delta)
+	_poison_t -= delta
+	var dealt := 0
+	if _poison_t <= 0.0:
+		_poison_t += POISON_TICK
+		dealt = mini(poison_damage, maxi(0, ceili(hp) - 1))
+		if dealt > 0:
+			hp -= dealt
+	if poison_left <= 0.0 and Game.combat_log:
+		Game.combat_log.add("중독이 풀렸다", "독 기운이 빠졌다", "info")
+	if dealt > 0 or poison_left <= 0.0:
+		changed.emit()
+	return dealt
+
+
 func heal(amount: float) -> void:
 	hp = minf(max_hp(), hp + amount)
 	changed.emit()
 
 
 func restore_all() -> void:
+	poison_left = 0.0
 	hp = max_hp()
 	mp = max_mp()
 	sp = max_sp()

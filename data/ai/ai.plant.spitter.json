@@ -1,0 +1,142 @@
+{
+  "version": 1,
+  "ai_id": "ai.plant.spitter",
+  "title": "식충식물 (뿌리박힘, 독액)",
+  "notes": "움직이지 않는다. 주인공이 7.5 m 안에 들어오면 그쪽을 보고, 공격 준비가 되면 독액을 뱉는다(붉은 원 → 떨어질 때 원 안이면 명중 판정, 맞으면 중독). 같은 종족을 부르지 않는다.",
+  "start_node_id": "start",
+  "nodes": [
+    {
+      "id": "start",
+      "type": "start"
+    },
+    {
+      "id": "c_gone",
+      "type": "condition",
+      "check": "player_gone",
+      "params": {}
+    },
+    {
+      "id": "c_near",
+      "type": "condition",
+      "check": "player_near",
+      "params": {
+        "distance": 7.5,
+        "night_mult": 1.0
+      }
+    },
+    {
+      "id": "e_fight",
+      "type": "engage",
+      "params": {
+        "call_allies": 0.0
+      }
+    },
+    {
+      "id": "c_ready",
+      "type": "condition",
+      "check": "attack_ready",
+      "params": {}
+    },
+    {
+      "id": "a_spit",
+      "type": "action",
+      "action": "spit",
+      "params": {
+        "cooldown": 2.6
+      }
+    },
+    {
+      "id": "a_watch",
+      "type": "action",
+      "action": "chase",
+      "params": {
+        "step": 0.5,
+        "hop": 0.4
+      }
+    },
+    {
+      "id": "a_idle",
+      "type": "action",
+      "action": "idle",
+      "params": {
+        "seconds": 0.8
+      }
+    }
+  ],
+  "connections": [
+    {
+      "from": "start",
+      "port": "next",
+      "to": "c_gone"
+    },
+    {
+      "from": "c_gone",
+      "port": "true",
+      "to": "a_idle"
+    },
+    {
+      "from": "c_gone",
+      "port": "false",
+      "to": "c_near"
+    },
+    {
+      "from": "c_near",
+      "port": "true",
+      "to": "e_fight"
+    },
+    {
+      "from": "c_near",
+      "port": "false",
+      "to": "a_idle"
+    },
+    {
+      "from": "e_fight",
+      "port": "next",
+      "to": "c_ready"
+    },
+    {
+      "from": "c_ready",
+      "port": "true",
+      "to": "a_spit"
+    },
+    {
+      "from": "c_ready",
+      "port": "false",
+      "to": "a_watch"
+    }
+  ],
+  "editor_positions": {
+    "start": [
+      30,
+      70
+    ],
+    "c_gone": [
+      320,
+      70
+    ],
+    "a_idle": [
+      610,
+      260
+    ],
+    "c_near": [
+      610,
+      70
+    ],
+    "e_fight": [
+      900,
+      70
+    ],
+    "c_ready": [
+      1190,
+      70
+    ],
+    "a_spit": [
+      1480,
+      40
+    ],
+    "a_watch": [
+      1480,
+      200
+    ]
+  }
+}

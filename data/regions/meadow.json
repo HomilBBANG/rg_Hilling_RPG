@@ -560,6 +560,70 @@
         -65,
         -60
       ]
+    },
+    {
+      "id": "plant_1",
+      "kind": "carnivorous_plant",
+      "pos": [
+        80,
+        44
+      ]
+    },
+    {
+      "id": "plant_2",
+      "kind": "carnivorous_plant",
+      "pos": [
+        77,
+        66
+      ]
+    },
+    {
+      "id": "plant_3",
+      "kind": "carnivorous_plant",
+      "pos": [
+        31,
+        67
+      ]
+    },
+    {
+      "id": "wolf_1",
+      "kind": "wolf",
+      "pos": [
+        -50,
+        -68
+      ]
+    },
+    {
+      "id": "wolf_2",
+      "kind": "wolf",
+      "pos": [
+        -53.5,
+        -71
+      ]
+    },
+    {
+      "id": "hedgehog_1",
+      "kind": "hedgehog",
+      "pos": [
+        8,
+        -25
+      ]
+    },
+    {
+      "id": "hedgehog_2",
+      "kind": "hedgehog",
+      "pos": [
+        12.5,
+        -28
+      ]
+    },
+    {
+      "id": "hedgehog_3",
+      "kind": "hedgehog",
+      "pos": [
+        -41,
+        -16
+      ]
     }
   ],
   "checkpoints": [

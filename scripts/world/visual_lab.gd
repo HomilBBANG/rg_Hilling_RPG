@@ -626,7 +626,8 @@ func sprite_targets() -> Array:
 	var out := [[player, PrototypePlayer.sprite_bake_spec(g), "player|" + PlayerState.gear_key(g)]]
 	for m in monsters:
 		if is_instance_valid(m) and not m is DragonBoss:  # the dragon stays a 3D model
-			out.append([m, SlimeMonster.sprite_bake_spec(m.kind), "slime" if m.kind in ["meadow_slime", "forest_slime"] else "slime|" + m.kind])
+			var tg := m.sprite_target()
+			out.append([m, tg[0], tg[1]])
 	if camper_here():
 		out.append([camper, CamperExterior.sprite_bake_spec(CAMPER_YAW_DEG), "camper|" + CamperUpgrades.look_key()])
 	if cat:
@@ -1039,9 +1040,9 @@ func _build_dungeon_exit(c: Vector3) -> void:
 # ---------------------------------------------------------------- P1: monsters, loot, safety
 
 func _spawn_monster(spec: Dictionary) -> SlimeMonster:
-	var dragon: bool = MonsterDB.info(str(spec.get("kind", ""))).get("class", "") == "dragon"
-	var m: SlimeMonster = DragonBoss.new() if dragon else SlimeMonster.new()
-	m.name = ("Dragon_" if dragon else "Slime_") + str(spec["id"])
+	var cls := str(MonsterDB.info(str(spec.get("kind", ""))).get("class", ""))
+	var m: SlimeMonster = DragonBoss.new() if cls == "dragon" else (BeastMonster.new() if cls == "beast" else SlimeMonster.new())
+	m.name = {"dragon": "Dragon_", "beast": "Beast_"}.get(cls, "Slime_") + str(spec["id"])
 	m.monster_id = str(spec["id"])
 	m.kind = str(spec.get("kind", "meadow_slime"))
 	m.set_meta("once", bool(spec.get("once", false)))

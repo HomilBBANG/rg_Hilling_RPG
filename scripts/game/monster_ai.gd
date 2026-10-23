@@ -29,6 +29,7 @@ const CHECKS := {
 		{"name": "night_mult", "label": "밤 배율", "default": 1.4, "min": 1.0, "max": 3.0, "step": 0.1}]},
 	"player_in_reach": {"label": "덮칠 수 있는가", "help": "주인공이 덮치기 거리 안 + 다시 덮칠 준비가 됨 (몸집이 크면 거리도 늘어남)", "params": [
 		{"name": "reach", "label": "덮치기 거리 (m)", "default": 1.7, "min": 0.5, "max": 6.0, "step": 0.1}]},
+	"attack_ready": {"label": "공격 준비됐는가", "help": "지난 공격의 '다음 공격까지' 시간이 다 지남 (원거리·돌진처럼 거리를 따로 보는 공격에)", "params": []},
 	"player_gone": {"label": "주인공을 놓쳤는가", "help": "주인공이 쓰러졌거나, 쉼터 안이거나, 운전·대화 중", "params": []},
 	"far_from_home": {"label": "자리에서 멀어졌는가", "help": "처음 자리에서 이 거리보다 멀리 쫓아옴 (추적 포기 거리)", "params": [
 		{"name": "distance", "label": "거리 (m)", "default": 14.0, "min": 2.0, "max": 80.0, "step": 1.0}]},
@@ -52,6 +53,15 @@ const ACTIONS := {
 		{"name": "hop", "label": "한 번 뛰는 시간 (초)", "default": 0.7, "min": 0.3, "max": 3.0, "step": 0.1}]},
 	"attack": {"label": "덮치기 공격", "help": "주인공에게 몸을 날림 — 몸이 닿으면 명중 판정 (GDD 6.2)", "params": [
 		{"name": "cooldown", "label": "다음 공격까지 (초)", "default": 1.3, "min": 0.2, "max": 10.0, "step": 0.1}]},
+	"spit": {"label": "독액 뱉기", "help": "주인공이 선 자리에 붉은 원을 띄우고 독액을 뱉음 — 날아가 떨어질 때 원 안이면 명중 판정, 맞으면 중독 (식충식물. 이 기술이 없는 몸이면 덮치기)", "params": [
+		{"name": "cooldown", "label": "다음 공격까지 (초)", "default": 2.6, "min": 0.2, "max": 10.0, "step": 0.1}]},
+	"bite": {"label": "물기", "help": "앞쪽 작은 붉은 원 → 몸을 날려 물기 (늑대. 이 기술이 없는 몸이면 덮치기)", "params": [
+		{"name": "cooldown", "label": "다음 공격까지 (초)", "default": 1.4, "min": 0.2, "max": 10.0, "step": 0.1}]},
+	"claw": {"label": "할퀴기", "help": "앞쪽 부채꼴 → 앞발로 크게 할큄 (늑대. 이 기술이 없는 몸이면 덮치기)", "params": [
+		{"name": "cooldown", "label": "다음 공격까지 (초)", "default": 1.2, "min": 0.2, "max": 10.0, "step": 0.1}]},
+	"charge": {"label": "가시 세우고 돌진", "help": "몸을 말아 가시를 세우고 붉은 길을 띄운 뒤 그 길로 굴러 돌진 — 몸에 닿으면 명중 판정, 끝나면 잠깐 어지러움 (고슴도치. 이 기술이 없는 몸이면 덮치기)", "params": [
+		{"name": "cooldown", "label": "다음 공격까지 (초)", "default": 3.5, "min": 0.2, "max": 10.0, "step": 0.1},
+		{"name": "distance", "label": "돌진 거리 (m)", "default": 7.0, "min": 2.0, "max": 16.0, "step": 0.5}]},
 	"flee": {"label": "도망치기", "help": "주인공 반대쪽으로 뜀", "params": [
 		{"name": "step", "label": "한 번에 (m)", "default": 1.6, "min": 0.3, "max": 4.0, "step": 0.1}]},
 	"return_home": {"label": "자리로 돌아가기", "help": "싸움을 그만두고 처음 자리로 — 도착하면 체력 회복(선택)", "params": [

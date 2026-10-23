@@ -1,0 +1,289 @@
+{
+  "version": 1,
+  "ai_id": "ai.wolf.pack",
+  "title": "늑대 (무리, 선공)",
+  "notes": "주인공이 7 m 안에 오면 먼저 덤비고 무리(같은 종족)를 부른다. 붙으면 물기 / 할퀴기를 반반으로, 아니면 빠르게 쫓아온다. 자리에서 20 m 넘게 멀어지거나 주인공을 놓치면 돌아가 회복. 무리를 14 m 안에서 부른다. 평소엔 자리 4 m 안을 어슬렁거리다 가끔 멈춰 선다.",
+  "start_node_id": "start",
+  "nodes": [
+    {
+      "id": "start",
+      "type": "start"
+    },
+    {
+      "id": "c_prov",
+      "type": "condition",
+      "check": "provoked",
+      "params": {}
+    },
+    {
+      "id": "c_near",
+      "type": "condition",
+      "check": "player_near",
+      "params": {
+        "distance": 7.0,
+        "night_mult": 1.4
+      }
+    },
+    {
+      "id": "c_call",
+      "type": "condition",
+      "check": "ally_called",
+      "params": {
+        "seconds": 4.0
+      }
+    },
+    {
+      "id": "e_fight",
+      "type": "engage",
+      "params": {
+        "call_allies": 1.0
+      }
+    },
+    {
+      "id": "c_rest",
+      "type": "condition",
+      "check": "random",
+      "params": {
+        "percent": 30.0
+      }
+    },
+    {
+      "id": "a_idle",
+      "type": "action",
+      "action": "idle",
+      "params": {
+        "seconds": 1.5
+      }
+    },
+    {
+      "id": "a_wander",
+      "type": "action",
+      "action": "wander",
+      "params": {
+        "radius": 4.0,
+        "hop": 1.1
+      }
+    },
+    {
+      "id": "c_gone",
+      "type": "condition",
+      "check": "player_gone",
+      "params": {}
+    },
+    {
+      "id": "c_leash",
+      "type": "condition",
+      "check": "far_from_home",
+      "params": {
+        "distance": 20.0
+      }
+    },
+    {
+      "id": "a_home",
+      "type": "action",
+      "action": "return_home",
+      "params": {
+        "heal": 1.0
+      }
+    },
+    {
+      "id": "c_reach",
+      "type": "condition",
+      "check": "player_in_reach",
+      "params": {
+        "reach": 1.6
+      }
+    },
+    {
+      "id": "c_pick",
+      "type": "condition",
+      "check": "random",
+      "params": {
+        "percent": 55.0
+      }
+    },
+    {
+      "id": "a_bite",
+      "type": "action",
+      "action": "bite",
+      "params": {
+        "cooldown": 1.4
+      }
+    },
+    {
+      "id": "a_claw",
+      "type": "action",
+      "action": "claw",
+      "params": {
+        "cooldown": 1.2
+      }
+    },
+    {
+      "id": "a_chase",
+      "type": "action",
+      "action": "chase",
+      "params": {
+        "step": 2.2,
+        "hop": 0.45
+      }
+    }
+  ],
+  "connections": [
+    {
+      "from": "start",
+      "port": "next",
+      "to": "c_prov"
+    },
+    {
+      "from": "c_prov",
+      "port": "true",
+      "to": "c_gone"
+    },
+    {
+      "from": "c_prov",
+      "port": "false",
+      "to": "c_near"
+    },
+    {
+      "from": "c_near",
+      "port": "true",
+      "to": "e_fight"
+    },
+    {
+      "from": "c_near",
+      "port": "false",
+      "to": "c_call"
+    },
+    {
+      "from": "c_call",
+      "port": "true",
+      "to": "e_fight"
+    },
+    {
+      "from": "c_call",
+      "port": "false",
+      "to": "c_rest"
+    },
+    {
+      "from": "c_rest",
+      "port": "true",
+      "to": "a_idle"
+    },
+    {
+      "from": "c_rest",
+      "port": "false",
+      "to": "a_wander"
+    },
+    {
+      "from": "e_fight",
+      "port": "next",
+      "to": "c_gone"
+    },
+    {
+      "from": "c_gone",
+      "port": "true",
+      "to": "a_home"
+    },
+    {
+      "from": "c_gone",
+      "port": "false",
+      "to": "c_leash"
+    },
+    {
+      "from": "c_leash",
+      "port": "true",
+      "to": "a_home"
+    },
+    {
+      "from": "c_leash",
+      "port": "false",
+      "to": "c_reach"
+    },
+    {
+      "from": "c_reach",
+      "port": "true",
+      "to": "c_pick"
+    },
+    {
+      "from": "c_reach",
+      "port": "false",
+      "to": "a_chase"
+    },
+    {
+      "from": "c_pick",
+      "port": "true",
+      "to": "a_bite"
+    },
+    {
+      "from": "c_pick",
+      "port": "false",
+      "to": "a_claw"
+    }
+  ],
+  "editor_positions": {
+    "start": [
+      30,
+      70
+    ],
+    "c_prov": [
+      320,
+      70
+    ],
+    "c_near": [
+      320,
+      260
+    ],
+    "c_call": [
+      610,
+      400
+    ],
+    "e_fight": [
+      610,
+      220
+    ],
+    "c_rest": [
+      900,
+      560
+    ],
+    "a_idle": [
+      1190,
+      520
+    ],
+    "a_wander": [
+      1190,
+      660
+    ],
+    "c_gone": [
+      900,
+      70
+    ],
+    "c_leash": [
+      1190,
+      200
+    ],
+    "a_home": [
+      1480,
+      70
+    ],
+    "c_reach": [
+      1480,
+      260
+    ],
+    "c_pick": [
+      1770,
+      200
+    ],
+    "a_bite": [
+      2060,
+      140
+    ],
+    "a_claw": [
+      2060,
+      290
+    ],
+    "a_chase": [
+      1770,
+      400
+    ]
+  }
+}

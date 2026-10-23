@@ -550,6 +550,8 @@ func _parse_args() -> void:
 		_run_collide_tour()
 	elif tour == "monsterai":
 		_run_monster_ai_tour()
+	elif tour == "beasts":
+		_run_beasts_tour()
 	elif tour == "catmeet":
 		_run_cat_meet_tour()
 	elif tour == "expressions":
@@ -1889,6 +1891,191 @@ func _run_monster_ai_tour() -> void:
 	var bad := {"nodes": [{"id": "start", "type": "start", "next": "nowhere"}]}
 	print("[monsterai] broken graph check: %s" % [MonsterAI.validate(bad).map(func(e: Dictionary) -> String: return e["message"])])
 	get_tree().quit()
+
+
+## New meadow beasts: 고슴도치 (비선공 → 가시 돌진), 늑대 (선공 무리 → 물기 / 할퀴기),
+## 식충식물 (뿌리박힘 → 독액 뱉기 + 중독, 원 밖으로 피하기), then models side by side and their loot.
+func _run_beasts_tour() -> void:
+	Game.clock_running = false
+	Game.minute_of_day = 11.0 * 60.0
+	await wait_for_sprites()
+	var p: PrototypePlayer = world.player
+	var st := Game.player_state
+	var by_kind := {}
+	for m in world.monsters:
+		if m is BeastMonster:
+			print("[beasts] %s (%s) body %s gait %s, aggressive %s, graph %s loaded %s, moves %s" % [m.display_name, m.kind, m.body, m.gait,
+				m.aggressive, m.ai_id, not m._ai.is_empty(), m.attacks.keys()])
+			if not by_kind.has(m.kind):
+				by_kind[m.kind] = []
+			by_kind[m.kind].append(m)
+	var only := func(keep: Array) -> void:
+		for m in world.monsters:
+			var on: bool = m in keep
+			m.set_physics_process(on)
+			if not on and m.global_position.y > -50.0:
+				m.global_position += Vector3(0, -100, 0)
+	var watch := func(m: SlimeMonster, secs: float) -> Dictionary:
+		var seen := {}
+		var t := 0.0
+		var hp0 := st.hp
+		var lost := 0.0
+		while t < secs:
+			await get_tree().physics_frame
+			t += get_physics_process_delta_time()
+			if m is BeastMonster and not m._atk.is_empty():
+				seen[m._atk["key"]] = true
+			if st.hp < hp0:
+				lost += hp0 - st.hp
+			if st.hp < st.max_hp() * 0.35:
+				st.restore_all()
+			hp0 = st.hp
+		return {"moves": seen.keys(), "lost": lost}
+	# 1) hedgehog: leaves the hero alone, fights back with the spine charge
+	var hh: BeastMonster = by_kind["hedgehog"][0]
+	only.call([hh])
+	_place_player(hh.global_position + Vector3(0, 0, 3.0), 0.0)
+	st.restore_all()
+	var r: Dictionary = await watch.call(hh, 4.0)
+	print("[beasts] hedgehog, hero 3 m away 4 s: provoked %s, moves %s -> %s" % [hh.provoked, r["moves"], "비선공 ✔" if not hh.provoked and r["moves"].is_empty() else "✘"])
+	hh.receive_attack(st.combat_profile(), p)
+	_place_player(hh.global_position + Vector3(0, 0, 4.5), 0.0)
+	var t := 0.0
+	while t < 6.0 and (hh._atk.is_empty() or hh._atk["key"] != "charge"):
+		await get_tree().physics_frame
+		t += get_physics_process_delta_time()
+	await _seconds(0.5)
+	await _p1_shot("beasts_01_hedgehog_curl", "hedgehog curls up behind a red lane", true)
+	var hp_before := st.hp
+	var touched := false
+	var lost_h := 0.0
+	t = 0.0
+	while t < 2.5:
+		await get_tree().physics_frame
+		t += get_physics_process_delta_time()
+		touched = touched or (not hh._atk.is_empty() and hh._atk["done"])
+		lost_h += maxf(0.0, hp_before - st.hp)
+		hp_before = st.hp
+	print("[beasts] hedgehog charge: rolled %.1f m, touched the hero %s, hero lost %d HP %s" % [float(hh._atk.get("rolled", 0.0)) if not hh._atk.is_empty() else -1.0,
+		touched, roundi(lost_h), "(명중)" if lost_h > 0 else ("(닿았지만 명중 판정 실패)" if touched else "✘ 안 닿음")])
+	await _p1_shot("beasts_02_hedgehog_after", "after the charge", true)
+	# 2) wolves: spot the hero, call the pack, bite and claw
+	var wolves: Array = by_kind["wolf"]
+	only.call(wolves)
+	var w0: BeastMonster = wolves[0]
+	await _frames(2)
+	print("[beasts] wolves %.1f m apart (call range %.0f m)" % [_flat_dist(wolves[0].global_position, wolves[1].global_position), w0.join_radius])
+	_place_player(w0.global_position + Vector3(0, 0, 6.0), 0.0)
+	st.restore_all()
+	var seen_w := {}
+	var joined := {}
+	var lost_w := 0.0
+	var shot_bite := false
+	var shot_claw := false
+	t = 0.0
+	var hp0 := st.hp
+	while t < 14.0:
+		await get_tree().physics_frame
+		t += get_physics_process_delta_time()
+		for w in wolves:
+			if w.provoked:
+				joined[w] = true
+			if not w._atk.is_empty():
+				seen_w[w._atk["key"]] = true
+				if w._atk["t"] > w._atk["windup"] * 0.7 and w._atk["t"] < w._atk["windup"]:
+					if w._atk["key"] == "bite" and not shot_bite:
+						shot_bite = true
+						await _p1_shot("beasts_03_wolf_bite", "wolf bite wind-up (red circle)", true)
+					elif w._atk["key"] == "claw" and not shot_claw:
+						shot_claw = true
+						await _p1_shot("beasts_04_wolf_claw", "wolf claw wind-up (red fan)", true)
+		if st.hp < hp0:
+			lost_w += hp0 - st.hp
+		if st.hp < st.max_hp() * 0.35:
+			st.restore_all()
+		hp0 = st.hp
+	var pack := joined.size()
+	print("[beasts] wolves: %d/%d in the fight, moves %s, hero lost %d HP -> %s" % [pack, wolves.size(), seen_w.keys(), roundi(lost_w),
+		"선공 + 무리 + 물기·할퀴기 ✔" if pack == wolves.size() and seen_w.has("bite") and seen_w.has("claw") else "✘"])
+	# 3) carnivorous plant: rooted, spits venom at where the hero stands; standing in it poisons
+	var pl: BeastMonster = by_kind["carnivorous_plant"][0]
+	only.call([pl])
+	var home := pl.global_position
+	_place_player(pl.global_position + Vector3(0, 0, 5.0), 0.0)
+	st.restore_all()
+	var poisoned := false
+	var shot_spit := false
+	var shot_fly := false
+	t = 0.0
+	while t < 16.0 and not poisoned:
+		await get_tree().physics_frame
+		t += get_physics_process_delta_time()
+		if not pl._atk.is_empty() and pl._atk["t"] > 0.5 and not shot_spit:
+			shot_spit = true
+			await _p1_shot("beasts_05_plant_spit", "plant aims: red circle under the hero", true)
+		if not pl._shots.is_empty() and float(pl._shots[0]["t"]) > 0.25 and not shot_fly:
+			shot_fly = true
+			await _p1_shot("beasts_06_plant_venom", "venom in the air", true)
+		poisoned = st.poison_left > 0.0
+	var hp_p := st.hp
+	await _seconds(1.0)
+	await _p1_shot("beasts_07_poisoned", "poisoned: green HP bar", true)
+	await _seconds(3.4)
+	print("[beasts] plant: moved %.2f m (rooted), poisoned %s (%.1f s left, HLT %d), HP %d -> %d after 4.4 s of poison" % [
+		Vector2(pl.global_position.x - home.x, pl.global_position.z - home.z).length(), poisoned, st.poison_left, st.stat("HLT"), roundi(hp_p), roundi(st.hp)])
+	# poison never takes the last HP (plant switched off for this check)
+	pl.set_physics_process(false)
+	st.hp = 2.0
+	st.apply_poison(6.0, 3, "시험")
+	await _seconds(4.0)
+	print("[beasts] poison at 2 HP for 4 s: HP %d -> %s" % [roundi(st.hp), "1에서 멈춤 ✔" if st.hp >= 1.0 else "✘"])
+	st.restore_all()
+	pl.set_physics_process(true)
+	# dodge: step out of the circle during the wind-up (first let the venom already in the air land)
+	await _seconds(2.0)
+	st.restore_all()
+	var dodged := 0
+	var tries := 0
+	t = 0.0
+	while t < 14.0 and tries < 2:
+		await get_tree().physics_frame
+		t += get_physics_process_delta_time()
+		if not pl._atk.is_empty() and pl._atk["t"] < 0.1:
+			tries += 1
+			st.restore_all()
+			var hp1 := st.hp
+			_place_player(p.global_position + Vector3(2.4, 0, 0), 0.0)
+			await _seconds(1.6)
+			if st.hp >= hp1 and st.poison_left <= 0.0:
+				dodged += 1
+			_place_player(pl.global_position + Vector3(0, 0, 5.0), 0.0)
+	print("[beasts] plant dodge: stepped out of the circle %d times, unhurt %d -> %s" % [tries, dodged, "피함 ✔" if tries > 0 and dodged == tries else "✘"])
+	# 4) the three side by side (idle sprites) + loot
+	only.call([])
+	var spot := pl.global_position + Vector3(0, 0, 4.0)
+	_place_player(spot + Vector3(0, 0, 3.0), 0.0)
+	var line := [by_kind["carnivorous_plant"][0], by_kind["wolf"][0], by_kind["hedgehog"][0]]
+	for i in line.size():
+		var m: BeastMonster = line[i]
+		m.global_position = Vector3(spot.x - 2.4 + i * 2.4, world.ground_height(spot.x - 2.4 + i * 2.4, spot.z), spot.z)
+		m._yaw = PI * 0.75
+	await _seconds(0.6)
+	await _p1_shot("beasts_08_lineup", "식충식물 · 늑대 · 고슴도치", true)
+	for m: BeastMonster in line:
+		var rng := RandomNumberGenerator.new()
+		rng.seed = 7
+		var inv := MonsterDB.roll_loot(m.kind, rng)
+		var names := PackedStringArray()
+		for e: Dictionary in inv.items:
+			names.append("%s×%d" % [ItemDB.item_name(str(e["id"])), int(e["count"])])
+		print("[beasts] %s loot roll: %s, EXP %d, HP %d" % [m.display_name, ", ".join(names), m.exp_reward, m.max_hp])
+	for id in ["ai.wolf.pack", "ai.plant.spitter", "ai.hedgehog.charge"]:
+		print("[beasts] graph %s issues: %s" % [id, MonsterAI.validate(MonsterAI.load_graph(id)).map(func(e: Dictionary) -> String: return e["message"])])
+	get_tree().quit()
+
+
+func _flat_dist(a: Vector3, b: Vector3) -> float:
+	return Vector2(a.x - b.x, a.z - b.z).length()
 
 
 func _run_collide_tour() -> void:

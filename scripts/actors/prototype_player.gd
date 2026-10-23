@@ -227,6 +227,10 @@ func _physics_process(delta: float) -> void:
 		_turn_towards(atan2(-dir.x, -dir.z), delta)
 	if _attack_t >= HIT_WINDOW.x and _attack_t <= HIT_WINDOW.y:
 		_weapon_contact()
+	if st.poison_left > 0.0 and is_targetable():
+		var dmg := st.tick_poison(delta)
+		if dmg > 0 and Game.hud:
+			Game.hud.float_text(global_position + Vector3(0, 1.9, 0), "독 -%d" % dmg, Color(0.6, 0.95, 0.35))
 
 
 ## Swept weapon area in front of the player during the swing; each monster at most once per swing.
@@ -250,9 +254,10 @@ func is_targetable() -> bool:
 
 
 ## Monster attack that physically touched the body: TRPG roll against the player.
-func receive_attack(attacker_profile: Dictionary, from: Node3D) -> void:
+## Returns true when the attack hit (for side effects such as poison).
+func receive_attack(attacker_profile: Dictionary, from: Node3D) -> bool:
 	if not is_targetable() or _invuln > 0.0:
-		return
+		return false
 	var st := Game.player_state
 	var res := Combat.resolve(attacker_profile, st.combat_profile())
 	var top := global_position + Vector3(0, 1.9, 0)
@@ -269,10 +274,11 @@ func receive_attack(attacker_profile: Dictionary, from: Node3D) -> void:
 		away.y = 0.0
 		_knock = away.normalized() * 3.5
 		st.take_damage(res["damage"])
-	else:
-		Game.combat_log.add(Combat.short_text(res), res["detail"], "miss")
-		if Game.hud:
-			Game.hud.float_text(top, "회피", Color(0.75, 0.78, 0.82))
+		return true
+	Game.combat_log.add(Combat.short_text(res), res["detail"], "miss")
+	if Game.hud:
+		Game.hud.float_text(top, "회피", Color(0.75, 0.78, 0.82))
+	return false
 
 
 ## Extra push from a heavy blow (the dragon's tail / dive), on top of the usual hit knockback.

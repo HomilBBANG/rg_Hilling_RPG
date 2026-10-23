@@ -395,6 +395,161 @@
         }
       ]
     },
+    "carnivorous_plant": {
+      "name": "식충식물",
+      "class": "beast",
+      "body": "plant",
+      "gait": "rooted",
+      "aggressive": true,
+      "ai": "ai.plant.spitter",
+      "hp": 14,
+      "exp": 10,
+      "profile": {
+        "hit_bonus": 3,
+        "crit_chance": 5,
+        "phys": "1d3",
+        "str_mult": 1.0,
+        "ac": 10,
+        "armor": 0
+      },
+      "scale": 1.0,
+      "attacks": {
+        "spit": {
+          "label": "독액 뱉기",
+          "windup": 0.8,
+          "flight": 0.6,
+          "radius": 1.1,
+          "recover": 0.6,
+          "hit_bonus": 3,
+          "phys": "1d2",
+          "poison": {
+            "seconds": 6.0,
+            "damage": 1
+          }
+        }
+      },
+      "loot": [
+        {
+          "item": "poison_sac",
+          "chance": 0.6
+        },
+        {
+          "item": "herb",
+          "chance": 0.3
+        },
+        {
+          "item": "mana_shard",
+          "chance": 0.1
+        }
+      ]
+    },
+    "wolf": {
+      "name": "늑대",
+      "class": "beast",
+      "body": "wolf",
+      "gait": "walk",
+      "aggressive": true,
+      "ai": "ai.wolf.pack",
+      "join_radius": 14.0,
+      "hp": 16,
+      "exp": 14,
+      "profile": {
+        "hit_bonus": 4,
+        "crit_chance": 6,
+        "phys": "1d6",
+        "str_mult": 1.0,
+        "ac": 11,
+        "armor": 0
+      },
+      "scale": 1.15,
+      "attacks": {
+        "bite": {
+          "label": "물기",
+          "windup": 0.5,
+          "reach": 1.2,
+          "radius": 0.85,
+          "lunge": 1.0,
+          "recover": 0.45,
+          "hit_bonus": 4,
+          "phys": "1d4+1"
+        },
+        "claw": {
+          "label": "할퀴기",
+          "windup": 0.4,
+          "range": 1.8,
+          "half_deg": 65.0,
+          "lunge": 0.4,
+          "recover": 0.4,
+          "hit_bonus": 3,
+          "phys": "1d4"
+        }
+      },
+      "loot": [
+        {
+          "item": "wolf_pelt",
+          "chance": 0.8
+        },
+        {
+          "item": "wolf_fang",
+          "chance": 0.4
+        },
+        {
+          "item": "heal_potion",
+          "chance": 0.08
+        },
+        {
+          "equip_pool": [
+            "leather_cap",
+            "leather_gloves",
+            "sturdy_boots"
+          ],
+          "chance": 0.1,
+          "option_chance": 0.6
+        }
+      ]
+    },
+    "hedgehog": {
+      "name": "고슴도치",
+      "class": "beast",
+      "body": "hedgehog",
+      "gait": "walk",
+      "aggressive": false,
+      "ai": "ai.hedgehog.charge",
+      "hp": 10,
+      "exp": 8,
+      "profile": {
+        "hit_bonus": 3,
+        "crit_chance": 5,
+        "phys": "1d4",
+        "str_mult": 1.0,
+        "ac": 11,
+        "armor": 1
+      },
+      "scale": 0.8,
+      "attacks": {
+        "charge": {
+          "label": "가시 세우고 돌진",
+          "windup": 0.9,
+          "width": 1.0,
+          "speed": 8.5,
+          "shove": 4.0,
+          "recover": 1.1,
+          "hit_bonus": 3,
+          "phys": "1d6"
+        }
+      },
+      "loot": [
+        {
+          "item": "hedgehog_quill",
+          "chance": 1.0,
+          "dice": "1d3"
+        },
+        {
+          "item": "wild_berry",
+          "chance": 0.25
+        }
+      ]
+    },
     "dragon": {
       "name": "드래곤",
       "class": "dragon",

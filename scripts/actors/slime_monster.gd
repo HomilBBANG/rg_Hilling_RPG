@@ -39,6 +39,9 @@ var state := State.WANDER
 var sprite: BakedSprite
 
 var _rig: SlimeRig
+## How it moves between decisions: "hop" (slimes: a jump, then a rest), "walk" (moves the whole
+## step), "rooted" (never leaves its spot, only turns). data/monsters.json "gait".
+var gait := "hop"
 var _meshes: Array[MeshInstance3D] = []
 var _materials: Array[StandardMaterial3D] = []
 var _silhouette_mat: ShaderMaterial
@@ -73,6 +76,8 @@ func _ready() -> void:
 	profile = profile.merged(def.get("profile", {}), true)
 	profile["name"] = display_name
 	body_scale = float(def.get("scale", 1.0))
+	gait = str(def.get("gait", "hop"))
+	join_radius = float(def.get("join_radius", join_radius))
 	motion_mode = CharacterBody3D.MOTION_MODE_FLOATING
 	collision_layer = LAYER
 	collision_mask = PhysLayers.MONSTER_MASK
@@ -82,9 +87,7 @@ func _ready() -> void:
 	shape.shape = sph
 	shape.position.y = RADIUS * body_scale
 	add_child(shape)
-	_rig = SlimeRig.new(def.get("colors", null), float(def.get("scale", 1.0)))
-	add_child(_rig)
-	_setup_silhouette(Color(1.0, 0.35, 0.3, 0.45))
+	_setup_silhouette(Color(1.0, 0.35, 0.3, 0.45), _build_body(def))
 	hp = max_hp
 	ai_id = MonsterAI.ai_for(kind)
 	_ai = MonsterAI.load_graph(ai_id)
@@ -95,6 +98,18 @@ func _ready() -> void:
 	_yaw = _rng.randf() * TAU
 	_start_hop(Vector3.ZERO, 1.1)
 	add_to_group("enemies")
+
+
+## The 3D model (sprite source + shadow caster). Other monster bodies override this.
+func _build_body(def: Dictionary) -> Node3D:
+	_rig = SlimeRig.new(def.get("colors", null), float(def.get("scale", 1.0)))
+	add_child(_rig)
+	return _rig
+
+
+## Pixel sprite sheet for this monster: [bake spec, sheet name] (same name = shared sheet).
+func sprite_target() -> Array:
+	return [sprite_bake_spec(kind), "slime" if kind in ["meadow_slime", "forest_slime"] else "slime|" + kind]
 
 
 static func sprite_bake_spec(kind_id := "meadow_slime") -> Dictionary:
@@ -120,13 +135,13 @@ func use_sprite_sheet(sheet: SpriteSheet) -> void:
 	set_silhouette(_silhouette_on)
 
 
-func _setup_silhouette(color: Color) -> void:
+func _setup_silhouette(color: Color, body: Node3D) -> void:
 	_silhouette_mat = ShaderMaterial.new()
 	_silhouette_mat.shader = preload("res://shaders/occluded_silhouette.gdshader")
 	_silhouette_mat.set_shader_parameter("color", color)
 	_silhouette_mat.set_shader_parameter("self_bias", 1.0)
 	_silhouette_mat.render_priority = 1
-	for mi in _rig.find_children("*", "MeshInstance3D", true, false):
+	for mi in body.find_children("*", "MeshInstance3D", true, false):
 		var m := (mi as MeshInstance3D).material_override.duplicate() as StandardMaterial3D
 		(mi as MeshInstance3D).material_override = m
 		_materials.append(m)
@@ -206,7 +221,7 @@ func _physics_process(delta: float) -> void:
 	# hop motion
 	_hop_t += delta
 	var t := clampf(_hop_t / _hop_time, 0.0, 1.0)
-	var airborne := not _hop_rest and t < 0.55
+	var airborne := not _hop_rest and t < _move_frac()
 	velocity = (_hop_vel if airborne else Vector3.ZERO) + _knock
 	_knock = _knock.move_toward(Vector3.ZERO, delta * 22.0)
 	move_and_slide()
@@ -266,6 +281,12 @@ func _ai_hop(to_player: Vector3, dist: float) -> void:
 			_attack_done = false
 			_cooldown = MonsterAI.param(n, "cooldown")
 			_start_hop(to_player.normalized() * minf(dist + 0.2, 1.5), 0.6)
+		"spit", "bite", "claw", "charge":
+			if not _special_attack(str(n["action"]), n, to_player, dist):  # a body without that move: plain lunge
+				state = State.ATTACK
+				_attack_done = false
+				_cooldown = MonsterAI.param(n, "cooldown")
+				_start_hop(to_player.normalized() * minf(dist + 0.2, 1.5), 0.6)
 		"flee":
 			state = State.CHASE
 			var away := -to_player.normalized() if dist > 0.01 else Vector3.FORWARD
@@ -296,6 +317,11 @@ func _ai_hop(to_player: Vector3, dist: float) -> void:
 				_start_hop(to.normalized() * minf(1.4, to.length() - 0.8), 0.8)
 
 
+## Special moves (BeastMonster): starts one and returns true, or false when this body has no such move.
+func _special_attack(_action: String, _n: Dictionary, _to_player: Vector3, _dist: float) -> bool:
+	return false
+
+
 ## Condition answers for MonsterAI.decide.
 func ai_check(check: String, n: Dictionary) -> bool:
 	var p := _player()
@@ -311,6 +337,8 @@ func ai_check(check: String, n: Dictionary) -> bool:
 			return _player_valid() and dist < MonsterAI.param(n, "reach") + reach and _cooldown <= 0.0
 		"player_gone":
 			return not _player_valid()
+		"attack_ready":
+			return _cooldown <= 0.0
 		"far_from_home":
 			return _flat(global_position - home).length() > MonsterAI.param(n, "distance")
 		"hp_below":
@@ -384,9 +412,17 @@ func _start_hop(offset: Vector3, duration: float, rest := false) -> void:
 	_hop_t = 0.0
 	_hop_time = duration
 	_hop_rest = rest or offset.length() < 0.05
-	_hop_vel = offset / (duration * 0.55) if not _hop_rest else Vector3.ZERO
+	_hop_vel = offset / (duration * _move_frac()) if not _hop_rest else Vector3.ZERO
 	if offset.length() > 0.05:
 		_yaw = atan2(-offset.x, -offset.z)
+	if gait == "rooted":  # turns to face where it would go, never moves
+		_hop_vel = Vector3.ZERO
+		_hop_rest = true
+
+
+## Part of a hop spent moving: slimes fly the first 55 % and then land; walkers move the whole time.
+func _move_frac() -> float:
+	return 1.0 if gait == "walk" else 0.55
 
 
 func _try_contact() -> void:

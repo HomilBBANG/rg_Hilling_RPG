@@ -2059,6 +2059,10 @@ func _process(delta: float) -> void:
 			_place_tip()
 	var st := Game.player_state
 	_set_bar("hp", st.hp, st.max_hp())
+	var hb: Array = _bars["hp"]
+	(hb[0] as ColorRect).color = Color(0.45, 0.75, 0.25) if st.poison_left > 0.0 else Color(0.86, 0.26, 0.24)
+	if st.poison_left > 0.0:
+		(hb[1] as Label).text += "  · 중독 %d초" % ceili(st.poison_left)
 	_set_bar("sp", st.sp, st.max_sp())
 	_set_bar("mp", st.mp, st.max_mp())
 	var lines := PackedStringArray()

@@ -1,0 +1,251 @@
+{
+  "version": 1,
+  "ai_id": "ai.hedgehog.charge",
+  "title": "고슴도치 (비선공, 가시 돌진)",
+  "notes": "먼저 덤비지 않는다. 맞으면 싸우기 시작: 공격 준비가 됐고 주인공이 7 m 안이면 몸을 말아 가시를 세우고 돌진한다. 준비 중에 주인공이 가까우면 물러나 거리를 벌리고, 멀면 다가간다. 주인공을 놓치거나 14 m 넘게 멀어지면 돌아가 회복.",
+  "start_node_id": "start",
+  "nodes": [
+    {
+      "id": "start",
+      "type": "start"
+    },
+    {
+      "id": "c_prov",
+      "type": "condition",
+      "check": "provoked",
+      "params": {}
+    },
+    {
+      "id": "c_rest",
+      "type": "condition",
+      "check": "random",
+      "params": {
+        "percent": 40.0
+      }
+    },
+    {
+      "id": "a_idle",
+      "type": "action",
+      "action": "idle",
+      "params": {
+        "seconds": 1.6
+      }
+    },
+    {
+      "id": "a_wander",
+      "type": "action",
+      "action": "wander",
+      "params": {
+        "radius": 4.0,
+        "hop": 1.2
+      }
+    },
+    {
+      "id": "c_gone",
+      "type": "condition",
+      "check": "player_gone",
+      "params": {}
+    },
+    {
+      "id": "c_leash",
+      "type": "condition",
+      "check": "far_from_home",
+      "params": {
+        "distance": 14.0
+      }
+    },
+    {
+      "id": "a_home",
+      "type": "action",
+      "action": "return_home",
+      "params": {
+        "heal": 1.0
+      }
+    },
+    {
+      "id": "c_ready",
+      "type": "condition",
+      "check": "attack_ready",
+      "params": {}
+    },
+    {
+      "id": "c_near",
+      "type": "condition",
+      "check": "player_near",
+      "params": {
+        "distance": 7.0,
+        "night_mult": 1.0
+      }
+    },
+    {
+      "id": "a_charge",
+      "type": "action",
+      "action": "charge",
+      "params": {
+        "cooldown": 3.5,
+        "distance": 7.0
+      }
+    },
+    {
+      "id": "c_close",
+      "type": "condition",
+      "check": "player_near",
+      "params": {
+        "distance": 2.5,
+        "night_mult": 1.0
+      }
+    },
+    {
+      "id": "a_back",
+      "type": "action",
+      "action": "flee",
+      "params": {
+        "step": 1.0
+      }
+    },
+    {
+      "id": "a_chase",
+      "type": "action",
+      "action": "chase",
+      "params": {
+        "step": 1.2,
+        "hop": 0.5
+      }
+    }
+  ],
+  "connections": [
+    {
+      "from": "start",
+      "port": "next",
+      "to": "c_prov"
+    },
+    {
+      "from": "c_prov",
+      "port": "false",
+      "to": "c_rest"
+    },
+    {
+      "from": "c_rest",
+      "port": "true",
+      "to": "a_idle"
+    },
+    {
+      "from": "c_rest",
+      "port": "false",
+      "to": "a_wander"
+    },
+    {
+      "from": "c_prov",
+      "port": "true",
+      "to": "c_gone"
+    },
+    {
+      "from": "c_gone",
+      "port": "true",
+      "to": "a_home"
+    },
+    {
+      "from": "c_gone",
+      "port": "false",
+      "to": "c_leash"
+    },
+    {
+      "from": "c_leash",
+      "port": "true",
+      "to": "a_home"
+    },
+    {
+      "from": "c_leash",
+      "port": "false",
+      "to": "c_ready"
+    },
+    {
+      "from": "c_ready",
+      "port": "true",
+      "to": "c_near"
+    },
+    {
+      "from": "c_ready",
+      "port": "false",
+      "to": "c_close"
+    },
+    {
+      "from": "c_near",
+      "port": "true",
+      "to": "a_charge"
+    },
+    {
+      "from": "c_near",
+      "port": "false",
+      "to": "a_chase"
+    },
+    {
+      "from": "c_close",
+      "port": "true",
+      "to": "a_back"
+    },
+    {
+      "from": "c_close",
+      "port": "false",
+      "to": "a_chase"
+    }
+  ],
+  "editor_positions": {
+    "start": [
+      30,
+      70
+    ],
+    "c_prov": [
+      320,
+      70
+    ],
+    "c_rest": [
+      610,
+      300
+    ],
+    "a_idle": [
+      900,
+      260
+    ],
+    "a_wander": [
+      900,
+      420
+    ],
+    "c_gone": [
+      610,
+      70
+    ],
+    "c_leash": [
+      900,
+      70
+    ],
+    "a_home": [
+      1190,
+      40
+    ],
+    "c_ready": [
+      1190,
+      180
+    ],
+    "c_near": [
+      1480,
+      100
+    ],
+    "a_charge": [
+      1770,
+      40
+    ],
+    "c_close": [
+      1480,
+      300
+    ],
+    "a_back": [
+      1770,
+      260
+    ],
+    "a_chase": [
+      1770,
+      420
+    ]
+  }
+}
