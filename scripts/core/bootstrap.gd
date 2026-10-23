@@ -550,6 +550,8 @@ func _parse_args() -> void:
 		_run_monster_ai_tour()
 	elif tour == "catmeet":
 		_run_cat_meet_tour()
+	elif tour == "expressions":
+		_run_expressions_tour()
 	elif tour == "wind":
 		_run_wind_check()
 	elif tour == "catfollow":
@@ -3496,6 +3498,56 @@ func _run_cutscene_tour() -> void:
 
 ## Plays dialogues through every speaker combination and records which portrait is lit:
 ## protagonist left, partner right, the one not speaking at 50% opacity, narration dims both.
+## The protagonist's dialogue expressions (data/speakers.json "expressions"): each one shown in the
+## real dialogue box, then the cat meeting's "sorry" branch, whose lines use sad / happy.
+func _run_expressions_tour() -> void:
+	Game.clock_running = false
+	Game.minute_of_day = 10.5 * 60.0
+	Game.set_story_stage(0)
+	await wait_for_sprites()
+	var box: DialogueBox = game_hud.dialogue
+	var exprs: Dictionary = DialogueData.speakers()["player"].get("expressions", {})
+	print("[expr] registered: %s" % exprs)
+	game_hud.start_dialogue(CatCompanion.MEET_DIALOGUE)
+	while box.active() and (box.event.get("type", "") != "line" or box.event.get("speaker", "") != "player"):
+		if box.event.get("type", "") == "line":
+			box.advance()
+		await _frames(5)
+	for e: String in [""] + exprs.keys():
+		box._spotlight("player", e)
+		await _seconds(0.3)
+		var tex: Texture2D = box._left._image.texture
+		var file := tex.resource_path.get_file() if tex else "(없음)"
+		var want := "player%s.png" % ("_" + e if e != "" else "")
+		print("[expr] %s -> %s %s" % [exprs.get(e, "기본"), file, "✔" if file == want else "✘"])
+		await _p1_shot("expr_%s" % (e if e != "" else "default"), "expression %s" % e, true)
+	box._spotlight("player", str(box.event.get("expression", "")))  # back to the line's own look
+	var said := PackedStringArray()
+	for i in 60:
+		if not box.active():
+			break
+		var ev: Dictionary = box.event
+		match ev.get("type", ""):
+			"line":
+				await _seconds(0.25)
+				if ev.get("speaker", "") == "player":
+					said.append("%s[%s → %s]" % [str(ev["text"]).left(12), ev.get("expression", ""), box._left._image.texture.resource_path.get_file()])
+					if ev.get("expression", "") in ["sad", "happy"]:
+						await _p1_shot("expr_line_%s" % ev["expression"], "cat meeting line", true)
+				box.advance()
+			"choice":
+				var idx := 0
+				for j in ev["options"].size():
+					if ev["options"][j]["port"] == "go":
+						idx = j
+				box.choose_index(idx)
+			_:
+				await _frames(5)
+		await _frames(3)
+	print("[expr] cat meeting (sorry branch) hero lines: %s" % " | ".join(said))
+	get_tree().quit()
+
+
 func _run_dialogue_tour() -> void:
 	Game.clock_running = false
 	Game.minute_of_day = 10.5 * 60.0

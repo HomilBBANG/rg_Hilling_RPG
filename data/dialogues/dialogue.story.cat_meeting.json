@@ -77,7 +77,8 @@
       "id": "g1",
       "type": "line",
       "speaker_id": "player",
-      "text": "나 드래곤 잡으러 가는 길이거든. 따라오면 위험해."
+      "text": "나 드래곤 잡으러 가는 길이거든. 따라오면 위험해.",
+      "expression": "sad"
     },
     {
       "id": "g2",
@@ -103,7 +104,8 @@
       "id": "l4",
       "type": "line",
       "speaker_id": "player",
-      "text": "…알았어, 알았어. 같이 가자."
+      "text": "…알았어, 알았어. 같이 가자.",
+      "expression": "happy"
     },
     {
       "id": "l5",
