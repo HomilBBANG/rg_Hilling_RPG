@@ -465,6 +465,43 @@ func _draw() -> void:
 	_text(Vector2(SHEET_POS.x, SHEET_POS.y + SHEET.y + 18), lg, 15, Color(0.85, 0.87, 0.9))
 
 
+## Been there at least once (entering a region records "region:<id>").
+static func visited(rid: String) -> bool:
+	return rid == Game.region or Game.discovered.has("region:" + rid)
+
+
+## Grey cloud cover over a region not visited yet: a soft grey block with puffs over its edges.
+func _draw_clouds(sr: Rect2, rid: String) -> void:
+	var rng := RandomNumberGenerator.new()
+	rng.seed = hash(rid)
+	var base := Color(0.62, 0.63, 0.66)
+	draw_rect(sr.grow(-sr.size.x * 0.04), base)
+	var step := clampf(minf(sr.size.x, sr.size.y) * 0.16, 14.0, 40.0)
+	# puffs along the edges (spilling a little over them), then a few inside
+	var pts: Array[Vector2] = []
+	var x := sr.position.x
+	while x <= sr.end.x:
+		pts.append(Vector2(x, sr.position.y + rng.randf_range(-4, 8)))
+		pts.append(Vector2(x, sr.end.y + rng.randf_range(-8, 4)))
+		x += step * 0.8
+	var y := sr.position.y
+	while y <= sr.end.y:
+		pts.append(Vector2(sr.position.x + rng.randf_range(-4, 8), y))
+		pts.append(Vector2(sr.end.x + rng.randf_range(-8, 4), y))
+		y += step * 0.8
+	for i in int(sr.size.x * sr.size.y / (step * step * 1.5)):
+		pts.append(Vector2(rng.randf_range(sr.position.x, sr.end.x), rng.randf_range(sr.position.y, sr.end.y)))
+	for p in pts:
+		draw_circle(p + Vector2(2, 3), step * 0.62, Color(0.45, 0.46, 0.5, 0.5))  # soft shadow
+	for p in pts:
+		var shade := rng.randf_range(-0.05, 0.08)
+		draw_circle(p, step * rng.randf_range(0.5, 0.7), Color(base.r + shade, base.g + shade, base.b + shade + 0.01))
+	for i in 6:
+		var hp := Vector2(rng.randf_range(sr.position.x, sr.end.x), rng.randf_range(sr.position.y, sr.end.y))
+		draw_circle(hp, step * 0.35, Color(0.78, 0.79, 0.82, 0.8))  # highlights
+	_text_centered(sr.get_center() + Vector2(0, 8), "???", 22, Color(0.4, 0.41, 0.45))
+
+
 ## World map: each surface region's terrain picture at its real place, with its name — nothing else.
 func _draw_world() -> void:
 	var area := _world_area()
@@ -475,13 +512,16 @@ func _draw_world() -> void:
 	for rid: String in world_regions():
 		var r := RegionDB.map_rect(rid)
 		var sr := Rect2(world_to_screen(r.position), r.size * _w_zoom)
+		if not visited(rid):
+			_draw_clouds(sr, rid)  # never been there: hidden under grey clouds
+			continue
 		draw_texture_rect(MapDB.terrain_texture(rid), sr, false)
 		draw_rect(sr, Color(0.3, 0.22, 0.14), false, 2.0)
 		var name := RegionDB.region_name(rid)
 		var w := f.get_string_size(name, HORIZONTAL_ALIGNMENT_LEFT, -1, 22).x
 		MapDB.text_on(self, f, sr.get_center() - Vector2(w * 0.5, -8), name, 22,
 			Color(1.0, 0.86, 0.45) if rid == Game.region else Color(1.0, 0.97, 0.9))
-	_text(Vector2(area.position.x, area.end.y + 18), "지역의 생김새와 이름만 — 자세한 지도는 지역 지도를 모아서 본다 (가진 지역 클릭 = 그 지역 지도)", 15, Color(0.85, 0.87, 0.9))
+	_text(Vector2(area.position.x, area.end.y + 18), "지역의 생김새와 이름만 · 안 가 본 곳은 구름 — 자세한 지도는 지역 지도를 모아서 본다 (가진 지역 클릭 = 그 지역 지도)", 15, Color(0.85, 0.87, 0.9))
 
 
 func _text(pos: Vector2, s: String, fsize: int, col: Color) -> void:

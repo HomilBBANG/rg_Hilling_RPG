@@ -3646,7 +3646,8 @@ func _run_maps_tour() -> void:
 	mv = game_hud.map_view
 	print("[maps] M again in the meadow -> page '%s' (the current region)" % mv.page)
 	await _ui_click(_ui_find("세계 지도", "Button"))
-	print("[maps] 세계 지도 -> world view %s, regions %s (shape + name only, highland owned/capital not)" % [mv.world_view, mv.world_regions()])
+	print("[maps] 세계 지도 -> world view %s, regions %s (shape + name only), visited %s, under clouds %s" % [mv.world_view, mv.world_regions(),
+		mv.world_regions().filter(func(r: String) -> bool: return WorldMap.visited(r)), mv.world_regions().filter(func(r: String) -> bool: return not WorldMap.visited(r))])
 	await _p1_shot("maps_09_world", "world map: shapes and names", true)
 	var hl := RegionDB.map_rect("highland")
 	mv._gui_input(_mouse_click_event(mv.world_to_screen(hl.get_center())))
