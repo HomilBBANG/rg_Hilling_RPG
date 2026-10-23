@@ -3614,6 +3614,8 @@ func _run_minimap_tour() -> void:
 	await _wait_travel()
 	await _frames(10)
 	print("[minimap] capital: active %s, region '%s', hero at map %s" % [game_hud.minimap._active, game_hud.minimap._region_label.text, game_hud.minimap.player_map_pos()])
+	var shown_npcs: Array = world.npcs.filter(func(n: Npc) -> bool: return n.visible)
+	print("[minimap] capital NPCs drawn: %d of %d (at home: hidden), cat drawn: false" % [shown_npcs.size(), world.npcs.size()])
 	await _p1_shot("minimap_03_capital", "minimap in the capital", true)
 	get_tree().quit()
 

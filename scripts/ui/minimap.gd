@@ -1,8 +1,9 @@
 class_name Minimap
 extends Control
 ## Minimap in the HUD's top-right corner: the terrain around the hero (the same pictures as the
-## world map, M), north up, with the hero as an arrow in the middle. Also the parked camper,
-## towns, found checkpoints / story spots / cave entrances, region exits and nearby monsters.
+## world map, M), north up, with the hero as an arrow in the middle. Also the parked camper (blue),
+## NPCs (yellow), towns, found checkpoints / story spots / cave entrances, region exits (white) and
+## nearby monsters. The cat is not shown.
 ## Mouse wheel = zoom, click = open the world map. Fixed dungeons show their floor plan; the
 ## random dungeon and the camper interior have no minimap.
 
@@ -32,7 +33,7 @@ func _ready() -> void:
 	_region_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(_region_label)
 	if hud and hud.has_method("tip"):
-		hud.tip(self, "미니맵", "북쪽이 위. ➤ 나 · ■ 캠핑카 · ● 도시 · ▲ 체크포인트 · ◆ 이야기 장소 · ◉ 동굴 · ▸ 지역 출구 · • 몬스터\n휠: 확대/축소 · 클릭: 큰 지도(M)")
+		hud.tip(self, "미니맵", "북쪽이 위. ➤ 나 · 파란 ■ 캠핑카 · 노란 • NPC · ● 도시 · ▲ 체크포인트 · ◆ 이야기 장소 · ◉ 동굴 · 흰 • 지역 출구 · 붉은 • 몬스터\n휠: 확대/축소 · 클릭: 큰 지도(M)")
 
 
 func _world() -> Node:
@@ -122,7 +123,7 @@ func _draw() -> void:
 				draw_circle(c3, 5.0, Color(0.35, 0.25, 0.45) if st == "rift" else Color(0.3, 0.27, 0.24))
 				draw_arc(c3, 5.0, 0, TAU, 12, Color(0.9, 0.85, 0.75), 1.5)
 			elif rid == Game.region:
-				draw_circle(c3, 4.0, Color(1.0, 0.9, 0.5))
+				draw_circle(c3, 4.0, Color(0.95, 0.95, 0.95))  # white: yellow is for NPCs
 				draw_arc(c3, 4.0, 0, TAU, 10, Color(0, 0, 0, 0.7), 1.0)
 	# towns
 	var cities := RegionDB.cities()
@@ -139,15 +140,22 @@ func _draw() -> void:
 			if is_instance_valid(m) and m is SlimeMonster and m.state != SlimeMonster.State.DEAD:
 				var c5 := _to_screen(center, RegionDB.map_pos(Game.region, Vector2(m.global_position.x, m.global_position.z)))
 				draw_circle(c5, 3.5 if not m.provoked else 4.5, Color(0.95, 0.3, 0.25) if m.provoked else Color(0.9, 0.55, 0.45))
-	# the parked camper
+	# NPCs (yellow); the ones at home are hidden and not drawn. The cat is never shown.
+	if w is VisualLab and "npcs" in w:
+		for n in w.npcs:
+			if is_instance_valid(n) and n.visible:
+				var c7 := _to_screen(center, RegionDB.map_pos(Game.region, Vector2(n.global_position.x, n.global_position.z)))
+				draw_circle(c7, 5.0, Color(0.15, 0.12, 0.05, 0.85))
+				draw_circle(c7, 3.8, Color(1.0, 0.86, 0.15))
+	# the parked camper (blue)
 	if Game.has_camper and not (w is VisualLab and w.vehicle.driving):
 		var cpos: Variant = Game.camper.get("pos", null)
 		var cv: Vector3 = cpos if cpos is Vector3 else VisualLab.CAMPER_POS
 		var creg := str(Game.camper.get("region", ""))
 		if all.has(creg):
 			var c6 := _to_screen(center, RegionDB.map_pos(creg, Vector2(cv.x, cv.z)))
-			draw_rect(Rect2(c6 - Vector2(7, 5), Vector2(14, 10)), Color(0.95, 0.95, 0.9))
-			draw_rect(Rect2(c6 - Vector2(7, 5), Vector2(14, 10)), Color(0.2, 0.3, 0.6), false, 2.0)
+			draw_rect(Rect2(c6 - Vector2(7, 5), Vector2(14, 10)), Color(0.25, 0.5, 1.0))
+			draw_rect(Rect2(c6 - Vector2(7, 5), Vector2(14, 10)), Color(0.9, 0.95, 1.0), false, 1.5)
 	# me: arrow in the middle, pointing where the hero faces
 	var mid := size * 0.5
 	var yaw: float = w.player.facing_yaw() if w.player.has_method("facing_yaw") else 0.0
