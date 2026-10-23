@@ -552,6 +552,8 @@ func _parse_args() -> void:
 		_run_cat_meet_tour()
 	elif tour == "expressions":
 		_run_expressions_tour()
+	elif tour == "statui":
+		_run_stat_ui_tour()
 	elif tour == "wind":
 		_run_wind_check()
 	elif tour == "catfollow":
@@ -3498,6 +3500,100 @@ func _run_cutscene_tour() -> void:
 
 ## Plays dialogues through every speaker combination and records which portrait is lit:
 ## protagonist left, partner right, the one not speaking at 50% opacity, narration dims both.
+## Character sheet UI: hover descriptions (real mouse motion), + / − only plan points, the derived
+## numbers preview "now → after", nothing changes before 확정, closing discards the plan.
+func _run_stat_ui_tour() -> void:
+	Game.clock_running = false
+	Game.minute_of_day = 10.5 * 60.0
+	await wait_for_sprites()
+	var st := Game.player_state
+	st.add_exp(200)
+	while st.can_level_up():
+		st.level_up()
+	print("[statui] Lv %d, stat points %d" % [st.level, st.stat_points])
+	game_hud.toggle_character()
+	await _frames(4)
+	var find := func(text: String, cls: String) -> Control:
+		var stack: Array = [game_hud._panel]
+		while not stack.is_empty():
+			var n: Node = stack.pop_back()
+			if n.get_class() == cls and str(n.get("text")).strip_edges().begins_with(text):
+				return n
+			stack.append_array(n.get_children())
+		return null
+	var move_to := func(c: Control) -> void:
+		var pos := c.get_global_rect().get_center()
+		var ev := InputEventMouseMotion.new()
+		ev.position = pos
+		ev.global_position = pos
+		get_viewport().warp_mouse(pos)
+		Input.parse_input_event(ev)
+		await _frames(3)
+	var click := func(c: Control) -> void:
+		await move_to.call(c)
+		var pos := c.get_global_rect().get_center()
+		for pressed in [true, false]:
+			var ev := InputEventMouseButton.new()
+			ev.button_index = MOUSE_BUTTON_LEFT
+			ev.pressed = pressed
+			ev.position = pos
+			ev.global_position = pos
+			Input.parse_input_event(ev)
+			await _frames(2)
+		await _frames(3)
+	# hover a stat name, then a derived number
+	await move_to.call(find.call("힘 STR", "Label"))
+	print("[statui] hover 힘 -> %s" % game_hud.tip_text().replace("\n", " / "))
+	print("[statui] tip box at %s (mouse %s), on screen %s" % [game_hud._tip.position, game_hud.get_global_mouse_position(), Rect2(Vector2.ZERO, Vector2(1920, 1080)).encloses(game_hud._tip.get_rect())])
+	await _p1_shot("statui_01_hover_str", "hover: STR", true)
+	await move_to.call(find.call("최대 HP", "Label"))
+	print("[statui] hover 최대 HP -> %s" % game_hud.tip_text().replace("\n", " / "))
+	# plan STR +2, VIT +1 with real clicks on the + buttons
+	var before := st.stats.duplicate()
+	var hp0 := st.max_hp()
+	for key in ["STR", "STR", "VIT"]:
+		var row: Control = find.call(PlayerState.STAT_INFO[key][0] + " " + key, "Label").get_parent()
+		await click.call(row.get_child(3))
+	await _frames(4)
+	var hp_lbl: Control = find.call("최대 HP", "Label")
+	var preview_txt: String = hp_lbl.get_parent().get_child(1).text
+	var carry_txt: String = find.call("소지 중량", "Label").get_parent().get_child(1).text
+	print("[statui] planned %s (points left %d): stats unchanged %s, max HP still %d | preview HP '%s', carry '%s'" % [game_hud.stat_plan,
+		st.stat_points - game_hud._plan_total(), st.stats == before, st.max_hp(), preview_txt, carry_txt])
+	await move_to.call(find.call("확정", "Button"))
+	await _p1_shot("statui_02_planned_preview", "planned STR+2 VIT+1, preview", true)
+	# − takes one back
+	await click.call(find.call("힘 STR", "Label").get_parent().get_child(2))
+	print("[statui] after − on 힘: plan %s" % game_hud.stat_plan)
+	await click.call(find.call("확정", "Button"))
+	print("[statui] 확정 -> STR %d→%d, VIT %d→%d, max HP %d→%d, points %d, plan %s" % [before["STR"], st.stats["STR"], before["VIT"], st.stats["VIT"],
+		hp0, st.max_hp(), st.stat_points, game_hud.stat_plan])
+	await _p1_shot("statui_03_confirmed", "after confirm", true)
+	# plan again, close without confirming -> discarded
+	var before2 := st.stats.duplicate()
+	var pts2 := st.stat_points
+	await click.call(find.call("지구력 END", "Label").get_parent().get_child(3))
+	var planned2 := game_hud.stat_plan.duplicate()
+	game_hud.toggle_character()
+	await _frames(3)
+	print("[statui] planned %s then closed -> stats unchanged %s, points %d→%d, plan cleared %s" % [planned2, st.stats == before2, pts2, st.stat_points, game_hud.stat_plan.is_empty()])
+	# the same hover box serves other panels' tooltips (inventory equipment button)
+	game_hud.toggle_inventory()
+	await _frames(4)
+	var any_tip: Control = null
+	var stack2: Array = [game_hud._panel]
+	while not stack2.is_empty() and any_tip == null:
+		var n2: Node = stack2.pop_back()
+		if n2 is Control and n2.has_meta("tip"):
+			any_tip = n2
+		stack2.append_array(n2.get_children())
+	if any_tip:
+		await move_to.call(any_tip)
+		print("[statui] inventory hover (%s) -> %s, plain tooltip left: %s" % [any_tip.get_class(), game_hud.tip_text().replace("\n", " / "), any_tip.tooltip_text != ""])
+		await _p1_shot("statui_04_inventory_hover", "inventory tooltip in the same box", true)
+	get_tree().quit()
+
+
 ## The protagonist's dialogue expressions (data/speakers.json "expressions"): each one shown in the
 ## real dialogue box, then the cat meeting's "sorry" branch, whose lines use sad / happy.
 func _run_expressions_tour() -> void:

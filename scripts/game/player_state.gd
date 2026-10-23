@@ -45,6 +45,31 @@ const STAT_INFO := {
 	"MNT": ["멘탈", "정신계 상태이상 저항(미구현), MP 회복 속도"],
 	"HLT": ["건강", "불리한 상태이상 저항 (아직 효과 없음)"],
 }
+## Hover text per stat (character sheet): what it affects and what one point does — the numbers
+## follow the formulas below (max_hp() etc.), so change both together.
+const STAT_HELP := {
+	"STR": "무기 물리 주사위 피해에 곱하는 배율과 최대 소지 중량에 영향을 준다.\n1포인트마다 물리 배율 +0.1, 소지 중량 +2 kg (한계 +3 kg).",
+	"INT": "고급 마법·생활 기술을 배우는 조건이 된다.\n지금은 수치에 주는 효과가 없다.",
+	"END": "최대 SP(스태미나)에 영향을 준다 — 달리기·공격에 SP를 쓴다.\n1포인트마다 최대 SP +4.",
+	"DIV": "최대 MP에 영향을 준다 — 마법에 MP를 쓴다.\n1포인트마다 최대 MP +2.",
+	"VIT": "최대 HP와 SP 회복 속도에 영향을 준다.\n1포인트마다 최대 HP +4, SP 회복 +0.4/초.",
+	"MNT": "정신계 상태이상 저항(아직 없음)과 MP 회복 속도에 영향을 준다.\n1포인트마다 MP 회복 +0.04/초.",
+	"HLT": "불리한 상태이상(독·질병 등) 저항에 영향을 준다.\n상태이상이 아직 없어 지금은 수치 효과가 없다.",
+}
+## Derived numbers on the character sheet: [key, label, value format, hover text].
+const DERIVED := [
+	["max_hp", "최대 HP", "%d", "쓰러지기 전까지 버틸 수 있는 피해.\n20 + 체력(VIT)×4 + 장비."],
+	["max_sp", "최대 SP", "%d", "달리기·공격에 쓰는 스태미나.\n20 + 지구력(END)×4 + 장비."],
+	["max_mp", "최대 MP", "%d", "마법에 쓰는 마력.\n10 + 신성력(DIV)×2."],
+	["sp_regen", "SP 회복", "%.1f/초", "SP를 쓰지 않을 때 1초마다 차오르는 양.\n4 + 체력(VIT)×0.4."],
+	["mp_regen", "MP 회복", "%.2f/초", "1초마다 차오르는 MP.\n0.2 + 멘탈(MNT)×0.04."],
+	["carry", "소지 중량", "%.0f kg", "이만큼까지는 보통 속도로 걷는다. 넘으면 느려진다.\n20 + 힘(STR)×2 + 짐 꾸리기 요령 + 장비."],
+	["carry_limit", "소지 한계", "%.0f kg", "이보다 무거우면 더 주울 수 없다 (소지 중량 ×1.5)."],
+	["str_mult", "물리 배율", "×%.1f", "무기의 물리 주사위 피해에 곱한다 (원소 피해에는 안 곱함).\n1 + (힘(STR) − 5)×0.1."],
+	["hit", "명중", "+%d", "d20 명중 굴림에 더하는 값. 상대 방어도(AC) 이상이면 맞는다.\n기본 3 + 명중 훈련 + 장비."],
+	["crit", "치명타", "%d%%", "명중했을 때 따로 굴리는 치명타 확률.\n기본 5% + 급소 노리기 + 장비."],
+	["armor", "방어", "%d", "받는 피해에서 빼는 값.\n장비 방어구 합계."],
+]
 ## Basic skills learned without a teacher by spending general EXP (GDD 5.3 [확정]); the list,
 ## costs and effects are [미정] prototype examples. Learned skills here are passive.
 const SKILLS := {
@@ -194,6 +219,24 @@ func add_stat(key: String) -> bool:
 	stat_points -= 1
 	_apply_max_change(before)
 	return true
+
+
+## Derived numbers (DERIVED keys) as they are now.
+func derived() -> Dictionary:
+	return {"max_hp": max_hp(), "max_sp": max_sp(), "max_mp": max_mp(), "sp_regen": sp_regen(), "mp_regen": mp_regen(),
+		"carry": carry_capacity(), "carry_limit": carry_limit(), "str_mult": str_multiplier(),
+		"hit": total_hit_bonus(), "crit": total_crit_chance(), "armor": total_armor()}
+
+
+## Derived numbers if the planned points (stat key -> amount) were spent — nothing is changed.
+func derived_with(plan: Dictionary) -> Dictionary:
+	var keep := stats.duplicate()
+	for k: String in plan:
+		if stats.has(k):
+			stats[k] += int(plan[k])
+	var out := derived()
+	stats = keep
+	return out
 
 
 func skill_rank(id: String) -> int:

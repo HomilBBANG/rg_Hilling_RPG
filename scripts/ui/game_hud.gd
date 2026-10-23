@@ -45,6 +45,14 @@ var _boss_fill: ColorRect
 var _boss_name: Label
 var _save_note: Label
 var _save_note_t := 0.0
+## Hover description box: stats, derived numbers, skills and every panel tooltip show here
+## (a framed box beside the mouse) instead of inline text.
+var _tip: PanelContainer
+var _tip_title: Label
+var _tip_body: Label
+var _tip_owner: Control
+## Character sheet: stat points planned but not yet confirmed (stat key -> amount).
+var stat_plan := {}
 
 
 func _ready() -> void:
@@ -119,6 +127,7 @@ func _ready() -> void:
 	_save_note.add_theme_color_override("font_color", Color(0.7, 1.0, 0.65))
 	move_child(_fade, -1)
 	move_child(_fade_label, -1)
+	_build_tip()
 	Game.quests.changed.connect(func() -> void:
 		_tracker_t = 0.0
 		if _panel_kind in ["journal", "board"]:
@@ -350,12 +359,109 @@ func panel_open() -> bool:
 
 
 func close_panel() -> void:
+	if _panel_kind == "character" and _plan_total() > 0:
+		boot.hud.toast("확정하지 않은 능력치 투자는 취소했다")
+	stat_plan.clear()
+	_hide_tip()
 	if _panel:
 		_panel.queue_free()
 	_panel = null
 	_panel_source = null
 	_panel_kind = ""
 	_panel_refresh = Callable()
+
+
+# ---------------------------------------------------------------- hover description box
+
+func _build_tip() -> void:
+	_tip = PanelContainer.new()
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = Color(0.05, 0.055, 0.075, 0.97)
+	sb.border_color = Color(0.85, 0.7, 0.42)
+	sb.set_border_width_all(2)
+	sb.set_corner_radius_all(4)
+	sb.set_content_margin_all(12)
+	_tip.add_theme_stylebox_override("panel", sb)
+	_tip.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_tip.visible = false
+	var v := VBoxContainer.new()
+	v.add_theme_constant_override("separation", 4)
+	v.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_tip.add_child(v)
+	_tip_title = Label.new()
+	_tip_title.add_theme_font_size_override("font_size", 21)
+	_tip_title.add_theme_color_override("font_color", Color(1.0, 0.88, 0.55))
+	v.add_child(_tip_title)
+	_tip_body = Label.new()
+	_tip_body.add_theme_font_size_override("font_size", 18)
+	_tip_body.add_theme_color_override("font_color", Color(0.88, 0.9, 0.92))
+	_tip_body.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_tip_body.custom_minimum_size.x = 360
+	v.add_child(_tip_body)
+	add_child(_tip)
+
+
+## Gives a control a hover description (title + body) shown in the framed box beside the mouse.
+func tip(c: Control, title: String, body := "") -> Control:
+	if c is Label:
+		c.mouse_filter = Control.MOUSE_FILTER_PASS
+	c.set_meta("tip", [title, body])
+	if not c.has_meta("tip_hooked"):
+		c.set_meta("tip_hooked", true)
+		c.mouse_entered.connect(func() -> void: show_tip(c))
+		c.mouse_exited.connect(func() -> void:
+			if _tip_owner == c:
+				_hide_tip())
+	return c
+
+
+func show_tip(c: Control) -> void:
+	var t: Array = c.get_meta("tip", ["", ""])
+	_tip_owner = c
+	_tip_title.text = str(t[0])
+	_tip_title.visible = str(t[0]) != ""
+	_tip_body.text = str(t[1])
+	_tip_body.visible = str(t[1]) != ""
+	var widest := 0.0  # short texts get a small box, long ones wrap at 360 px
+	for line in str(t[1]).split("\n"):
+		widest = maxf(widest, _tip_body.get_theme_font("font").get_string_size(line, HORIZONTAL_ALIGNMENT_LEFT, -1, 18).x)
+	_tip_body.custom_minimum_size.x = minf(360.0, widest + 4.0)
+	_tip.size = Vector2.ZERO
+	_tip.visible = true
+	_tip.move_to_front()
+	_tip.reset_size()
+	_place_tip()
+
+
+func _hide_tip() -> void:
+	_tip_owner = null
+	if _tip:
+		_tip.visible = false
+
+
+func tip_text() -> String:
+	return "%s | %s" % [_tip_title.text, _tip_body.text] if _tip and _tip.visible else ""
+
+
+func _place_tip() -> void:
+	var screen := Vector2(1920, 1080)  # the HUD's layout space (panels are placed in it too)
+	var m := get_global_mouse_position() + Vector2(20, 24)
+	var sz := _tip.size
+	if m.x + sz.x > screen.x - 8:
+		m.x = get_global_mouse_position().x - sz.x - 12
+	if m.y + sz.y > screen.y - 8:
+		m.y = screen.y - 8 - sz.y
+	m.y = maxf(8.0, m.y)
+	_tip.position = m
+
+
+## Panel buttons that had a plain tooltip use the same box (one look for every hover text).
+func _adopt_tooltips(root: Node) -> void:
+	for c in root.get_children():
+		if c is Control and (c as Control).tooltip_text != "":
+			tip(c, "", c.tooltip_text)
+			c.tooltip_text = ""
+		_adopt_tooltips(c)
 
 
 func _style() -> StyleBoxFlat:
@@ -409,6 +515,7 @@ func _open(kind: String, source: Node3D, range_m: float, build: Callable, width 
 		v.add_theme_constant_override("separation", 8)
 		_panel.add_child(v)
 		build.call(v)
+		_adopt_tooltips(_panel)
 		_panel.reset_size()
 		_panel.position = Vector2(960 - _panel.size.x * 0.5, 470 - _panel.size.y * 0.5)
 	_panel_refresh.call()
@@ -972,7 +1079,8 @@ func toggle_character() -> void:
 	_open("character", null, 0.0, func(v: VBoxContainer) -> void:
 		v.add_child(_row_label("주인공 — Lv %d" % st.level, 400, 28, Color(1.0, 0.9, 0.6)))
 		var h := HBoxContainer.new()
-		h.add_child(_row_label("일반 EXP %d / 레벨업 %d" % [st.gen_exp, st.exp_to_next()], 330, 22))
+		h.add_child(tip(_row_label("일반 EXP %d / 레벨업 %d" % [st.gen_exp, st.exp_to_next()], 330, 22), "일반 EXP",
+			"전투·퀘스트로 얻는다. 레벨업(능력치 포인트 +%d)이나 기본 스킬 습득에 직접 쓴다 — 저절로 쓰이지 않는다." % PlayerState.STAT_POINTS_PER_LEVEL))
 		var lv := _button("레벨업 (EXP %d 사용)" % st.exp_to_next(), func() -> void:
 			if st.level_up():
 				Game.combat_log.add("레벨 %d — 능력치 포인트 +%d" % [st.level, PlayerState.STAT_POINTS_PER_LEVEL], "", "info")
@@ -987,11 +1095,12 @@ func toggle_character() -> void:
 			var pts := int(st.mastery.get(f, 0))
 			var nxt := LifeDB.next_threshold(pts)
 			mparts.append("%s Lv %d (%s)" % [LifeDB.field_name(f), st.mastery_level(f), "%d/%d" % [pts, nxt] if nxt > 0 else "최대"])
-		v.add_child(_row_label("생활 EXP %d · 숙련도: %s" % [st.life_exp, ", ".join(mparts)], 760, 18, Color(0.75, 0.9, 0.75)))
+		v.add_child(tip(_row_label("생활 EXP %d · 숙련도: %s" % [st.life_exp, ", ".join(mparts)], 760, 18, Color(0.75, 0.9, 0.75)), "생활 EXP · 숙련도",
+			"생활 EXP는 채집·낚시·요리·제작과 퀘스트로 얻고, 생활 기술을 배우는 데 쓴다.\n숙련도는 그 활동을 반복하면 저절로 오른다."))
 		for sid: String in LifeDB.data().get("skills", {}):
 			var sk := LifeDB.skill(sid)
 			var srow := HBoxContainer.new()
-			srow.add_child(_row_label("  %s — %s" % [sk.get("name", sid), sk.get("desc", "")], 560, 17))
+			srow.add_child(tip(_row_label("  " + str(sk.get("name", sid)), 560, 17), str(sk.get("name", sid)), str(sk.get("desc", ""))))
 			var block := st.life_skill_block(sid)
 			var sb := _button("배움" if st.has_life_skill(sid) else ("배우기 (생활 EXP %d)" % int(sk.get("cost", 0))), func() -> void:
 				if st.learn_life_skill(sid):
@@ -1001,31 +1110,15 @@ func toggle_character() -> void:
 			sb.tooltip_text = block
 			srow.add_child(sb)
 			v.add_child(srow)
-		v.add_child(_row_label("능력치 포인트 %d" % st.stat_points, 400, 22, Color(0.6, 0.85, 1.0) if st.stat_points > 0 else Color(0.8, 0.82, 0.85)))
-		for key: String in PlayerState.STAT_KEYS:
-			var row := HBoxContainer.new()
-			var info: Array = PlayerState.STAT_INFO[key]
-			row.add_child(_row_label("%s %s" % [key, info[0]], 130, 21))
-			var gb := st.gear_bonus(key)
-			row.add_child(_row_label("%d%s" % [st.stats[key], " (+%d)" % gb if gb > 0 else ""], 80, 21, Color(1.0, 0.95, 0.8)))
-			var plus := _button(" + ", func() -> void:
-				st.add_stat(key)
-				_refresh_panel())
-			plus.disabled = st.stat_points <= 0
-			row.add_child(plus)
-			row.add_child(_row_label("  " + info[1], 520, 18, Color(0.72, 0.76, 0.8)))
-			v.add_child(row)
-		v.add_child(_row_label("최대 HP %d · SP %d · MP %d · 소지 %.0f/%.0f kg · 물리 배율 ×%.1f · 명중 +%d · 치명 %d%% · 방어 %d (괄호 = 장비 보너스)" % [
-			st.max_hp(), st.max_sp(), st.max_mp(), st.carry_capacity(), st.carry_limit(), st.str_multiplier(),
-			st.total_hit_bonus(), st.total_crit_chance(), st.total_armor()], 840, 18, Color(0.75, 0.88, 0.75)))
+		_build_stat_block(v)
 		v.add_child(_row_label("마법·특수 스킬 — 퀵슬롯(5~8)에 등록해야 사용 · 마법서/NPC/퀘스트로 습득", 840, 22, Color(1.0, 0.9, 0.6)))
 		if st.spells.is_empty():
 			v.add_child(_row_label("  아직 배운 마법이 없다 (보급 상자의 '마법서: 작은 치유'를 Tab에서 읽기)", 840, 18, Color(0.7, 0.74, 0.78)))
 		for sid: String in st.spells:
 			var spi: Dictionary = ItemDB.SPELLS[sid]
 			var srow := HBoxContainer.new()
-			srow.add_child(_row_label(spi["name"], 160, 21))
-			srow.add_child(_row_label("%s · MP %d · %.1f초 시전 · 재사용 %.0f초" % [spi["desc"], spi["mp"], spi["time"], spi["cooldown"]], 420, 18, Color(0.72, 0.76, 0.8)))
+			srow.add_child(tip(_row_label(spi["name"], 160, 21), spi["name"], "%s\nMP %d · %.1f초 시전 · 재사용 %.0f초" % [spi["desc"], spi["mp"], spi["time"], spi["cooldown"]]))
+			srow.add_child(_row_label("MP %d" % spi["mp"], 420, 18, Color(0.72, 0.76, 0.8)))
 			for qi in PlayerState.QUICK_SKILL_SLOTS:
 				var on: bool = st.quick_skills[qi] == sid
 				srow.add_child(_button(("[%d]" if on else "%d") % (qi + 5), func() -> void:
@@ -1037,8 +1130,7 @@ func toggle_character() -> void:
 			var sk: Dictionary = PlayerState.SKILLS[id]
 			var row2 := HBoxContainer.new()
 			var rank := st.skill_rank(id)
-			row2.add_child(_row_label("%s %d/%d" % [sk["name"], rank, sk["max"]], 210, 21))
-			row2.add_child(_row_label(sk["desc"], 230, 18, Color(0.72, 0.76, 0.8)))
+			row2.add_child(tip(_row_label("%s %d/%d" % [sk["name"], rank, sk["max"]], 440, 21), sk["name"], "%s (단계마다)\n%d / %d단계" % [sk["desc"], rank, sk["max"]]))
 			var cost := st.skill_cost(id)
 			var b := _button("최대" if cost < 0 else "습득 (EXP %d)" % cost, func() -> void:
 				if st.learn_skill(id):
@@ -1048,6 +1140,107 @@ func toggle_character() -> void:
 			row2.add_child(b)
 			v.add_child(row2)
 		v.add_child(_button("닫기 (C)", close_panel)), 880)
+
+
+## Stats (left) and the numbers they make (right). + / − only plan points; "확정" spends them,
+## and until then the right column shows "now → after" for whatever would change.
+func _build_stat_block(v: VBoxContainer) -> void:
+	var st := Game.player_state
+	var left_pts := st.stat_points - _plan_total()
+	var head := HBoxContainer.new()
+	head.add_child(tip(_row_label("능력치 포인트 %d%s" % [st.stat_points, "  (남음 %d)" % left_pts if _plan_total() > 0 else ""], 420, 22,
+		Color(0.6, 0.85, 1.0) if st.stat_points > 0 else Color(0.8, 0.82, 0.85)), "능력치 포인트",
+		"레벨업마다 %d점. + / − 로 나눠 본 뒤 '확정'을 눌러야 적용된다. 확정하지 않고 창을 닫으면 취소된다." % PlayerState.STAT_POINTS_PER_LEVEL))
+	head.add_child(_row_label("세부 능력치", 360, 22, Color(1.0, 0.9, 0.6)))
+	v.add_child(head)
+	var cols := HBoxContainer.new()
+	cols.add_theme_constant_override("separation", 30)
+	v.add_child(cols)
+	var lc := VBoxContainer.new()
+	lc.custom_minimum_size.x = 420
+	cols.add_child(lc)
+	for key: String in PlayerState.STAT_KEYS:
+		var row := HBoxContainer.new()
+		var info: Array = PlayerState.STAT_INFO[key]
+		var gb := st.gear_bonus(key)
+		var planned := int(stat_plan.get(key, 0))
+		row.add_child(tip(_row_label("%s %s" % [info[0], key], 130, 21), "%s (%s)" % [info[0], key],
+			str(PlayerState.STAT_HELP[key]) + ("\n장비 보너스 +%d 포함." % gb if gb > 0 else "")))
+		var val := "%d" % st.stats[key] if planned == 0 else "%d → %d" % [st.stats[key], st.stats[key] + planned]
+		row.add_child(_row_label(val + (" (+%d)" % gb if gb > 0 else ""), 140, 21, Color(0.55, 1.0, 0.6) if planned > 0 else Color(1.0, 0.95, 0.8)))
+		var minus := _button(" − ", func() -> void: plan_stat(key, -1), 46)
+		minus.disabled = planned <= 0
+		row.add_child(minus)
+		var plus := _button(" + ", func() -> void: plan_stat(key, 1), 46)
+		plus.disabled = left_pts <= 0
+		row.add_child(plus)
+		lc.add_child(row)
+	var btns := HBoxContainer.new()
+	var ok := _button("확정", confirm_stats, 120)
+	ok.disabled = _plan_total() == 0
+	ok.tooltip_text = "나눠 둔 포인트를 실제로 적용한다 (되돌릴 수 없음)"
+	btns.add_child(ok)
+	var undo := _button("되돌리기", func() -> void:
+		stat_plan.clear()
+		_refresh_panel(), 120)
+	undo.disabled = _plan_total() == 0
+	btns.add_child(undo)
+	lc.add_child(btns)
+	var rc := VBoxContainer.new()
+	cols.add_child(rc)
+	var now := st.derived()
+	var after := st.derived_with(stat_plan)
+	for d: Array in PlayerState.DERIVED:
+		var key: String = d[0]
+		var row2 := HBoxContainer.new()
+		row2.add_child(tip(_row_label(d[1], 130, 20), d[1], d[3]))
+		var a: Variant = now[key]
+		var b: Variant = after[key]
+		var changed := not is_equal_approx(float(a), float(b))
+		var txt: String = d[2] % a
+		if changed:
+			txt += "  →  " + d[2] % b
+		row2.add_child(_row_label(txt, 230, 20, Color(0.55, 1.0, 0.6) if changed else Color(0.85, 0.9, 0.85)))
+		rc.add_child(row2)
+
+
+func _plan_total() -> int:
+	var n := 0
+	for k: String in stat_plan:
+		n += int(stat_plan[k])
+	return n
+
+
+## Plans one more (+1) or one fewer (−1) point for a stat; nothing is spent until confirm_stats().
+func plan_stat(key: String, delta: int) -> void:
+	var cur := int(stat_plan.get(key, 0))
+	if delta > 0 and _plan_total() >= Game.player_state.stat_points:
+		return
+	cur = maxi(0, cur + delta)
+	if cur == 0:
+		stat_plan.erase(key)
+	else:
+		stat_plan[key] = cur
+	_refresh_panel()
+
+
+## Spends the planned points ("확정").
+func confirm_stats() -> void:
+	var st := Game.player_state
+	var parts := PackedStringArray()
+	for key: String in PlayerState.STAT_KEYS:
+		var n := int(stat_plan.get(key, 0))
+		var done := 0
+		for i in n:
+			if st.add_stat(key):
+				done += 1
+		if done > 0:
+			parts.append("%s +%d" % [PlayerState.STAT_INFO[key][0], done])
+	stat_plan.clear()
+	if not parts.is_empty():
+		Game.combat_log.add("능력치 확정: " + ", ".join(parts), "", "info")
+		boot.hud.toast("능력치 확정 — " + ", ".join(parts))
+	_refresh_panel()
 
 
 # ---------------------------------------------------------------- dialogue / quests (P2-5)
@@ -1466,6 +1659,11 @@ func _on_player_changed() -> void:
 
 func _process(delta: float) -> void:
 	_update_boss_bar()
+	if _tip and _tip.visible:
+		if not is_instance_valid(_tip_owner) or not _tip_owner.is_visible_in_tree():
+			_hide_tip()
+		else:
+			_place_tip()
 	var st := Game.player_state
 	_set_bar("hp", st.hp, st.max_hp())
 	_set_bar("sp", st.sp, st.max_sp())
