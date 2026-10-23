@@ -273,6 +273,45 @@ func build_chunks(stylized_material: Material = null) -> Array[ArrayMesh]:
 	return out
 
 
+## Banks round the terrain's outer edge, from the ground down to `bottom` (below the sea level),
+## facing outward: dry sand at the top, wet darker sand at the waterline. Seen where a region
+## meets the sea that surrounds it.
+func build_skirt(bottom: float) -> ArrayMesh:
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var dry := Color(0.86, 0.77, 0.56)
+	var wet := Color(0.62, 0.55, 0.4)
+	var lo := bounds_min
+	var hi := bounds_max
+	# each side: start corner, end corner, outward normal (vertices wound so the outside is front)
+	var sides := [[Vector2(lo.x, hi.y), Vector2(hi.x, hi.y), Vector3(0, 0, 1)],
+		[Vector2(hi.x, lo.y), Vector2(lo.x, lo.y), Vector3(0, 0, -1)],
+		[Vector2(lo.x, lo.y), Vector2(lo.x, hi.y), Vector3(-1, 0, 0)],
+		[Vector2(hi.x, hi.y), Vector2(hi.x, lo.y), Vector3(1, 0, 0)]]
+	for sd: Array in sides:
+		var a: Vector2 = sd[0]
+		var b: Vector2 = sd[1]
+		var n: Vector3 = sd[2]
+		var steps := maxi(1, int(a.distance_to(b) / CELL))
+		for i in steps:
+			var p0 := a.lerp(b, float(i) / steps)
+			var p1 := a.lerp(b, float(i + 1) / steps)
+			var t0 := Vector3(p0.x, height(p0.x, p0.y), p0.y)
+			var t1 := Vector3(p1.x, height(p1.x, p1.y), p1.y)
+			var b0 := Vector3(p0.x, bottom, p0.y)
+			var b1 := Vector3(p1.x, bottom, p1.y)
+			for v: Array in [[t0, dry], [t1, dry], [b1, wet], [t0, dry], [b1, wet], [b0, wet]]:
+				st.set_normal(n)
+				st.set_color(v[1])
+				st.add_vertex(v[0])
+	var m := StandardMaterial3D.new()
+	m.vertex_color_use_as_albedo = true
+	m.roughness = 1.0
+	m.cull_mode = BaseMaterial3D.CULL_DISABLED
+	st.set_material(m)
+	return st.commit()
+
+
 func _chunk_mesh(heights: PackedFloat32Array, colors: PackedColorArray, row: int, nx: int, nz: int,
 		x0: int, z0: int, x1: int, z1: int, material: Material) -> ArrayMesh:
 	var w := x1 - x0 + 1

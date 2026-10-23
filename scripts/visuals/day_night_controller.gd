@@ -37,9 +37,10 @@ const DC_SUN_DAY := Color(1.0, 0.82, 0.64)
 const DC_AMBIENT_DAY := Color(0.38, 0.44, 0.86)
 const DC_AMBIENT_NIGHT := Color(0.18, 0.2, 0.58)
 const DC_MOON := Color(0.5, 0.58, 1.0)
-const DC_BG_DAY := Color(0.3, 0.22, 0.42)
-const DC_HAZE_DAY := Color(0.66, 0.46, 0.78)
-const DC_HAZE_NIGHT := Color(0.08, 0.07, 0.25)
+## Background / haze follow the sea around the regions (clear turquoise by day, deep blue at night).
+const DC_BG_DAY := Color(0.13, 0.5, 0.7)
+const DC_HAZE_DAY := Color(0.74, 0.9, 0.96)
+const DC_HAZE_NIGHT := Color(0.06, 0.1, 0.24)
 const BG_NIGHT := Color(0.04, 0.05, 0.09)
 
 
@@ -101,7 +102,7 @@ func apply(d: float, tw: float) -> void:
 			environment.fog_enabled = style_fog
 			environment.fog_light_color = DC_HAZE_NIGHT.lerp(DC_HAZE_DAY, d)
 			environment.fog_light_energy = 1.0
-			environment.fog_density = 0.75
+			environment.fog_density = 0.4
 			environment.fog_depth_begin = camera_distance - 3.0
 			environment.fog_depth_end = camera_distance + 22.0
 		else:

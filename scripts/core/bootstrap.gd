@@ -550,6 +550,8 @@ func _parse_args() -> void:
 		_run_collide_tour()
 	elif tour == "monsterai":
 		_run_monster_ai_tour()
+	elif tour == "water":
+		_run_water_tour()
 	elif tour == "beasts":
 		_run_beasts_tour()
 	elif tour == "catmeet":
@@ -2071,6 +2073,26 @@ func _run_beasts_tour() -> void:
 		print("[beasts] %s loot roll: %s, EXP %d, HP %d" % [m.display_name, ", ".join(names), m.exp_reward, m.max_hp])
 	for id in ["ai.wolf.pack", "ai.plant.spitter", "ai.hedgehog.charge"]:
 		print("[beasts] graph %s issues: %s" % [id, MonsterAI.validate(MonsterAI.load_graph(id)).map(func(e: Dictionary) -> String: return e["message"])])
+	get_tree().quit()
+
+
+## Water and background look: the meadow pond, the big lake, a region edge, then the lake at
+## evening and night. Clean frames (no HUD).
+func _run_water_tour() -> void:
+	Game.clock_running = false
+	Game.minute_of_day = 11.0 * 60.0
+	await wait_for_sprites()
+	hud.set_capture_mode(true)
+	var spots := [["water_01_pond", Vector3(12.0, 0, 27.0), 11.0], ["water_02_lake", Vector3(56.0, 0, 38.0), 11.0],
+		["water_03_lake_shore", Vector3(74.0, 0, 42.0), 11.0], ["water_04_edge_east", Vector3(104.0, 0, 30.0), 11.0],
+		["water_05_edge_north", Vector3(-40.0, 0, -86.0), 11.0], ["water_06_lake_evening", Vector3(56.0, 0, 38.0), 18.4],
+		["water_07_lake_night", Vector3(56.0, 0, 38.0), 23.0]]
+	for sp: Array in spots:
+		Game.minute_of_day = float(sp[2]) * 60.0
+		_place_player(sp[1], 0.0)
+		await _frames(6)
+		await _seconds(0.4)
+		await _shot(str(sp[0]) + ".png")
 	get_tree().quit()
 
 

@@ -139,10 +139,11 @@ func apply_settings() -> void:
 
 ## Colour-grade looks selected by the camera style.
 const GRADE_PROFILES := {
-	"soft": {"saturation": 1.05, "contrast": 1.0, "luma_bands": 0.0, "band_strength": 0.0, "shadow_push": 0.0,
+	"soft": {"shadow_color": Color(0.16, 0.09, 0.28), "saturation": 1.05, "contrast": 1.0, "luma_bands": 0.0, "band_strength": 0.0, "shadow_push": 0.0,
 		"shadow_tint": Color(0.86, 0.88, 1.04), "highlight_tint": Color(1.02, 0.98, 0.92), "vignette": 0.22},
+	# shadows pushed toward a clear deep blue (the water reference), not violet; light vignette
 	"deadcells": {"saturation": 1.15, "contrast": 1.08, "luma_bands": 0.0, "band_strength": 0.0, "shadow_push": 0.45,
-		"shadow_tint": Color(0.8, 0.8, 1.12), "highlight_tint": Color(1.06, 1.0, 0.9), "vignette": 0.3},
+		"shadow_color": Color(0.08, 0.17, 0.38), "shadow_tint": Color(0.82, 0.88, 1.1), "highlight_tint": Color(1.04, 1.0, 0.94), "vignette": 0.12},
 }
 var grade_profile := "soft"
 

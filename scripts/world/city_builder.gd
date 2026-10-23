@@ -168,7 +168,7 @@ static func _plaza(lab: VisualLab, root: Node3D, p: Vector3, r: float, village: 
 		ProtoMesh.static_cylinder_collider(root, 1.1, 2.0, p + Vector3(0, 1, 0))
 	else:  # fountain
 		ProtoMesh.cylinder(root, 2.4, 0.6, p + Vector3(0, 0.3, 0), stone, Vector3.ZERO, 16)
-		var water := ProtoMesh.cylinder(root, 2.1, 0.05, p + Vector3(0, 0.6, 0), ProtoMesh.mat(Color(0.3, 0.58, 0.72), 0.1), Vector3.ZERO, 16)
+		var water := ProtoMesh.cylinder(root, 2.1, 0.05, p + Vector3(0, 0.6, 0), StylizedMaterials.water(), Vector3.ZERO, 16)
 		water.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		ProtoMesh.cylinder(root, 0.35, 1.8, p + Vector3(0, 1.2, 0), stone, Vector3.ZERO, 8)
 		ProtoMesh.cylinder(root, 0.9, 0.25, p + Vector3(0, 2.1, 0), stone, Vector3.ZERO, 12, 0.6)

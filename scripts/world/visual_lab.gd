@@ -178,6 +178,39 @@ func _build_ground() -> void:
 	for pd: Array in terrain.ponds:
 		if float(pd[1]) > 0.0:
 			_build_pond(pd[0], float(pd[1]))
+	if not is_dungeon():
+		_build_sea()
+
+
+## Outdoor regions sit in a sea (the world map's continent): sandy banks down from the terrain
+## edge and a ring of stylised sea water around the land rectangle, instead of an empty background.
+func _build_sea() -> void:
+	var skirt := MeshInstance3D.new()
+	skirt.name = "Banks"
+	skirt.mesh = terrain.build_skirt(TerrainField.WATER_LEVEL - 1.6)
+	skirt.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	add_child(skirt)
+	var lo := terrain.bounds_min
+	var hi := terrain.bounds_max
+	var land := Vector4(lo.x, lo.y, hi.x, hi.y)
+	var mat := StylizedMaterials.water(true, land)
+	var far := 260.0
+	var inset := 0.6  # tucked under the banks so no gap shows
+	var y := TerrainField.WATER_LEVEL
+	# four strips around the rectangle (none inside it, so the sea never shows through a pond)
+	for r: Rect2 in [Rect2(lo.x - far, lo.y - far, hi.x - lo.x + far * 2.0, far + inset),
+			Rect2(lo.x - far, hi.y - inset, hi.x - lo.x + far * 2.0, far + inset),
+			Rect2(lo.x - far, lo.y + inset, far + inset, hi.y - lo.y - inset * 2.0),
+			Rect2(hi.x - inset, lo.y + inset, far + inset, hi.y - lo.y - inset * 2.0)]:
+		var plane := PlaneMesh.new()
+		plane.size = r.size
+		var mi := MeshInstance3D.new()
+		mi.name = "Sea"
+		mi.mesh = plane
+		mi.material_override = mat
+		mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		mi.position = Vector3(r.position.x + r.size.x * 0.5, y, r.position.y + r.size.y * 0.5)
+		add_child(mi)
 
 
 ## Optional per-region ground palette (data/regions "ground"): terrain and grass tuft colours.
@@ -196,7 +229,7 @@ func _apply_ground_colors(mat: ShaderMaterial, prefix: String) -> void:
 
 
 func _build_pond(center: Vector2, radius: float) -> void:
-	# Pond / lake water: semi-transparent, slightly glossy disc with a light rim.
+	# Pond / lake water: stylised water disc (depth colour, foam, reflections — water_stylized.gdshader).
 	var water := MeshInstance3D.new()
 	var disc := CylinderMesh.new()
 	disc.top_radius = radius + 0.2
@@ -205,14 +238,7 @@ func _build_pond(center: Vector2, radius: float) -> void:
 	disc.radial_segments = clampi(roundi(radius * 4.0), 28, 96)
 	disc.rings = 1
 	water.mesh = disc
-	var wm := StandardMaterial3D.new()
-	wm.albedo_color = Color(0.28, 0.6, 0.72, 0.8)
-	wm.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	wm.roughness = 0.08
-	wm.metallic_specular = 0.8
-	wm.diffuse_mode = BaseMaterial3D.DIFFUSE_TOON
-	wm.specular_mode = BaseMaterial3D.SPECULAR_TOON
-	water.material_override = wm
+	water.material_override = StylizedMaterials.water()
 	water.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	water.position = Vector3(center.x, TerrainField.WATER_LEVEL, center.y)
 	add_child(water)

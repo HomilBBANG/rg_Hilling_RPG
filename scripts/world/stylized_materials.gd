@@ -55,6 +55,18 @@ static func terrain() -> ShaderMaterial:
 	return m
 
 
+## Stylised water (water_stylized.gdshader). Sea mode: the plane around a region, its shallows
+## and foam come from the distance to the land rectangle (x0, z0, x1, z1).
+static func water(sea := false, land := Vector4.ZERO) -> ShaderMaterial:
+	var m := ShaderMaterial.new()
+	m.shader = preload("res://shaders/water_stylized.gdshader")
+	m.set_shader_parameter("noise_tex", noise_detail())
+	m.set_shader_parameter("sea", sea)
+	if sea:
+		m.set_shader_parameter("land_rect", land)
+	return m
+
+
 ## Unique per call so individual trees can fade / shift hue.
 static func foliage(base: Color, light: Color, dark: Color, hue_shift := 0.0) -> ShaderMaterial:
 	var m := _make(preload("res://shaders/foliage_stylized.gdshader"))
