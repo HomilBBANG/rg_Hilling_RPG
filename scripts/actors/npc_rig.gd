@@ -43,7 +43,7 @@ var _legs: Array[Node3D] = []
 var _arms: Array[Node3D] = []
 
 
-func _init(look_id := "rosa") -> void:
+func _init(look_id := "rosa", armed := false) -> void:
 	var look: Dictionary = LOOKS[look_id]
 	var skin := ProtoMesh.mat(look["skin"])
 	var hair := ProtoMesh.mat(look["hair"])
@@ -110,6 +110,14 @@ func _init(look_id := "rosa") -> void:
 		ProtoMesh.capsule(arm, 0.09, 0.22, Vector3(0, -0.28, 0), skin)
 		ProtoMesh.sphere(arm, 0.1, Vector3(0, -0.42, 0), skin)
 		_arms.append(arm)
+	if armed:
+		# Chapter 1's hunt: a heavy wooden club (iron band) in the right fist, held forward-down.
+		var club := ProtoMesh.mat(Color(0.42, 0.28, 0.16))
+		var band := ProtoMesh.mat(Color(0.3, 0.3, 0.34), 0.4)
+		var hand: Node3D = _arms[1]
+		ProtoMesh.cylinder(hand, 0.04, 0.62, Vector3(0, -0.46, -0.24), club, Vector3(70, 0, 0), 6)
+		ProtoMesh.cylinder(hand, 0.065, 0.2, Vector3(0, -0.56, -0.5), club, Vector3(70, 0, 0), 6)
+		ProtoMesh.cylinder(hand, 0.07, 0.04, Vector3(0, -0.58, -0.55), band, Vector3(70, 0, 0), 6)
 	pose(0.0, 0.0)
 
 

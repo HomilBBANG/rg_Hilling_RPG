@@ -665,7 +665,7 @@ func sprite_targets() -> Array:
 	if cat:
 		out.append([cat, CatCompanion.sprite_bake_spec(), "cat"])
 	for n in npcs:
-		out.append([n, Npc.sprite_bake_spec(n.look), "npc_" + n.look])
+		out.append([n, Npc.sprite_bake_spec(n.look, n.armed), "npc_" + n.look + ("_armed" if n.armed else "")])
 	return out
 
 
@@ -975,6 +975,8 @@ func _build_lair_props(c: float) -> void:
 		remains.dead = 1.0
 		_on_ground(remains, float(rm["pos"][0]), float(rm["pos"][1]))
 		remains.rotation.y = float(rm.get("yaw", 0.0))
+	if Game.narrative.get_flag("story.dragon_left"):
+		_build_portal()
 
 
 ## Story NPCs from region data ("npcs": [{"look", "pos", "yaw", "speaker"}]): they stay put and
@@ -990,8 +992,11 @@ func _spawn_region_npcs() -> void:
 		n.door_pos = n.counter_pos
 		n.height_func = Callable(self, "ground_height")
 		n.player = player
+		n.armed = Game.npcs_hostile()
 		add_child(n)
 		npcs.append(n)
+		if _arm_npc(n):
+			continue  # no talking or trading with someone who is swinging a club at you
 		var sp := str(spec.get("speaker", spec["look"]))
 		var talk_at := n.counter_pos + Vector3(-sin(n.counter_yaw), 0, -cos(n.counter_yaw)) * float(spec.get("talk_distance", 1.6))
 		var vendor := str(spec.get("upgrades", ""))
@@ -1006,6 +1011,54 @@ func _spawn_region_npcs() -> void:
 # ---------------------------------------------------------------- chapter 1 ending: wish ceremony + escape
 
 var escape: EscapeSequence
+
+
+## Chapter 1's hunt (Game.npcs_hostile): an NPC just added to the world takes up arms. True if so.
+func _arm_npc(n: Npc) -> bool:
+	if not Game.npcs_hostile():
+		return false
+	n.vehicle = vehicle
+	n.set_hostile(true)
+	return true
+
+
+## Where the dragon slept, a portal stands once it has flown off (user story: the way to the other
+## continent, chapter 2). It takes the hero in only after the flight from the capital.
+func _build_portal() -> void:
+	var at := Vector3(0, 0, -9)
+	for spec: Dictionary in region.get("monsters", []):
+		if str(spec.get("kind", "")) == "dragon":
+			at = RegionDB.v3(spec["pos"])
+	var open := Game.narrative.get_flag("story.escaped")
+	var root := _on_ground(Node3D.new(), at.x, at.z)
+	root.name = "Portal"
+	var rim_col := Color(0.6, 0.4, 1.0) if open else Color(0.36, 0.3, 0.5)
+	# soft glow: the lair's grading blooms hard, a strong emission turned the disc into a white blob
+	var rim := ProtoMesh.mat(rim_col, 0.3, rim_col, 1.5 if open else 0.4)
+	var core := ProtoMesh.mat(Color(0.7, 0.55, 0.95), 0.2, Color(0.55, 0.4, 0.9), 1.1 if open else 0.3)
+	var stone := ProtoMesh.mat(Color(0.2, 0.12, 0.12))
+	var disc := ProtoMesh.cylinder(root, 1.45, 0.08, Vector3(0, 1.75, 0), core, Vector3(90, 0, 0), 24)
+	disc.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	var ring := ProtoMesh.cylinder(root, 1.7, 0.06, Vector3(0, 1.75, 0.08), rim, Vector3(90, 0, 0), 24)
+	ring.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	for s in [-1.0, 1.0]:  # scorched stone posts either side, where the dragon's claws rested
+		ProtoMesh.box(root, Vector3(0.5, 2.6, 0.5), Vector3(2.1 * s, 1.3, 0.2), stone)
+		ProtoMesh.static_box_collider(root, Vector3(0.5, 3.0, 0.5), Vector3(2.1 * s, 1.3, 0.2))
+	var light := OmniLight3D.new()
+	light.position = Vector3(0, 1.8, -0.6)
+	light.light_color = Color(0.7, 0.5, 1.0)
+	light.light_energy = 3.0 if open else 0.8
+	light.omni_range = 9.0
+	root.add_child(light)
+	AmbientParticles.embers(root, Vector3(0, 0.4, 0))
+	var ip := InteractPoint.make(self, root.position + Vector3(0, 0, 1.9),
+		"E 포탈로 들어가기 — 바다 건너 다른 대륙으로" if open else "드래곤이 떠난 자리의 포탈 — 아직 잠잠하다", Callable(), 2.2)
+	ip.action = func(_pl: Node) -> void:
+		if open:
+			Game.boot.enter_portal()
+		else:
+			Game.boot.hud.toast("포탈은 아직 잠잠하다 — 아직 이 섬에서 할 일이 남았다")
+	_block(at.x, at.z, 2.5)
 
 
 ## A story NPC that just stands there (wish ceremony cast, escape guards); not a shop, no dialogue.
@@ -1373,16 +1426,20 @@ func _build_trade_post() -> void:
 		ip.alt_prompt = "R 대화"
 		ip.alt_action = func(_pl: Node) -> void:
 			var n := _npc_for(shop_id)
-			if n and n.is_working():
+			if n and n.is_working() and not n.hostile:
 				Game.hud.start_dialogue(DialogueData.talk_dialogue(n.look))
 		ip.prompt_func = func() -> String:
 			var n := _npc_for(shop_id)
+			if n and n.hostile:
+				return "%s — 주인이 무기를 들고 쫓아온다" % ShopDB.info(shop_id)["name"]
 			if n and n.is_working():
 				return "E 거래하기 · R 대화 — %s" % ShopDB.info(shop_id)["name"]
 			return "%s — 영업 종료 (%s)" % [ShopDB.info(shop_id)["name"], ShopDB.hours_text(shop_id)]
 		ip.action = func(_pl: Node) -> void:
 			var n := _npc_for(shop_id)
-			if n and n.is_working():
+			if n and n.hostile:
+				Game.boot.hud.toast("거래는 끝났다 — 섬 전체가 수배범을 쫓는다")
+			elif n and n.is_working():
 				Game.hud.open_shop(shop_id, ip)
 			else:
 				Game.boot.hud.toast("%s은(는) 지금 문을 닫았다 — 영업시간 %s" % [ShopDB.info(shop_id)["name"], ShopDB.hours_text(shop_id)])
@@ -1498,8 +1555,10 @@ func _spawn_npcs() -> void:
 		n.door_pos = h + Vector3(0.5, 0.0, 1.6)
 		n.height_func = Callable(self, "ground_height")
 		n.player = player
+		n.armed = Game.npcs_hostile()
 		add_child(n)
 		npcs.append(n)
+		_arm_npc(n)
 
 
 func _npc_for(shop_id: String) -> Npc:

@@ -67,7 +67,7 @@ static func _chapter1() -> Dictionary:
 	# story: arrival, the king, the road and the nest, the dragon persuaded, the wish, the escape
 	for f in ["story.new_game_seen", "story.arrived", "story.pass_reached", "story.dragon_signs",
 			"story.nest_found", "story.nest_entered", "story.dragon_met", "story.dragon_left", "story.camper_received",
-			"story.king_dead", "story.wanted", "story.escaped", "story.chapter1_done", "story.chapter1_note"]:
+			"story.king_dead", "story.wanted", "story.escaped", "story.portal_entered", "story.chapter1_done", "story.chapter1_note"]:
 		n.set_flag(f)
 	n.mark_event("story.king_audience")
 	n.mark_event("story.dragon_persuaded")
@@ -84,7 +84,7 @@ static func _chapter1() -> Dictionary:
 	Game.cat_affection = 40
 	Game.maps_owned = ["meadow", "highland", "capital", "ashen_pass"]  # bought / found / the king's on the way
 	Game.has_camper = true
-	Game.camper = {"region": "meadow", "pos": Vector3(-17.4, 0.0, -79.5), "yaw": PI}  # out of the capital's gate
+	Game.camper = {"region": "ashen_pass", "pos": Vector3(4.2, 0.0, -90.0), "yaw": PI}  # left at the nest mouth
 	Game.camper_fuel = Game.camper_fuel_max()
 	Game.camper_durability = Game.CAMPER_DURABILITY_MAX
 	# places seen on the way
@@ -116,7 +116,12 @@ static func _chapter1() -> Dictionary:
 	st.gold += 380
 	st.life_exp += 18
 	st.restore_all()
-	Game.region = "meadow"
-	var data := SaveManager.capture(String(Game.WORLD_EXTERIOR), Vector3(-20.0, 0.0, -76.5), PI)
+	# standing in the nest beside the portal that ended the chapter (the camper waits at the mouth)
+	Game.region = "dragon_nest"
+	var portal := Vector3(0.0, 0.0, -9.0)
+	for spec: Dictionary in RegionDB.info("dragon_nest").get("monsters", []):
+		if str(spec.get("kind", "")) == "dragon":
+			portal = RegionDB.v3(spec["pos"])
+	var data := SaveManager.capture(String(Game.WORLD_EXTERIOR), portal + Vector3(0.0, 0.0, 2.4), PI)
 	data["meta"]["saved_at"] = "준비된 세이브 — " + preset_name("chapter1")
 	return data

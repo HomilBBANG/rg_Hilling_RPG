@@ -936,8 +936,27 @@ func _escape_ending() -> void:
 	Game.narrative.set_flag("story.escaped")
 	await game_hud.cutscene.play("cutscene.escape", true)
 	Game.quests.advance("quest.main.escape", "gate")
+	# From here every islander hunts the hero (Game.npcs_hostile): the quest goes on to the portal
+	# at the dragon's nest (enter_portal) — that is the end of chapter 1.
+	game_hud.toast_quest("섬 전체가 무기를 들었다 — 멈추지 말고 잿빛 산길 끝 드래곤의 둥지로. 드래곤이 떠난 자리에 포탈이 열려 있다")
+
+
+## Chapter 1's end (user story): the portal where the dragon slept takes the hero (and, by the
+## narration, the camper left at the nest mouth and the cat) to the other continent. The hunt
+## ends with it; the capital stays closed.
+func enter_portal() -> void:
+	if _busy:
+		return
+	_busy = true
+	game_hud.close_panel()
+	Game.narrative.set_flag("story.portal_entered")
+	await game_hud.cutscene.play("cutscene.portal", true)
 	Game.quests.complete("quest.main.escape", "")
 	Game.narrative.set_flag("story.chapter1_done")
+	Game.narrative.set_flag("story.chapter1_note")
+	game_hud.toast_quest("챕터 1 끝 — 챕터 2: 바다 건너 다른 대륙 (준비 중). 섬 사람들은 무기를 내려놓았다")
+	_busy = false
+	_autosave()
 
 
 ## Road exit (GDD 11.1 [확정]): loading screen, then the other region. Driving through takes the
@@ -3305,6 +3324,59 @@ func _run_wish_tour() -> void:
 	_place_player(Vector3(-20, 0, -86), PI)
 	await _seconds(1.5)
 	print("[wish] walked into the road to the capital -> still in %s %s" % [Game.region, "✔" if Game.region == "meadow" else "✘"])
+	# the island takes up arms: every NPC armed and hostile, strikes the hero on foot and the camper
+	var armed: int = world.npcs.filter(func(n: Npc) -> bool: return n.hostile and n.armed).size()
+	print("[wish] meadow NPCs hostile and armed: %d / %d %s" % [armed, world.npcs.size(), "✔" if armed > 0 and armed == world.npcs.size() else "✘"])
+	var rosa: Npc = world._npc_for("rosa")
+	Game.player_state.restore_all()
+	var hp0 := Game.player_state.hp
+	_place_player(rosa.global_position + Vector3(0.9, 0, 0.6), 0.0)
+	await _seconds(4.0)
+	print("[wish] next to armed Rosa for 4 s: HP %.0f -> %.0f %s · prompt '%s'" % [hp0, Game.player_state.hp,
+		"✔" if Game.player_state.hp < hp0 else "✘", world.context_hint()])
+	await _p1_shot("wish_08_armed_islanders", "armed islanders attack", true)
+	Game.player_state.restore_all()
+	_place_player(world.vehicle.global_position + Vector3(2.5, 0, 2.4), 0.0)
+	await _frames(5)
+	world.enter_vehicle()
+	await _frames(5)
+	var dur0 := Game.camper_durability
+	rosa.global_position = world.vehicle.global_position + Vector3(2.0, 0, 0)
+	await _seconds(3.5)
+	print("[wish] Rosa at the parked camper 3.5 s: durability %.0f -> %.0f %s" % [dur0, Game.camper_durability, "✔" if Game.camper_durability < dur0 else "✘"])
+	world.exit_vehicle()
+	Game.camper_durability = Game.CAMPER_DURABILITY_MAX
+	# the nest: a portal where the dragon slept, open now that the hero has fled the capital
+	Game.narrative.set_flag("story.dragon_left")
+	Game.narrative.set_flag("story.nest_found")
+	Game.narrative.set_flag("story.pass_reached")
+	Game.fields["dragon_nest"] = {"dead": {}, "loot": [], "defeated": {"dragon_nest_D1": Game.total_minutes() - 600.0}}
+	travel("dragon_nest", "entrance", false)
+	await _wait_travel()
+	await _seconds(0.5)
+	var portal: Node3D = world.find_child("Portal", false, false)
+	print("[wish] nest: portal %s, NPCs %d (hostile mode %s)" % ["✔" if portal else "✘", world.npcs.size(), Game.npcs_hostile()])
+	if portal:
+		_place_player(portal.global_position + Vector3(0, 0, 1.9), PI)
+		await _frames(8)
+		print("[wish] at the portal: hint '%s'" % world.context_hint())
+		await _p1_shot("wish_09_portal", "the portal where the dragon slept", true)
+		await _key(KEY_E)
+		for i in 120:
+			if game_hud.cutscene.playing:
+				break
+			await _frames(5)
+		await _seconds(3.0)
+		await _p1_shot("wish_10_portal_scene", "portal cutscene", true)
+		for i in 40:
+			if not game_hud.cutscene.playing:
+				break
+			await _key(KEY_E)
+			await _seconds(0.3)
+		await _seconds(1.0)
+		print("[wish] after the portal: entered %s, chapter1 %s, escape quest %s, hostile %s %s" % [Game.narrative.get_flag("story.portal_entered"),
+			Game.narrative.get_flag("story.chapter1_done"), Game.quests.state("quest.main.escape"), Game.npcs_hostile(),
+			"✔" if Game.narrative.get_flag("story.chapter1_done") and Game.quests.state("quest.main.escape") == "completed" and not Game.npcs_hostile() else "✘"])
 	get_tree().quit()
 
 

@@ -30,10 +30,27 @@ var chase_speed := 4.2
 var _walk_goal := Vector3.INF
 var _walk_speed := 2.0
 
+## Chapter 1's hunt (Game.npcs_hostile): armed (club in hand, own sprite sheet) and hostile — drops
+## the routine, runs after the hero (or the camper) and strikes: the hero on foot takes a TRPG
+## attack (Combat.resolve), the camper loses durability. They pass through bodies like the escape
+## guards; catching is by distance. Numbers are [미정] (IMPLEMENTATION_ASSUMPTIONS.md).
+const HOSTILE_SPEED := 4.0
+const STRIKE_REACH := 1.35
+const CAMPER_REACH := 2.3
+const STRIKE_INTERVAL := 1.4
+const CAMPER_HIT := 3.0
+const NAMES := {"mechanic": "정비사", "carpenter": "목수", "mage": "궁정 마법사", "guard": "경비병"}
+var armed := false     ## set before add_child: the rig is built in _ready
+var hostile := false
+var vehicle: Node3D    ## the region's camper (VisualLab.vehicle); attacked while the hero drives it
+var _strike_t := 0.0
+var profile := {"name": "주민", "hit_bonus": 3, "crit_chance": 5, "phys": "1d4", "str_mult": 1.0, "ac": 10, "armor": 0}
+
 
 func _ready() -> void:
-	_rig = NpcRig.new(look)
+	_rig = NpcRig.new(look, armed)
 	add_child(_rig)
+	profile["name"] = display_name()
 	_body = AnimatableBody3D.new()
 	_body.sync_to_physics = false
 	_body.collision_layer = PhysLayers.NPC
@@ -55,10 +72,16 @@ func _ready() -> void:
 		_set_at(Where.HOME)
 
 
-static func sprite_bake_spec(look_id: String) -> Dictionary:
+func display_name() -> String:
+	if DialogueData.speakers().has(look):
+		return DialogueData.speaker_name(look)
+	return str(NAMES.get(look, look))
+
+
+static func sprite_bake_spec(look_id: String, armed_rig := false) -> Dictionary:
 	return {
 		"builder": func(c: int, r: int) -> Node3D:
-			var rig := NpcRig.new(look_id)
+			var rig := NpcRig.new(look_id, armed_rig)
 			rig.rotation.y = r * TAU / NpcRig.DIRECTIONS
 			rig.pose_column(c)
 			return rig,
@@ -116,6 +139,43 @@ func set_solid(on: bool) -> void:
 		_body.collision_layer = PhysLayers.NPC if on else 0
 
 
+## Takes up arms: out of the house whatever the hour, no shop, chases and strikes (see above).
+func set_hostile(on: bool) -> void:
+	hostile = on
+	chase = null
+	set_solid(not on)
+	if on:
+		where = Where.COUNTER
+		visible = true
+		_strike_t = 1.0  # a breath before the first blow
+
+
+func _hostile_step(delta: float) -> void:
+	_strike_t = maxf(0.0, _strike_t - delta)
+	var paused: bool = Game.hud != null and (Game.hud.dialogue_active() or (Game.hud.cutscene and Game.hud.cutscene.playing))
+	var driving := vehicle != null and is_instance_valid(vehicle) and bool(vehicle.get("driving"))
+	var t: Node3D = vehicle if driving else player
+	if paused or t == null or not is_instance_valid(t):
+		_animate(false, delta, HOSTILE_SPEED)
+		return
+	var reach := CAMPER_REACH if driving else STRIKE_REACH
+	var moving := _step_toward(t.global_position, HOSTILE_SPEED, reach * 0.75, delta)
+	if not moving:
+		face(t.global_position)
+	var d := Vector2(t.global_position.x - global_position.x, t.global_position.z - global_position.z).length()
+	if d <= reach and _strike_t <= 0.0:
+		_strike_t = STRIKE_INTERVAL
+		if driving:
+			Game.damage_camper(CAMPER_HIT)
+			Game.combat_log.add("%s이(가) 캠핑카를 내리쳤다 — 내구도 -%d (%d/%d)" % [display_name(), roundi(CAMPER_HIT),
+				ceili(Game.camper_durability), roundi(Game.CAMPER_DURABILITY_MAX)], "", "hurt")
+			if Game.hud:
+				Game.hud.float_text(t.global_position + Vector3(0, 2.2, 0), "-%d" % roundi(CAMPER_HIT), Color(1.0, 0.6, 0.3))
+		elif player and player.has_method("receive_attack"):
+			player.receive_attack(profile, self)
+	_animate(moving, delta, HOSTILE_SPEED)
+
+
 func scripted_walk_to(goal: Vector3, speed: float) -> void:
 	_walk_goal = goal
 	_walk_speed = maxf(speed, 0.5)
@@ -143,6 +203,9 @@ func _step_toward(goal: Vector3, speed: float, stop: float, delta: float) -> boo
 
 
 func _process(delta: float) -> void:
+	if hostile:
+		_hostile_step(delta)
+		return
 	if _walk_goal != Vector3.INF or (chase and is_instance_valid(chase)):
 		var moving_s := false
 		if _walk_goal != Vector3.INF:

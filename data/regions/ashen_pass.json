@@ -619,6 +619,7 @@
     },
     {
       "kind": "nest_mouth",
+      "no_vehicle": true,
       "pos": [
         0,
         -101

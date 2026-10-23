@@ -1,0 +1,65 @@
+{
+  "version": 1,
+  "cutscene_id": "cutscene.portal",
+  "title": "(임시 문안) 포탈 — 챕터 1 끝",
+  "notes": "사용자 이야기: 무기를 든 섬 사람들을 뿌리치고 드래곤의 둥지에 닿아, 드래곤이 떠난 자리에 생긴 포탈로 들어가면 재생(bootstrap.enter_portal). 챕터 1 끝. 챕터 2(다른 대륙)는 아직 없어 마지막에 화면이 다시 밝아지고 둥지에 그대로 선다.",
+  "skippable": true,
+  "steps": [
+    {
+      "type": "letterbox",
+      "on": true
+    },
+    {
+      "type": "caption",
+      "text": "드래곤이 잠들어 있던 보물 더미 위 — 허공이 보랏빛으로 일렁인다.",
+      "seconds": 2.5
+    },
+    {
+      "type": "line",
+      "speaker_id": "player",
+      "expression": "surprised",
+      "text": "…드래곤이 말한 게 이거였구나. '다른 땅에서 다시 보자.' (임시 대사)"
+    },
+    {
+      "type": "line",
+      "speaker_id": "cat",
+      "expression": "playful",
+      "text": "냐앙! (임시 대사)"
+    },
+    {
+      "type": "line",
+      "speaker_id": "player",
+      "expression": "happy",
+      "text": "가자. 캠핑카도, 너도 — 같이. (임시 대사)"
+    },
+    {
+      "type": "fade",
+      "to": "black",
+      "seconds": 1.2
+    },
+    {
+      "type": "narration",
+      "text": "빛이 둥지를 가득 채웠다.\n입구에 세워 둔 캠핑카가 통째로 빨려 들어오고, 검은 고양이가 주인공의 어깨 위로 뛰어올랐다.",
+      "seconds": 0
+    },
+    {
+      "type": "narration",
+      "text": "무기를 든 사람들의 외침이 멀어졌다.\n이 섬에서의 일은 — 여기까지.",
+      "seconds": 0
+    },
+    {
+      "type": "narration",
+      "text": "— 챕터 1 끝 —\n\n이야기는 바다 건너 다른 대륙에서 계속된다. (챕터 2 준비 중)",
+      "seconds": 0
+    },
+    {
+      "type": "letterbox",
+      "on": false
+    },
+    {
+      "type": "fade",
+      "to": "clear",
+      "seconds": 1.0
+    }
+  ]
+}

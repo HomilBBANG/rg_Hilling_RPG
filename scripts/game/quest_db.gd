@@ -26,7 +26,7 @@ const OBJECTIVE_TYPES := {"collect": "아이템 모으기", "kill": "몬스터 �
 ## Flags the game code itself sets (data files can set more with set_flag actions / steps).
 const CODE_FLAGS := ["story.arrived", "story.new_game_seen", "story.pass_reached", "story.nest_found", "story.nest_entered",
 	"story.dragon_signs", "story.dragon_met", "story.dragon_angry", "story.dragon_left", "story.camper_received",
-	"story.king_dead", "story.wanted", "story.escaped", "story.chapter1_done", "story.chapter1_note"]
+	"story.king_dead", "story.wanted", "story.escaped", "story.portal_entered", "story.chapter1_done", "story.chapter1_note"]
 
 static var _cache := {}
 static var _cache_time := -1

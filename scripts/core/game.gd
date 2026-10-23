@@ -343,6 +343,12 @@ func receive_camper() -> bool:
 
 ## Places the hero can't go back to, and why ("" = free to go). Chapter 1 (user story): after the
 ## camper fell on the king the hero is wanted — the capital and its castle are closed for good.
+## Chapter 1's last stretch (user story): from the flight out of the capital until the hero steps
+## into the portal at the dragon's nest, every islander takes up arms against the hero.
+func npcs_hostile() -> bool:
+	return narrative.get_flag("story.escaped") and not narrative.get_flag("story.portal_entered")
+
+
 func region_locked(rid: String) -> String:
 	if rid in ["capital", "throne_room"] and narrative.get_flag("story.king_dead"):
 		return "수배 중 — 왕도로는 다시 돌아갈 수 없다"
