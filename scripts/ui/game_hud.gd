@@ -633,6 +633,7 @@ func _window_tabs(v: VBoxContainer, active: String) -> void:
 	v.add_child(bar)
 
 
+const INV_BORDER := Color(0.46, 0.46, 0.48)  ## frames, cell lines, weight bar (gray)
 const INV_CELL := 84
 const INV_COLS := 7
 const INV_MIN_ROWS := 7
@@ -650,7 +651,7 @@ func _framed(child: Control, pad := 14) -> PanelContainer:
 	var box := PanelContainer.new()
 	var sb := StyleBoxFlat.new()
 	sb.bg_color = Color(0.1, 0.1, 0.11, 0.7)
-	sb.border_color = Color(0.55, 0.24, 0.1)
+	sb.border_color = INV_BORDER
 	sb.set_border_width_all(2)
 	sb.set_content_margin_all(pad)
 	box.add_theme_stylebox_override("panel", sb)
@@ -786,7 +787,7 @@ func toggle_inventory() -> void:
 			if i < items.size():
 				var id: String = items[i]["id"]
 				var count: int = items[i]["count"]
-				var c := _cell("", ItemDB.item_name(id), count, KIND_COLORS.get(str(ItemDB.info(id).get("kind", "")), Color(0.55, 0.24, 0.1)),
+				var c := _cell("", ItemDB.item_name(id), count, KIND_COLORS.get(str(ItemDB.info(id).get("kind", "")), INV_BORDER),
 					_inv_sel.get("bag", "") == id, func() -> void:
 						_inv_sel = {"bag": id}
 						_refresh_panel(),
@@ -798,7 +799,7 @@ func toggle_inventory() -> void:
 				empty.custom_minimum_size = Vector2(INV_CELL, INV_CELL)
 				var sb := StyleBoxFlat.new()
 				sb.bg_color = Color(0.25, 0.25, 0.26)
-				sb.border_color = Color(0.55, 0.24, 0.1)
+				sb.border_color = INV_BORDER
 				sb.set_border_width_all(1)
 				empty.add_theme_stylebox_override("panel", sb)
 				grid.add_child(empty)
@@ -849,7 +850,7 @@ func _weight_bar() -> Control:
 	bar.custom_minimum_size = Vector2(520, 40)
 	var sb := StyleBoxFlat.new()
 	sb.bg_color = Color(0.12, 0.12, 0.13)
-	sb.border_color = Color(0.55, 0.24, 0.1)
+	sb.border_color = INV_BORDER
 	sb.set_border_width_all(2)
 	bar.add_theme_stylebox_override("panel", sb)
 	var fill := ColorRect.new()
