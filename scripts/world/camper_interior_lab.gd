@@ -65,8 +65,11 @@ func _build_environment() -> void:
 
 
 func _build_shell() -> void:
-	var plank_a := ProtoMesh.mat(Color(0.62, 0.45, 0.3))
-	var plank_b := ProtoMesh.mat(Color(0.56, 0.4, 0.26))
+	# Planks at roughness 1.0 sit outside the pixel outline pass (its light bevel lines read as
+	# white streaks on the floor); the seams are drawn as dark shade-coloured strips instead.
+	var plank_a := ProtoMesh.mat(Color(0.62, 0.45, 0.3), 1.0)
+	var plank_b := ProtoMesh.mat(Color(0.56, 0.4, 0.26), 1.0)
+	var seam := ProtoMesh.mat(Color(0.33, 0.22, 0.14), 1.0)
 	var wall := ProtoMesh.mat(Color(0.88, 0.84, 0.76))
 	var wall_trim := ProtoMesh.mat(Color(0.45, 0.33, 0.24))
 	# Floor planks
@@ -74,6 +77,8 @@ func _build_shell() -> void:
 	for i in n:
 		var z := -ROOM_Z + 0.2 + i * 0.4
 		ProtoMesh.box(self, Vector3(ROOM_X * 2.0, 0.1, 0.39), Vector3(0, -0.05, z), plank_a if i % 2 == 0 else plank_b)
+		if i > 0:
+			ProtoMesh.box(self, Vector3(ROOM_X * 2.0, 0.104, 0.035), Vector3(0, -0.05, z - 0.2), seam)
 	# Back (north) wall full height, end walls full height, front (camera-side) wall cut down.
 	ProtoMesh.box(self, Vector3(ROOM_X * 2.0 + 0.3, WALL_H, 0.15), Vector3(0, WALL_H * 0.5, -ROOM_Z - 0.075), wall)
 	ProtoMesh.box(self, Vector3(0.15, WALL_H, ROOM_Z * 2.0), Vector3(-ROOM_X - 0.075, WALL_H * 0.5, 0), wall)
@@ -244,8 +249,9 @@ func _build_refinery(p: Vector3) -> void:
 
 func _build_rooms() -> void:
 	var rooms := CamperUpgrades.rooms()
-	var plank_a := ProtoMesh.mat(Color(0.6, 0.44, 0.32))
-	var plank_b := ProtoMesh.mat(Color(0.54, 0.38, 0.27))
+	var plank_a := ProtoMesh.mat(Color(0.6, 0.44, 0.32), 1.0)
+	var plank_b := ProtoMesh.mat(Color(0.54, 0.38, 0.27), 1.0)
+	var seam := ProtoMesh.mat(Color(0.33, 0.22, 0.14), 1.0)
 	var wall := ProtoMesh.mat(Color(0.86, 0.82, 0.9))
 	var trim := ProtoMesh.mat(Color(0.42, 0.34, 0.5))
 	for i in rooms.size():
@@ -254,6 +260,8 @@ func _build_rooms() -> void:
 		var n := int(ROOM_Z * 2.0 / 0.4)
 		for j in n:
 			ProtoMesh.box(self, Vector3(MODULE_W, 0.1, 0.39), Vector3(cx, -0.05, -ROOM_Z + 0.2 + j * 0.4), plank_a if j % 2 == 0 else plank_b)
+			if j > 0:
+				ProtoMesh.box(self, Vector3(MODULE_W, 0.104, 0.035), Vector3(cx, -0.05, -ROOM_Z + j * 0.4), seam)
 		ProtoMesh.box(self, Vector3(MODULE_W, WALL_H, 0.15), Vector3(cx, WALL_H * 0.5, -ROOM_Z - 0.075), wall)
 		ProtoMesh.box(self, Vector3(MODULE_W, 0.45, 0.15), Vector3(cx, 0.225, ROOM_Z + 0.075), wall)
 		ProtoMesh.box(self, Vector3(MODULE_W, 0.08, 0.18), Vector3(cx, 0.45, ROOM_Z + 0.075), trim)
@@ -586,12 +594,11 @@ func _build_interactions() -> void:
 
 
 func cycle_occlusion_mode() -> String:
-	player.set_silhouette(not player.silhouette_enabled)
 	return occlusion_mode_name()
 
 
 func occlusion_mode_name() -> String:
-	return "실루엣" if player.silhouette_enabled else "끔"
+	return "끔 (실내)"
 
 
 func try_toggle_camper_lights() -> String:

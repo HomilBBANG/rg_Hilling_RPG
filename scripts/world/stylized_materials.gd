@@ -91,6 +91,25 @@ static func rock(moss_amount := 0.5, tint := Color.WHITE) -> ShaderMaterial:
 	return m
 
 
+static var _wall_cache := {}
+
+
+## Dressed stone wall (bricks, mortar, cracks, moss) in the tint's tones (user direction: stone
+## wall material detail after the pixel-art reference). Cached per tint / moss.
+static func stone_wall(base: Color, moss_amount := 0.6) -> ShaderMaterial:
+	var key := "%s|%.2f" % [base.to_html(), moss_amount]
+	if _wall_cache.has(key):
+		return _wall_cache[key]
+	var m := _make(preload("res://shaders/stone_wall.gdshader"))
+	m.set_shader_parameter("stone_base", base)
+	m.set_shader_parameter("stone_light", (base * 1.2).clamp(Color.BLACK, Color.WHITE))
+	m.set_shader_parameter("stone_dark", base * 0.74)
+	m.set_shader_parameter("mortar", base * 0.52)
+	m.set_shader_parameter("moss_amount", moss_amount)
+	_wall_cache[key] = m
+	return m
+
+
 static func set_stylized(on: bool) -> void:
 	stylized = on
 	for m in _registered:
@@ -124,3 +143,4 @@ static func register(m: ShaderMaterial) -> void:
 static func clear_registry() -> void:
 	_registered.clear()
 	_rock_cache.clear()
+	_wall_cache.clear()

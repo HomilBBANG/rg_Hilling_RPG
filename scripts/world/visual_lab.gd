@@ -7,8 +7,10 @@ extends Node3D
 ## load; dead monsters, corpses and death bags persist per region in Game.field, the camper's
 ## parking spot (and region) in Game.camper.
 
-enum Occlusion { SILHOUETTE, FADE, OFF }
-const OCCLUSION_NAMES := ["실루엣", "수관 디더 투명화", "끔"]
+## Occlusion aid (user request 2026-10-23: no more x-ray silhouette of a covered character):
+## canopies / roofs that cover the hero go translucent, or nothing at all.
+enum Occlusion { FADE, OFF }
+const OCCLUSION_NAMES := ["수관 디더 투명화", "끔"]
 const CAMPER_POS := Vector3(-6.2, 0.0, -2.8)
 const CAMPER_YAW_DEG := -6.0
 const CAMPER_LIGHT_RANGE := 7.5
@@ -58,7 +60,7 @@ var cat: CatCompanion
 var npcs: Array[Npc] = []
 var sun: DirectionalLight3D
 var day_night: DayNightController
-var occlusion_mode: Occlusion = Occlusion.SILHOUETTE
+var occlusion_mode: Occlusion = Occlusion.FADE
 var _motes: GPUParticles3D
 
 ## [{node: Node3D, mats: Array[Material], radius: float, height: float, alpha: float}]
@@ -755,7 +757,8 @@ func _build_dungeon() -> void:
 	var lair := str(region.get("style", "")) == "lair"
 	# dark rock mass with a slightly lighter rim on top: the lit floor reads as the walkable space
 	# (a hall: pale dressed stone with a darker coping; the dragon's lair: scorched red rock)
-	var stone := ProtoMesh.mat(Color(0.62, 0.6, 0.56) if hall else (Color(0.24, 0.13, 0.11) if lair else Color(0.22, 0.21, 0.25)))
+	var stone: Material = StylizedMaterials.stone_wall(Color(0.62, 0.6, 0.56), 0.25) if hall \
+		else ProtoMesh.mat(Color(0.24, 0.13, 0.11) if lair else Color(0.22, 0.21, 0.25))
 	var cap := ProtoMesh.mat(Color(0.42, 0.4, 0.38) if hall else (Color(0.36, 0.17, 0.12) if lair else Color(0.3, 0.29, 0.33)))
 	var cols := int(region["_cols"])
 	var rows := int(region["_rows"])
@@ -1269,7 +1272,6 @@ func _spawn_monster(spec: Dictionary) -> SlimeMonster:
 	var h := RegionDB.v3(spec["pos"])
 	m.position = Vector3(h.x, ground_height(h.x, h.z), h.z)
 	add_child(m)
-	m.set_silhouette(occlusion_mode == Occlusion.SILHOUETTE)
 	monsters.append(m)
 	Game.sprites_dirty = true
 	return m
@@ -2006,12 +2008,7 @@ func _update_occluder_fade(delta: float) -> void:
 
 
 func cycle_occlusion_mode() -> String:
-	occlusion_mode = ((occlusion_mode + 1) % 3) as Occlusion
-	var sil := occlusion_mode == Occlusion.SILHOUETTE
-	player.set_silhouette(sil)
-	for m in monsters:
-		if is_instance_valid(m):
-			m.set_silhouette(sil)
+	occlusion_mode = ((occlusion_mode + 1) % 2) as Occlusion
 	return occlusion_mode_name()
 
 

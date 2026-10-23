@@ -8,7 +8,7 @@ var sheet: SpriteSheet
 var anchor: Node3D
 var emission_variant := "default"
 var emission_energy := 1.0
-var silhouette_enabled := true
+var silhouette_enabled := false
 ## Optional: snap relative to this node's snapped position instead of the world grid. For actors
 ## that move together with the camera target (the cat trailing the player): two separately
 ## rounded moving positions make their 1-texel gap flicker back and forth while walking.

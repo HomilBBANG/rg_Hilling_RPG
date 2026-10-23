@@ -32,7 +32,7 @@ var scripted_running := false
 
 var model: PlayerRig
 var lantern_light: OmniLight3D
-var silhouette_enabled := true
+var silhouette_enabled := false  # x-ray silhouette when covered: removed (user request)
 ## Pre-rendered pixel sprite (Dead Cells-style pipeline). null = draw the 3D model directly.
 var sprite: BakedSprite
 

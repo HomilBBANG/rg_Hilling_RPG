@@ -18,7 +18,7 @@ var _rng := RandomNumberGenerator.new()
 var _materials: Array[StandardMaterial3D] = []
 var _meshes: Array[MeshInstance3D] = []
 var _silhouette_mat: ShaderMaterial
-var _silhouette_on := true
+var _silhouette_on := false
 
 
 func _ready() -> void:

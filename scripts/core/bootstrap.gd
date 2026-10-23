@@ -620,16 +620,14 @@ func _run_shot_tour() -> void:
 	await _frames(15)
 	world.player.scripted_move = Vector2.ZERO
 	await _shot("01_day_forest_path_PXL-COARSE.png")
-	# 2. Behind trees / shadows (silhouette on)
+	# 2. Behind trees / shadows (canopy fade, the default; the x-ray silhouette is gone)
 	_place_player(Vector3(22.2, 0, -5.7), PI * 0.6)
-	await _shot("02_day_behind_tree_silhouette_PXL-COARSE.png")
-	world.cycle_occlusion_mode()  # -> fade
 	await _frames(40)
 	await _shot("02b_day_behind_tree_fade_PXL-COARSE.png")
 	world.cycle_occlusion_mode()  # -> off
 	await _frames(40)
 	await _shot("02c_day_behind_tree_off_PXL-COARSE.png")
-	world.cycle_occlusion_mode()  # -> silhouette
+	world.cycle_occlusion_mode()  # -> fade
 	# 3. Camper front / ratio, then pixel comparison at the same spot
 	_place_player(Vector3(-2.0, 0, 1.6), -PI * 0.25)
 	await _shot("03_day_camper_PXL-COARSE.png")

@@ -73,8 +73,8 @@ static func _gate_point(c: Vector3, size: Vector2, gate: String) -> Vector3:
 
 ## Stone walls around the rectangle with corner and gate towers; the gate side has a gap.
 static func _walls(root: Node3D, c: Vector3, size: Vector2, gate: String) -> void:
-	var stone := ProtoMesh.mat(Color(0.7, 0.68, 0.62))
-	var dark := ProtoMesh.mat(Color(0.52, 0.5, 0.46))
+	var stone := StylizedMaterials.stone_wall(Color(0.55, 0.54, 0.51), 0.6)
+	var dark := StylizedMaterials.stone_wall(Color(0.46, 0.44, 0.42), 0.3)
 	var roof := ProtoMesh.mat(Color(0.36, 0.42, 0.62))
 	var hx := size.x * 0.5
 	var hz := size.y * 0.5
@@ -189,7 +189,7 @@ static func _plaza(lab: VisualLab, root: Node3D, p: Vector3, r: float, village: 
 
 
 static func _castle(lab: VisualLab, root: Node3D, k: Vector3) -> void:
-	var stone := ProtoMesh.mat(Color(0.78, 0.76, 0.7))
+	var stone := StylizedMaterials.stone_wall(Color(0.6, 0.59, 0.56), 0.4)
 	var trim := ProtoMesh.mat(Color(0.6, 0.58, 0.54))
 	var roof := ProtoMesh.mat(Color(0.32, 0.38, 0.6))
 	var keep := Node3D.new()

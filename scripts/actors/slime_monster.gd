@@ -45,7 +45,7 @@ var gait := "hop"
 var _meshes: Array[MeshInstance3D] = []
 var _materials: Array[StandardMaterial3D] = []
 var _silhouette_mat: ShaderMaterial
-var _silhouette_on := true
+var _silhouette_on := false
 var _rng := RandomNumberGenerator.new()
 var _hop_t := 0.0
 var _hop_time := 1.1

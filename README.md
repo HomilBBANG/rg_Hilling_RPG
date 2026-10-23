@@ -133,7 +133,7 @@ git pull
 | `I` | 캠핑카 실내 ↔ 야외 씬 전환 (디버그 순간이동, 캠핑카 보유 시) |
 | `F5` | 픽셀 스냅 카메라 ON/OFF (떨림 비교용, K에서 옮김) |
 | `F7` | 직교 ↔ 원근 투영 비교 (카메라 **회전은 없음**) |
-| `X` | 가림 보조: 실루엣 → 수관 디더 투명화 → 끔 |
+| `X` | 가림 보조: 수관 디더 투명화(기본) ↔ 끔 (가려진 부분을 윤곽으로 비추던 실루엣은 2026-10-23 사용자 요청으로 제거) |
 | `-` / `=` | 카메라 규모(화면 세로 9~22m) |
 | `F12` | 스크린샷 → `user://captures` (Windows: `%APPDATA%\Godot\app_userdata\Denial\captures`) |
 | `F11` | 전체 화면 전환 |
@@ -160,7 +160,7 @@ bootstrap (Node)
 - **색보정** (`shaders/pixel_grade.gdshader`): 업스케일 TextureRect에서 텍셀 단위로 스플릿 토닝·채도·비네트(+선택 디더).
 - **스타일라이즈드 재질** (`scripts/world/stylized_materials.gd`): 지형·잎·바위·풀 셰이더와 절차적 노이즈 텍스처.
 - 낮/밤: `scripts/visuals/day_night_controller.gd`, 오토로드 `Game`(`scripts/core/game.gd`)이 시계·라이트 상태 보관.
-- 가림 실루엣: `shaders/occluded_silhouette.gdshader` (`depth_test_inverted` + 자기 가림 방지 바이어스).
+- 가림 실루엣: `shaders/occluded_silhouette.gdshader` — **지금은 쓰지 않음**(가려진 부분을 윤곽으로 비추는 기능은 사용자 요청으로 껐음, 코드는 남아 있음).
 
 P1에서는 `PixelRenderController`, `TopdownCamera`, `DayNightController`, 실루엣 셰이더를 그대로 가져가고
 `visual_lab.gd`/`camper_interior_lab.gd` 같은 월드 스크립트만 교체하면 됩니다.
