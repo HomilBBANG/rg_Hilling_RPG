@@ -227,11 +227,37 @@ static func text_on(ci: CanvasItem, f: Font, pos: Vector2, s: String, fsize: int
 
 # ---------------------------------------------------------------- terrain picture
 
-## The region's ground as a picture (1 px = 1 m, covering RegionDB.map_rect): grass shaded by
-## height, forests, water, roads, towns; fixed dungeons as their floor plan.
+## Flat map colours (parchment cartography — no hill shading, user request "평면").
+const PARCHMENT := Color(0.86, 0.8, 0.64)
+const SEA := Color(0.5, 0.58, 0.6)
+const INK := Color(0.32, 0.25, 0.17)
+
+
+## A region's land colour on the map: its grass toned down toward parchment.
+static func land_color(reg: Dictionary) -> Color:
+	var g: Dictionary = reg.get("ground", {})
+	var gm: Array = g.get("grass_mid", [0.42, 0.62, 0.32])
+	return Color(float(gm[0]), float(gm[1]), float(gm[2])).lerp(PARCHMENT, 0.42)
+
+
+## The region's ground as a flat map picture (1 px = 1 m, covering region_rect): land colour,
+## forests darker with little tree dots, water with an ink shoreline, roads as pale lines with ink
+## edges, towns as light ground with an ink border. Fixed dungeons: their floor plan.
 static func terrain_texture(rid: String) -> Texture2D:
 	if _tex.has(rid):
 		return _tex[rid]
+	var img := terrain_image(rid)
+	var tex := ImageTexture.create_from_image(img)
+	_tex[rid] = tex
+	return tex
+
+
+static var _img := {}
+
+
+static func terrain_image(rid: String) -> Image:
+	if _img.has(rid):
+		return _img[rid]
 	var reg: Dictionary = RegionDB.all()[rid]
 	var img: Image
 	if reg.get("kind", "") == "dungeon":
@@ -239,22 +265,18 @@ static func terrain_texture(rid: String) -> Texture2D:
 		var cols := int(reg.get("_cols", 1))
 		var rows := int(reg.get("_rows", 1))
 		img = Image.create(maxi(1, int(cols * cl)), maxi(1, int(rows * cl)), false, Image.FORMAT_RGB8)
-		img.fill(Color(0.14, 0.13, 0.16))
+		img.fill(Color(0.3, 0.27, 0.24))
 		for fc: Array in reg.get("_floor", []):
-			img.fill_rect(Rect2i(int(int(fc[0]) * cl), int(int(fc[1]) * cl), int(cl), int(cl)), Color(0.55, 0.52, 0.5))
+			img.fill_rect(Rect2i(int(int(fc[0]) * cl), int(int(fc[1]) * cl), int(cl), int(cl)), PARCHMENT)
 	else:
 		var tf := TerrainField.new(reg.get("terrain", {}))
 		var w := int(tf.bounds_max.x - tf.bounds_min.x)
 		var h := int(tf.bounds_max.y - tf.bounds_min.y)
 		img = Image.create(w, h, false, Image.FORMAT_RGB8)
-		var g: Dictionary = reg.get("ground", {})
-		var gm: Array = g.get("grass_mid", [0.42, 0.62, 0.32])
-		var grass := Color(float(gm[0]), float(gm[1]), float(gm[2]))
-		var heights := PackedFloat32Array()
-		heights.resize((w + 1) * (h + 1))
-		for z in h + 1:
-			for x in w + 1:
-				heights[z * (w + 1) + x] = tf.height(tf.bounds_min.x + x, tf.bounds_min.y + z)
+		var land := land_color(reg)
+		var forest := land.darkened(0.22).lerp(Color(0.3, 0.42, 0.28), 0.25)
+		var water := Color(0.48, 0.62, 0.7)
+		var road := Color(0.93, 0.88, 0.74)
 		var towns: Array[Rect2] = []
 		for ct: Dictionary in reg.get("cities", []):
 			var c := TerrainField._v2(ct["center"], Vector2.ZERO)
@@ -264,25 +286,117 @@ static func terrain_texture(rid: String) -> Texture2D:
 			for x in w:
 				var wx := tf.bounds_min.x + x + 0.5
 				var wz := tf.bounds_min.y + z + 0.5
-				var hh := heights[z * (w + 1) + x]
-				var slope := heights[z * (w + 1) + x] - heights[(z + 1) * (w + 1) + x + 1]  # light from the north-west
-				var col := grass.lightened(clampf(hh * 0.05, -0.2, 0.25)) if hh >= 0.0 else grass.darkened(clampf(-hh * 0.08, 0.0, 0.2))
-				col = col.lightened(clampf(slope * 0.35, 0.0, 0.25)) if slope > 0.0 else col.darkened(clampf(-slope * 0.35, 0.0, 0.25))
-				col = col.lerp(Color(0.2, 0.38, 0.2), tf.forest_mask(wx, wz) * 0.75)
+				var col := land
+				var fm := tf.forest_mask(wx, wz)
+				if fm > 0.45:
+					col = forest
+					if (x % 5 == 2 and z % 5 == 2) or (x % 5 == 0 and z % 5 == 4):
+						col = forest.darkened(0.3)  # tree dots
+				var in_town := false
 				for r in towns:
 					if r.has_point(Vector2(wx, wz)):
-						col = col.lerp(Color(0.8, 0.74, 0.6), 0.55)
+						in_town = true
+						var edge := minf(minf(wx - r.position.x, r.end.x - wx), minf(wz - r.position.y, r.end.y - wz))
+						col = INK if edge < 1.0 else land.lerp(PARCHMENT, 0.65)
 				var wd := tf.pond_distance(wx, wz)
-				if wd < 0.0:
-					col = Color(0.3, 0.55, 0.78).darkened(clampf(-wd * 0.02, 0.0, 0.25))
-				elif wd < 1.2:
-					col = Color(0.84, 0.77, 0.56)
-				elif tf.path_distance(wx, wz) < 1.4:
-					col = Color(0.8, 0.66, 0.44)
+				var pd := tf.path_distance(wx, wz)
+				if wd < -0.8:
+					col = water
+				elif wd < 0.4:
+					col = INK.lerp(water, 0.35)  # shoreline
+				elif pd < 1.2:
+					col = road
+				elif pd < 1.9 and not in_town:
+					col = col.lerp(INK, 0.55)  # road edge
 				img.set_pixel(x, z, col)
-	var tex := ImageTexture.create_from_image(img)
-	_tex[rid] = tex
-	return tex
+	_img[rid] = img
+	return img
+
+
+## The whole surface world as one continuous flat picture (world-map metres, 1 px = 1 m): every
+## outdoor region at its map place, the land between and around them filled in with a ragged
+## coastline, sea beyond. {"tex": ImageTexture, "rect": Rect2 in map metres}.
+static var _world := {}
+
+
+static func world_regions() -> Array:
+	var out := []
+	var all := RegionDB.all()
+	for rid: String in all:
+		var reg: Dictionary = all[rid]
+		if reg.get("kind", "") in ["dungeon", "random_dungeon"] or reg.get("no_map", false):
+			continue
+		out.append(rid)
+	return out
+
+
+static func world_picture() -> Dictionary:
+	if not _world.is_empty():
+		return _world
+	var regs := world_regions()
+	var rects := {}
+	var lands := {}
+	var lo := Vector2(INF, INF)
+	var hi := Vector2(-INF, -INF)
+	for rid: String in regs:
+		var r := RegionDB.map_rect(rid)
+		rects[rid] = r
+		var lc0 := land_color(RegionDB.all()[rid])
+		lands[rid] = Color(roundf(lc0.r * 255.0) / 255.0, roundf(lc0.g * 255.0) / 255.0, roundf(lc0.b * 255.0) / 255.0)  # as stored (RGB8)
+		lo = lo.min(r.position)
+		hi = hi.max(r.end)
+	var pad := 90.0
+	var area := Rect2(lo - Vector2(pad, pad), hi - lo + Vector2(pad, pad) * 2.0).abs()
+	var w := int(area.size.x)
+	var h := int(area.size.y)
+	var img := Image.create(w, h, false, Image.FORMAT_RGB8)
+	var noise := FastNoiseLite.new()
+	noise.seed = 7
+	noise.frequency = 0.018
+	var noise2 := FastNoiseLite.new()
+	noise2.seed = 21
+	noise2.frequency = 0.07
+	for z in h:
+		for x in w:
+			var p := area.position + Vector2(x + 0.5, z + 0.5)
+			var col := Color.BLACK
+			var inside := ""
+			# land colour blended between regions (no hard seams), and the distance to the nearest one
+			var best := INF
+			var acc := Color(0, 0, 0, 0)
+			var wsum := 0.0
+			for rid: String in regs:
+				var r: Rect2 = rects[rid]
+				var d := Vector2(maxf(maxf(r.position.x - p.x, p.x - r.end.x), 0.0), maxf(maxf(r.position.y - p.y, p.y - r.end.y), 0.0)).length()
+				if d <= 0.0 and inside == "":
+					inside = rid
+				best = minf(best, d)
+				var wgt := 1.0 / pow(d + 14.0, 3.0)
+				var lc: Color = lands[rid]
+				acc += Color(lc.r * wgt, lc.g * wgt, lc.b * wgt, 0.0)
+				wsum += wgt
+			var blend := Color(acc.r / wsum, acc.g / wsum, acc.b / wsum)
+			if inside != "":
+				var rr: Rect2 = rects[inside]
+				var rimg := terrain_image(inside)
+				col = rimg.get_pixel(clampi(int(p.x - rr.position.x), 0, rimg.get_width() - 1), clampi(int(p.y - rr.position.y), 0, rimg.get_height() - 1))
+				var lq: Color = lands[inside]
+				if absf(col.r - lq.r) + absf(col.g - lq.g) + absf(col.b - lq.b) < 0.01:
+					col = blend  # plain ground: the blended colour; forests / water / roads stay
+			else:
+				var coast := 26.0 + noise.get_noise_2dv(p) * 22.0 + noise2.get_noise_2dv(p) * 5.0
+				if best < coast - 4.0:
+					col = blend  # wild land between / around regions
+				elif best < coast - 1.5:
+					col = Color(0.9, 0.84, 0.66)  # beach
+				elif best < coast:
+					col = INK.lerp(SEA, 0.3)  # coastline ink
+				else:
+					var wave := noise2.get_noise_2d(p.x * 0.6, p.y * 2.4)
+					col = SEA.lightened(0.06) if absf(wave) < 0.04 else SEA  # faint wave lines
+			img.set_pixel(x, z, col)
+	_world = {"tex": ImageTexture.create_from_image(img), "rect": area}
+	return _world
 
 
 ## The area a region's picture covers, in region metres (fixed dungeons: their grid).

@@ -3629,16 +3629,28 @@ func _run_maps_tour() -> void:
 	game_hud.toggle_map()
 	await _frames(4)
 	var mv: WorldMap = game_hud.map_view
-	print("[maps] M: page '%s', owned %s, sheet %s" % [mv.page, mv._known_regions(), WorldMap.SHEET])
-	await _p1_shot("maps_05_meadow_sheet", "meadow map sheet", true)
-	mv.turn(1)
+	var pm := mv.player_map_pos()
+	print("[maps] M: zoomed map on '%s', hero at the view centre %s (zoom %.1f), owned %s" % [mv.page,
+		mv.to_screen(pm).distance_to(mv.view_rect().get_center()) < 2.0, mv._zoom, mv._known_regions()])
+	await _p1_shot("maps_05_meadow_sheet", "zoomed map around the hero (continuous)", true)
+	var off0 := mv._off
+	mv._gui_input(_mouse_click_event(mv.view_rect().get_center()))
+	var drag := InputEventMouseMotion.new()
+	drag.position = mv.view_rect().get_center() + Vector2(-300, 120)
+	drag.relative = Vector2(-300, 120)
+	mv._gui_input(drag)
+	var rel := InputEventMouseButton.new()
+	rel.button_index = MOUSE_BUTTON_LEFT
+	rel.pressed = false
+	rel.position = drag.position
+	mv._gui_input(rel)
 	await _frames(3)
-	print("[maps] ▶ -> '%s'" % mv.page)
-	await _p1_shot("maps_06_next_sheet", "next sheet", true)
-	mv.turn(1)
+	print("[maps] dragged the map: moved %s" % [mv._off - off0])
+	await _p1_shot("maps_06_next_sheet", "dragged across the border (highland next door)", true)
+	mv.set_page("ashen_pass")
 	await _frames(3)
-	print("[maps] ▶ -> '%s'" % mv.page)
-	await _p1_shot("maps_07_ashen_sheet", "ashen pass sheet (same size)", true)
+	print("[maps] list -> '%s'" % mv.page)
+	await _p1_shot("maps_07_ashen_sheet", "ashen pass (map from the king, not visited)", true)
 	game_hud.toggle_map()
 	await _frames(3)
 	game_hud.toggle_map()
