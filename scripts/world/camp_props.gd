@@ -127,6 +127,7 @@ static func lantern_post() -> Node3D:
 	var root := Node3D.new()
 	var wood := ProtoMesh.mat(Color(0.5, 0.35, 0.22))
 	ProtoMesh.box(root, Vector3(0.1, 1.9, 0.1), Vector3(0, 0.95, 0), wood)
+	ProtoMesh.static_box_collider(root, Vector3(0.3, 1.9, 0.3), Vector3(0, 0.95, 0))  # the post blocks walking (user request)
 	ProtoMesh.box(root, Vector3(0.5, 0.07, 0.07), Vector3(0.2, 1.85, 0), wood)
 	var frame := ProtoMesh.mat(Color(0.2, 0.2, 0.22))
 	ProtoMesh.box(root, Vector3(0.16, 0.03, 0.16), Vector3(0.38, 1.66, 0), frame)

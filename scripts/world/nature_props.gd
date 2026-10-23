@@ -187,4 +187,5 @@ static func signpost() -> Node3D:
 	ProtoMesh.box(root, Vector3(0.12, 1.6, 0.12), Vector3(0, 0.8, 0), wood)
 	ProtoMesh.box(root, Vector3(1.0, 0.3, 0.06), Vector3(0.3, 1.35, 0.02), ProtoMesh.mat(Color(0.82, 0.66, 0.42)), Vector3(0, 0, -6))
 	ProtoMesh.box(root, Vector3(0.8, 0.26, 0.06), Vector3(-0.25, 1.0, 0.02), ProtoMesh.mat(Color(0.76, 0.6, 0.38)), Vector3(0, 0, 5))
+	ProtoMesh.static_box_collider(root, Vector3(0.3, 1.6, 0.3), Vector3(0, 0.8, 0))  # the post blocks walking (user request)
 	return root

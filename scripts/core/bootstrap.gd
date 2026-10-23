@@ -507,6 +507,8 @@ func _parse_args() -> void:
 		_run_night_outline_check()
 	elif tour == "walk":
 		_run_walk_tour()
+	elif tour == "facing":
+		_run_facing_tour()
 	elif tour == "p1":
 		_run_p1_tour()
 	elif tour == "p2":
@@ -1353,6 +1355,28 @@ func _run_walk_d() -> void:
 	get_tree().quit()
 
 
+## Close-ups of the hero walking in each of the 8 directions, lantern off and on (the belt lantern
+## must not show as a dot through the body — user bug report, walking right).
+func _run_facing_tour() -> void:
+	_touring = true
+	hud.show_help_panel(false)
+	hud.set_capture_mode(true, "")
+	Game.clock_running = false
+	Game.minute_of_day = 10.5 * 60.0
+	await wait_for_sprites()
+	var p: PrototypePlayer = world.player
+	for lantern in [false, true]:
+		Game.lantern_on = lantern
+		for i in 8:
+			var yaw := i * TAU / 8.0
+			_place_player(Vector3(42.0, 0, -2.0), yaw)
+			p.scripted_move = Vector2(sin(yaw), cos(yaw)) * -1.0  # forward is -Z: yaw 0 = north
+			await _frames(14)
+			await _shot("facing_%d_%s_walk.png" % [i, "on" if lantern else "off"])
+			p.scripted_move = Vector2.ZERO
+	get_tree().quit()
+
+
 ## Saves the raw low-res render (SubViewport) every frame: idle, then walking right, then diagonal.
 func _run_rawframes() -> void:
 	_touring = true
@@ -1638,6 +1662,33 @@ func _run_p1_input_tour() -> void:
 	print("[input] Tab again -> open %s" % game_hud.panel_open())
 	await _key(KEY_G)
 	print("[input] G -> log level %d" % Game.combat_log.level)
+	# corpse: E opens the loot window, Space takes everything and closes it, the empty corpse
+	# fades away within 0.8 s (user request)
+	if not world.monsters.is_empty():
+		var m: SlimeMonster = world.monsters[0]
+		var mpos := m.global_position
+		m._die()
+		await _frames(3)
+		var corpse: LootContainer = null
+		for n in world.get_children():
+			if n is LootContainer and n.data["kind"] == "corpse" and n.global_position.distance_to(mpos) < 3.0:
+				corpse = n
+		if corpse:
+			var had: int = corpse.inventory().items.size()
+			_place_player(corpse.global_position + Vector3(0, 0, 1.0), 0.0)
+			await _frames(5)
+			await _key(KEY_E)
+			var opened := game_hud._panel_kind == "loot"
+			await _key(KEY_SPACE)
+			await _frames(2)
+			var closed := not game_hud.panel_open()
+			var empty := not is_instance_valid(corpse) or corpse.inventory().is_empty()
+			await _seconds(1.3)
+			var gone := not is_instance_valid(corpse)
+			print("[input] %s corpse (%d kinds): E -> loot %s, Space -> taken all %s, window closed %s, corpse faded out after 1.3 s %s" % [
+				"✔" if opened and closed and empty and gone else "✘", had, opened, empty, closed, gone])
+		else:
+			print("[input] ✘ no corpse after the kill")
 	var sp0 := Game.player_state.sp
 	var mb := InputEventMouseButton.new()
 	mb.button_index = MOUSE_BUTTON_LEFT

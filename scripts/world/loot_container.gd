@@ -7,6 +7,10 @@ extends Node3D
 var data: Dictionary  # {"id", "kind", "title", "pos", "inv": Inventory, "expires": float (-1 = never)}
 var interact_range := 1.5
 
+const CORPSE_FADE := 0.8  ## seconds an emptied corpse takes to fade away (user request)
+var _fade_t := -1.0       ## < 0: not fading
+var _fade_mats: Array[StandardMaterial3D] = []
+
 
 static func create(parent: Node3D, d: Dictionary) -> LootContainer:
 	var lc := LootContainer.new()
@@ -38,7 +42,7 @@ func inventory() -> Inventory:
 
 
 func can_interact() -> bool:
-	return true
+	return _fade_t < 0.0
 
 
 func prompt_text() -> String:
@@ -51,12 +55,31 @@ func interact(_player: Node) -> void:
 		Game.hud.open_loot(self)
 
 
-func _process(_delta: float) -> void:
+func _process(delta: float) -> void:
+	if _fade_t >= 0.0:
+		_fade_t += delta
+		var a := 1.0 - clampf(_fade_t / CORPSE_FADE, 0.0, 1.0)
+		for m in _fade_mats:
+			m.albedo_color.a = a
+		if _fade_t >= CORPSE_FADE:
+			remove()
+		return
 	var exp_at: float = data.get("expires", -1.0)
 	if exp_at >= 0.0 and Game.total_minutes() >= exp_at:
 		remove()
 	elif data["kind"] == "bag" and inventory().is_empty():
 		remove()
+	elif data["kind"] == "corpse" and inventory().is_empty():
+		_start_fade()
+
+
+## A corpse with nothing left on it melts away (0.8 s) instead of lying around until it expires.
+func _start_fade() -> void:
+	_fade_t = 0.0
+	for m in _fade_mats:
+		m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	if Game.hud and Game.hud._panel_source == self:
+		Game.hud.close_panel()
 
 
 func remove() -> void:
@@ -66,9 +89,11 @@ func remove() -> void:
 
 func _build_corpse() -> void:
 	# Collapsed slime: a flat translucent-looking puddle with the dull core in it.
-	var body := ProtoMesh.mat(Color(0.2, 0.52, 0.66))
-	var light := ProtoMesh.mat(Color(0.42, 0.74, 0.84))
-	var core := ProtoMesh.mat(Color(0.12, 0.33, 0.45))
+	# Own (uncached) materials: they go transparent when the corpse fades out.
+	var body := ProtoMesh.unique_mat(Color(0.2, 0.52, 0.66))
+	var light := ProtoMesh.unique_mat(Color(0.42, 0.74, 0.84))
+	var core := ProtoMesh.unique_mat(Color(0.12, 0.33, 0.45))
+	_fade_mats = [body, light, core]
 	ProtoMesh.sphere(self, 0.48, Vector3(0, 0.03, 0), body, Vector3(1.15, 0.12, 0.95), 12, 4)
 	ProtoMesh.sphere(self, 0.2, Vector3(0.22, 0.05, 0.18), body, Vector3(1.0, 0.25, 1.0), 8, 3)
 	ProtoMesh.sphere(self, 0.12, Vector3(-0.15, 0.07, -0.1), light, Vector3(1.0, 0.35, 1.0), 6, 3)

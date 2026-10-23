@@ -10,7 +10,12 @@ uniform sampler2D depth_tex : filter_nearest, repeat_disable;
 uniform sampler2D emission_tex : filter_nearest, repeat_disable;
 uniform vec4 frame_rect = vec4(0.0, 0.0, 1.0, 1.0);  // uv offset (xy) and size (zw) in the atlas
 uniform float emission_energy = 1.0;
-uniform float roughness_value = 0.7;
+// Written as the roughness tag the screen-space outline pass skips (>= 0.97, like terrain):
+// a sprite already carries its own border outline (sprite_outline below), and the post pass
+// used to darken depth steps *inside* the sprite too - the sword hand held in front of the body
+// became a stray dark dot in the middle of the hero when walking sideways. Specular is off, so
+// the value changes nothing else.
+uniform float roughness_value = 1.0;
 uniform float light_offset = 0.04;
 // Lighting point is also pulled toward the camera (which faces the sun side) so the sprite's
 // own shadow-only 3D model doesn't shade small protruding parts (moustache top looked blue).

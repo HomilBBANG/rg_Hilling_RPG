@@ -607,11 +607,36 @@ func open_loot(source: LootContainer) -> void:
 			if count > 1:
 				h.add_child(_button("모두", func() -> void: take.call(id, count))))
 		var bottom := HBoxContainer.new()
-		bottom.add_child(_button("전부 가져가기", func() -> void:
-			for e in inv.duplicate_items():
-				take.call(e["id"], e["count"])))
+		bottom.add_child(_button("전부 가져가기 (Space)", loot_take_all))
 		bottom.add_child(_button("닫기 (E)", close_panel))
 		v.add_child(bottom))
+
+
+## "전부 가져가기" (button or Space): takes everything the player can carry; the window closes
+## by itself once the container is empty (user request). Too heavy → the rest stays, window stays.
+func loot_take_all() -> void:
+	if _panel_kind != "loot" or not is_instance_valid(_panel_source):
+		return
+	var inv: Inventory = (_panel_source as LootContainer).inventory()
+	for e in inv.duplicate_items():
+		var id: String = e["id"]
+		var n: int = e["count"]
+		var got := _move(inv, Game.player_state.inventory, id, n, _player_can_take)
+		if got > 0:
+			Game.combat_log.add("획득: %s ×%d" % [ItemDB.item_name(id), got], "", "info")
+		if got < n and inv.count(id) > 0:
+			_too_heavy_toast()
+	if inv.is_empty():
+		close_panel()
+	else:
+		_refresh_panel()
+
+
+## Space in the loot window = 전부 가져가기 (buttons never take focus, so the key is free).
+func _input(ev: InputEvent) -> void:
+	if _panel_kind == "loot" and ev is InputEventKey and ev.pressed and not ev.echo and ev.physical_keycode == KEY_SPACE:
+		loot_take_all()
+		get_viewport().set_input_as_handled()
 
 
 ## The character window: one panel with tabs on top — 소지품·장비 (Tab) and 능력치 (C).
