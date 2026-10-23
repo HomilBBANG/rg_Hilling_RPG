@@ -108,7 +108,7 @@ scripts/visuals/   카메라·픽셀 렌더·낮밤·스타일 머티리얼
 shaders/           terrain/foliage/rock/grass/outline/grade, water_stylized.gdshader(물·바다)
 data/              regions/ monsters.json ai/ dialogues/ cutscenes/ quests/ maps/ story.json speakers.json
                    camper_upgrades.json recipes.json life.json
-addons/dialogue_editor/  Godot 에디터 플러그인 — 탭: 대화 · 컷씬 · 몬스터 AI · 지도
+addons/dialogue_editor/  Godot 에디터 플러그인 — 탭: 대화 · 컷씬 · 몬스터 AI · 지도 · 퀘스트
 assets/portraits/  대화 초상화(사용자 제공 그림, <화자ID>_<표정>.png)
 docs/              GDD.md(v10.6) 와 기획 핸드오프들(이 문서 포함)
 notes/             IMPLEMENTATION_ASSUMPTIONS.md(임시값·사용자 결정 기록), DRIVING.md, DIALOGUE_EDITOR.md,
@@ -142,7 +142,7 @@ tools/             초상화 배경 제거 등 보조 스크립트
 
 전투(클릭 1회 공격, 접촉 → d20 명중 → 주사위 피해, 전투 로그 3단계) · 시체 조사 · 중량(착용 장비 포함) · 사망/복귀(체크포인트/캠핑카, 고블린 손실) ·
 EXP 수동 레벨업·능력치(확정 버튼·호버 설명)·기본 스킬 · 장비(등 슬롯 포함, 무작위 옵션, 교체 동작) · 소모품·퀵슬롯·마법 ·
-상점·대장간 강화·재입고 · 퀘스트(NPC·게시판·현장 사건, 저널) · 대화·초상화·표정 · 컷씬 · 지역 이동(초원·고원·왕도·잿빛 산길·둥지·알현실) ·
+상점·대장간 강화·재입고 · 퀘스트(NPC·게시판·현장 사건, 저널, 에디터 퀘스트 탭) · 대화·초상화·표정 · 컷씬 · 지역 이동(초원·고원·왕도·잿빛 산길·둥지·알현실) ·
 고정 던전(이끼 동굴)·랜덤 던전(변덕의 미궁) · 채집·낚시·요리·제작 · 캠핑카(운전 GTA식, 실내·창고·수면, 연료·내구도·수리, 개조 6분야·마법 방·소품 배치, 주차 반응, 들이받기) ·
 고양이(만남 장면, 추종, 실내 쓰다듬기·간식 호감도) · 지도 수집(이어진 지도·세계 지도·핀·빠른 이동)·미니맵 · 저장 3슬롯·타이틀·설정 ·
 몬스터 AI 그래프(슬라임 비선공, 초원 짐승 3종, 중독) · 물·바다 셰이더.
@@ -175,10 +175,10 @@ EXP 수동 레벨업·능력치(확정 버튼·호버 설명)·기본 스킬 · 
 - 마법 부여(15.3), 고유 장비, 손에 드는 횃불·별똥별 광원(10.3), 야행성 몬스터(10.2), NPC 제작 의뢰(15.4)
 - 사운드 전부, 아이템 그림 아이콘(지금은 이름 글자), 등 슬롯에 맞는 장비 아이템, 해독 아이템
 - 대화 에디터의 내보내기·로컬라이제이션·일괄 치환·대화 재사용 노드
-- 퀘스트 에디터 탭(퀘스트는 지금 `data/quests/*.json`을 직접 편집)
+- 퀘스트 탭의 새 목표 종류(조사·전달·생활·캠핑카·시간 조건·호위) — 지금은 모으기·처치·횟수·플래그 4종
 
 **제안했지만 사용자가 아직 고르지 않은 것** (2026-10-23, 퀘스트 밀도 질문에 대한 답)
-- 퀘스트 에디터 탭 → 새 목표 종류(조사·전달·생활·캠핑카·시간 조건, 그다음 호위) → 지역 연작·NPC 개인사·현장 사건 묶음.
+- 퀘스트 에디터 탭(**2026-10-23 완료** — `addons/dialogue_editor/quest_editor_panel.gd`, 목표 4종·보상·결과 분기·시작 조건·검증·쓰이는 곳) → 새 목표 종류(조사·전달·생활·캠핑카·시간 조건, 그다음 호위) → 지역 연작·NPC 개인사·현장 사건 묶음.
 - 그 뒤 사용자가 "챕터 1은 오래 머물지 않는 튜토리얼"이라고 했으므로, 밀도 작업은 **챕터 2 대륙에 쓰는 것**이 맞다. 챕터 1에 퀘스트를 많이 늘리기 전에 확인할 것.
 
 **검증상 주의**
@@ -196,7 +196,7 @@ EXP 수동 레벨업·능력치(확정 버튼·호버 설명)·기본 스킬 · 
 | 대사·선택지 | `data/dialogues/*.json`, 에디터 `대화` 탭. 대화 액션은 `dialogue_data.gd`의 허용 목록 + `game_dialogue_context.gd` |
 | 컷씬 | `data/cutscenes/*.json`, 에디터 `컷씬` 탭. 단계 종류는 `cutscene_data.gd` / `cutscene_runner.gd` |
 | 이야기 장소·인물 배치 | `data/story.json` (wish_ceremony, escape_guards, 새 게임 컷씬 순서) |
-| 퀘스트 | `data/quests/*.json`, `quest_manager.gd` |
+| 퀘스트 | `data/quests/*.json`, 에디터 `퀘스트` 탭(`quest_editor_panel.gd`), 검증·저장 규칙은 `quest_db.gd`, 진행은 `quest_manager.gd` |
 | 지도 표시물·얻는 곳 | `data/maps/*.json`, 에디터 `지도` 탭, `map_db.gd` |
 | 화자·초상화 | `data/speakers.json`, `assets/portraits/` |
 | 아이템 | `scripts/game/item_db.gd` |

@@ -109,6 +109,17 @@ func _check_dialogue_playtest() -> void:
 		else:
 			await game_hud.cutscene.play(cid)
 		return
+	if d.has("quest_id"):  # the editor's 퀘스트 tab: start with the quest accepted, journal open
+		var qid := str(d["quest_id"])
+		hud.toast("대화 에디터에서 실행: " + qid)
+		if QuestDB.info(qid).is_empty():
+			hud.toast("퀘스트 파일을 찾을 수 없다: " + qid)
+			return
+		var why := Game.quests.accept(qid)
+		if why != "":
+			hud.toast("퀘스트를 받을 수 없다: " + why)
+		game_hud.toggle_journal()
+		return
 	var id := str(d.get("dialogue_id", ""))
 	hud.toast("대화 에디터에서 실행: " + id)
 	if not game_hud.start_dialogue(id):

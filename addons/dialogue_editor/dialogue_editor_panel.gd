@@ -79,6 +79,8 @@ var cutscene_panel: CutsceneEditorPanel
 var monster_ai_panel: MonsterAIEditorPanel
 ## The 지도 tab (data/maps region maps: marks and how each map is obtained).
 var map_panel: MapEditorPanel
+## 퀘스트 tab (QuestEditorPanel): quest files, validation, where-used
+var quest_panel: QuestEditorPanel
 
 
 func _ready() -> void:
@@ -101,7 +103,7 @@ func _btn(parent: Control, text: String, cb: Callable, tip := "") -> Button:
 
 
 func _build_ui() -> void:
-	# tabs: 대화 (this graph editor), 컷씬 (CutsceneEditorPanel), 몬스터 AI (MonsterAIEditorPanel), 지도 (MapEditorPanel)
+	# tabs: 대화 (this graph editor), 컷씬 (CutsceneEditorPanel), 몬스터 AI (MonsterAIEditorPanel), 지도 (MapEditorPanel), 퀘스트 (QuestEditorPanel)
 	_mode_tabs = TabContainer.new()
 	_mode_tabs.set_anchors_preset(Control.PRESET_FULL_RECT)
 	add_child(_mode_tabs)
@@ -119,6 +121,11 @@ func _build_ui() -> void:
 	map_panel = MapEditorPanel.new()
 	map_panel.name = "지도"
 	_mode_tabs.add_child(map_panel)
+	quest_panel = QuestEditorPanel.new()
+	quest_panel.name = "퀘스트"
+	_mode_tabs.add_child(quest_panel)
+	quest_panel.saved.connect(func(_p: String) -> void: refresh_catalog())
+	quest_panel.open_ref.connect(_open_quest_ref)
 	# toolbar (wraps on narrow screens) + status line
 	var bar := HFlowContainer.new()
 	root.add_child(bar)
@@ -593,6 +600,18 @@ func edit_cutscene(id: String) -> void:
 	if id != "" and str(cutscene_panel.doc.get("cutscene_id", "")) != id:
 		if not cutscene_panel.open_cutscene(id):
 			cutscene_panel._set_status("저장하지 않은 변경이 있어 '%s'를 열지 않았습니다 — 저장하거나 목록에서 다시 고르세요" % id)
+
+
+## "쓰이는 곳" double-click in the 퀘스트 tab: jump to that dialogue node or cutscene.
+func _open_quest_ref(kind: String, id: String, node: String) -> void:
+	if kind == "cutscene":
+		edit_cutscene(id)
+		return
+	if str(doc.get("dialogue_id", "")) != id and not open_dialogue(id):
+		return
+	_mode_tabs.current_tab = 0
+	if node != "" and not DialogueData.node_by_id(doc, node).is_empty():
+		select_node(node)
 
 
 func _input(event: InputEvent) -> void:

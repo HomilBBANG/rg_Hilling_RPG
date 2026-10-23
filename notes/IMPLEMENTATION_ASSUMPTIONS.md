@@ -666,3 +666,19 @@ GDD 17은 저장/불러오기(저장 지점, 자동 저장, 사망 시 저장 �
 | 탈출 후 [Claude 임시] | 왕도·알현실 = 잠김: 길로 가면 "수배 중 — 왕도로는 다시 돌아갈 수 없다", 빠른 이동 불가, 길 안내에도 표시. 왕도 광장의 캠핑카 개조 NPC들도 더는 못 만남(챕터 2에서 새로). "챕터 1 끝 — 챕터 2: 바다 건너 다른 대륙(준비 중)" 안내 한 번 | `game.gd`, `bootstrap.gd`, `visual_lab.gd` |
 | 준비된 세이브 | "1챕터 클리어"를 새 이야기 끝 상태로: 드래곤 설득·왕 사망·수배·탈출 완료, 초원 북쪽 길 끝 캠핑카 옆, 비늘 1장. 이미 3번 칸에 예전 세이브가 있으면 불러오기 화면에서 다시 넣어야 바뀜 | `save_presets.gd` |
 | 새 대화 액션 | `give_item`(아이템 주기), `wish_ceremony`(소원 의식 시작). 새 컷씬 단계 `camper_drop`(캠핑카 추락), `actor_hide`(인물 숨기기). 새 NPC 외형 `guard`(경비병), 화자 dragon·mage·guard | `dialogue_data.gd`, `cutscene_data.gd`, `npc_rig.gd`, `data/speakers.json` |
+
+## 퀘스트 에디터 탭 (핸드오프 제안 1순위 — 사용자가 고르기 전에 [Claude 임시]로 만듦)
+
+| 항목 | 정한 내용 | 위치 |
+|---|---|---|
+| 자리 | 대화 에디터의 다섯 번째 탭 `퀘스트`. 게임은 이 탭 없이도 같은 파일을 읽음 | `addons/dialogue_editor/quest_editor_panel.gd` |
+| 파일 형식 | 저장할 때 키 순서 고정(version → quest_id → title → desc → giver → source → accept → repeatable → time_limit_hours → trigger → objectives → consume_items → rewards → outcomes → test_only), 숫자는 정수로, `recipes`·`outcomes`·`trigger`·`test_only`는 비어 있으면 쓰지 않음. 받는 방식이 '직접 수락'이면 `trigger`를 지움 | `quest_db.gd` `normalized()` / `save()` |
+| 새 퀘스트 | ID는 `quest.`로 시작하는 파일 이름. 만들면 **바로 파일이 생김**(대화·컷씬 탭의 퀘스트 목록에 곧장 뜨게) — 기본값: NPC 의뢰, 직접 수락, 횟수 1 목표 하나 | `create_quest()` |
+| 오류 / 경고 기준 | **오류**(게임이 잘못 동작): 없는 아이템·몬스터·레시피·의뢰인·지역, 알 수 없는 종류·받는 방식·목표 종류, 목표 없음, 목표 ID 빔·겹침·띄어쓰기, 개수 0, 플래그 키 빔, 자동 시작인데 시작 조건 없음, 음수 값. **경고**(만들다 만 흔적): 설명·표시 글자 빔, 세우는 곳 없는 플래그, 횟수 목표를 올리는 액션 없음, NPC 의뢰에 수락 액션 없음, 게시판 의뢰인데 의뢰인이 게시판이 아님, 직접 수락인데 시작 조건이 남음 | `quest_db.gd` `validate()` |
+| 쓰이는 곳 | 대화 파일의 액션(`quest_accept/advance/complete`)·조건·선택지 조건과 컷씬 `quest` 단계를 열 때마다 훑음. 게임 코드가 직접 시작·완료하는 퀘스트(왕을 만나라·왕도 탈출·드래곤 토벌 보고)는 코드라 목록에 안 나옴 — 그래서 '수락 액션 없음' 경고는 NPC 의뢰에만 | `quest_db.gd` `references()` |
+| 아는 플래그 | 코드가 세우는 플래그는 상수 목록(`CODE_FLAGS`)에 적어 둠 — **코드에 `set_flag`를 새로 넣으면 이 목록도 늘려야** 경고가 안 뜸. 대화·컷씬의 플래그 세우기는 자동으로 훑음 | `quest_db.gd` `known_flags()` |
+| 시작 조건 그림 | 지도 탭과 같은 지형 그림(지도를 둘 수 없는 지역은 회색 판) 위에 반경 원. 버튼을 누르지 않아도 그림을 클릭하면 자리가 바뀜. 좌표는 0.1 m 단위 | `_draw_canvas()` / `canvas_click()` |
+| 몬스터 처치 목표 | 기존 데이터대로 **ID 앞부분 일치**(`meadow` → meadow_*). 목록에서 고르면 전체 ID가 들어가 그 한 종만 셈 | `set_objective_field()` |
+| 게임에서 실행 | 다른 탭과 같은 `user://dialogue_playtest.json` 전달에 `quest_id`를 추가. 게임은 진행 단계 C로 켜져 그 퀘스트를 받고 퀘스트 기록(J)을 열어 줌. 받을 수 없으면(이미 끝남 등) 이유를 토스트로 | `plugin.gd`, `bootstrap.gd` `_check_dialogue_playtest()` |
+| 지우기 | 파일 삭제만 함(대화·컷씬에 남은 참조는 그 탭의 검증이 오류로 잡음). 쓰는 곳이 있으면 몇 곳인지 확인 창에 보여 줌 | `delete_quest()` |
+

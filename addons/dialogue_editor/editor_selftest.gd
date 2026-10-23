@@ -9,6 +9,7 @@ extends RefCounted
 const TEST_ID := "dialogue.test.editor_selftest"
 const CUT_ID := "cutscene.test.editor_selftest"
 const AI_ID := "ai.test.editor_selftest"
+const QUEST_ID := "quest.test.editor_selftest"
 
 
 static func _check(ok: bool, what: String) -> bool:
@@ -190,6 +191,7 @@ static func run(panel: DialogueEditorPanel, shot: Callable) -> void:
 	fails += await _cutscene_checks(panel, shot)
 	fails += await _monster_ai_checks(panel, shot)
 	fails += await _map_checks(panel, shot)
+	fails += await _quest_checks(panel, shot)
 	print("[editor] done: %d failed checks" % fails)
 
 
@@ -441,5 +443,117 @@ static func _map_checks(dpanel: DialogueEditorPanel, shot: Callable) -> int:
 	mp.dirty = false
 	mp.open_map("meadow")
 	fails += 0 if _check(FileAccess.get_file_as_string(MapDB.path_for("meadow")) == before, "meadow map file restored") else 1
+	dpanel._mode_tabs.current_tab = 0
+	return fails
+
+
+static func _errors(issues: Array) -> Array:
+	return issues.filter(func(e: Dictionary) -> bool: return e["severity"] == "error")
+
+
+## The 퀘스트 tab: open Rosa's quest (where-used finds her dialogue), every shipped quest validates
+## without errors, build a new field event with every objective type, catch a bad item / unknown
+## monster / duplicate id / missing trigger, fix, place the trigger with a click on the picture,
+## rewards + an outcome branch, undo / redo, save → reload identical, the game-side QuestDB sees
+## it, delete the file.
+static func _quest_checks(dpanel: DialogueEditorPanel, shot: Callable) -> int:
+	var fails := 0
+	var qp := dpanel.quest_panel
+	dpanel._mode_tabs.current_tab = 4
+	qp.open_quest("quest.rosa.jelly")
+	await _frames(qp, 6)
+	fails += 0 if _check(qp.is_visible_in_tree() and qp.quest_id == "quest.rosa.jelly" and _errors(qp.validate()).is_empty(),
+		"퀘스트 tab opens quest.rosa.jelly (%d objectives, used in %d places, no errors)" % [qp.doc["objectives"].size(), qp.refs.size()]) else 1
+	var rosa_accept := false
+	for r: Dictionary in qp.refs:
+		rosa_accept = rosa_accept or (r["id"] == "dialogue.npc.rosa.main" and r["action"] == "quest_accept")
+	fails += 0 if _check(rosa_accept, "where-used lists dialogue.npc.rosa.main → 퀘스트 수락") else 1
+	var bad := PackedStringArray()
+	for id: String in QuestDB.all():
+		if not _errors(QuestDB.validate(QuestDB.all()[id], QuestDB.references(id))).is_empty():
+			bad.append(id)
+	fails += 0 if _check(bad.is_empty(), "every shipped quest validates without errors (%d files)%s" % [QuestDB.all().size(), "" if bad.is_empty() else ": " + ", ".join(bad)]) else 1
+	await shot.call("editor_40_quest_rosa")
+	# a new field event with every objective type
+	if FileAccess.file_exists(QuestDB.path_for(QUEST_ID)):
+		DirAccess.remove_absolute(ProjectSettings.globalize_path(QuestDB.path_for(QUEST_ID)))
+	fails += 0 if _check(not qp.create_quest("bad id", "x") and qp.create_quest(QUEST_ID, "에디터 자체 점검 퀘스트") and qp.quest_id == QUEST_ID,
+		"bad id refused, create %s" % QUEST_ID) else 1
+	qp.set_field("source", "event", true)
+	qp.set_field("giver", "bron")
+	qp.set_accept("auto")
+	qp.add_objective("collect")
+	qp.add_objective("kill")
+	qp.add_objective("flag")
+	qp.set_objective_field(1, "item", "nope")
+	qp.set_objective_field(2, "target", "zzz")
+	qp.set_objective_field(3, "id", "obj_1")
+	qp.doc.erase("trigger")
+	qp._commit(true)
+	var errs := _errors(qp.validate())
+	var msgs := PackedStringArray()
+	for e: Dictionary in errs:
+		msgs.append(e["message"])
+	var text := " / ".join(msgs)
+	fails += 0 if _check(errs.size() >= 4 and text.contains("nope") and text.contains("zzz") and text.contains("겹치") and text.contains("시작 조건"),
+		"validator caught %d errors: %s" % [errs.size(), text]) else 1
+	# fix everything
+	qp.set_accept("direct")
+	qp.set_accept("auto")
+	qp.set_objective_field(1, "item", "herb")
+	qp.set_objective_field(2, "target", "meadow")
+	qp.set_objective_field(3, "id", "obj_4")
+	qp.set_objective_field(3, "flag", "story.arrived")
+	for i in 4:
+		qp.set_objective_field(i, "text", "목표 %d" % (i + 1))
+	qp.set_field("desc", "자체 점검용 현장 사건.")
+	fails += 0 if _check(_errors(qp.validate()).is_empty() and qp.doc.has("trigger"), "after fixes: 0 errors (%d warnings), trigger back" % qp.issues.size()) else 1
+	# trigger placed with a click on the region picture
+	await _frames(qp, 4)
+	qp.place = true
+	qp._fit()
+	qp.canvas_click(qp.to_canvas(Vector2(40, -5)))
+	var tp: Array = qp.doc["trigger"]["pos"]
+	fails += 0 if _check(absf(float(tp[0]) - 40.0) < 0.3 and absf(float(tp[1]) + 5.0) < 0.3 and qp.doc["trigger"]["region"] == "meadow",
+		"trigger placed with a canvas click at (40, -5) -> (%s, %s)" % [tp[0], tp[1]]) else 1
+	# rewards and an outcome branch
+	qp.set_reward("", "gold", 25)
+	var it := qp.add_reward_item("")
+	qp.set_reward_item("", "bread", 2, it)
+	var oc := qp.add_outcome()
+	qp.rename_outcome(oc, "reward")
+	qp.set_outcome_label("reward", "사례를 받음")
+	qp.set_reward("reward", "life_exp", 12)
+	fails += 0 if _check(qp.doc["rewards"]["items"] == {"bread": 2} and int(qp.doc["rewards"]["gold"]) == 25 and qp.doc["outcomes"].has("reward") \
+			and int(qp.doc["outcomes"]["reward"]["rewards"]["life_exp"]) == 12 and _errors(qp.validate()).is_empty(),
+		"rewards: 25 gold + bread ×2, outcome 'reward' (life EXP 12)") else 1
+	# undo / redo
+	var n: int = qp.doc["objectives"].size()
+	qp.add_objective("count")
+	qp.undo()
+	var after_undo: int = qp.doc["objectives"].size()
+	qp.redo()
+	var after_redo: int = qp.doc["objectives"].size()
+	qp.undo()
+	fails += 0 if _check(after_undo == n and after_redo == n + 1 and qp.doc["objectives"].size() == n, "add objective → undo → redo → undo: %d → %d → %d → %d" % [n + 1, after_undo, after_redo, n]) else 1
+	await _frames(qp, 3)
+	await shot.call("editor_41_quest_new_event")
+	qp.scroll_to_end()
+	await _frames(qp, 3)
+	await shot.call("editor_42_quest_rewards_outcomes")
+	# save → reload identical, game side sees it
+	var snap := JSON.stringify(qp.doc)
+	var ok := qp.save()
+	qp.open_quest("quest.rosa.jelly")
+	qp.open_quest(QUEST_ID)
+	fails += 0 if _check(ok and JSON.stringify(qp.doc) == snap, "save → reload: fields, objectives, trigger, rewards and outcomes identical") else 1
+	QuestDB.reload()
+	var q := QuestDB.info(QUEST_ID)
+	fails += 0 if _check(q.get("accept", "") == "auto" and q.get("trigger", {}).get("region", "") == "meadow" and int(QuestDB.rewards_for(QUEST_ID, "reward").get("life_exp", 0)) == 12 \
+			and QuestDB.objective(QUEST_ID, "obj_4").get("type", "") == "flag" and QuestDB.reward_text(QuestDB.rewards_for(QUEST_ID)).contains("빵"),
+		"game-side QuestDB: auto trigger in meadow, outcome rewards, objective obj_4 = flag, reward text '%s'" % QuestDB.reward_text(QuestDB.rewards_for(QUEST_ID))) else 1
+	# delete
+	qp.delete_quest(QUEST_ID)
+	fails += 0 if _check(not FileAccess.file_exists(QuestDB.path_for(QUEST_ID)) and qp.quest_id != QUEST_ID and not QuestDB.all().has(QUEST_ID), "delete → file gone, another quest open") else 1
 	dpanel._mode_tabs.current_tab = 0
 	return fails

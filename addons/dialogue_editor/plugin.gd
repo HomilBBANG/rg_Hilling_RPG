@@ -18,6 +18,10 @@ func _enter_tree() -> void:
 	panel.cutscene_panel.can_play_in_game = true
 	panel.cutscene_panel.play_requested.connect(_play_cutscene_in_game)
 	panel.cutscene_panel.saved.connect(func(_p: String) -> void: EditorInterface.get_resource_filesystem().scan())
+	panel.quest_panel.can_play_in_game = true
+	panel.quest_panel._play_btn.visible = true
+	panel.quest_panel.play_requested.connect(_play_quest_in_game)
+	panel.quest_panel.saved.connect(func(_p: String) -> void: EditorInterface.get_resource_filesystem().scan())
 	_make_visible(false)
 	var out := OS.get_environment("DIALOGUE_EDITOR_SELFTEST")
 	if out != "":
@@ -60,6 +64,14 @@ func _play_in_game(dialogue_id: String) -> void:
 func _play_cutscene_in_game(cutscene_id: String) -> void:
 	var f := FileAccess.open(PLAYTEST_PATH, FileAccess.WRITE)
 	f.store_string(JSON.stringify({"cutscene_id": cutscene_id}))
+	f.close()
+	EditorInterface.play_main_scene()
+
+
+## 퀘스트 tab: the game starts (stage C) with that quest accepted and the journal open.
+func _play_quest_in_game(quest_id: String) -> void:
+	var f := FileAccess.open(PLAYTEST_PATH, FileAccess.WRITE)
+	f.store_string(JSON.stringify({"quest_id": quest_id}))
 	f.close()
 	EditorInterface.play_main_scene()
 
