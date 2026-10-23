@@ -64,6 +64,18 @@ func clear() -> void:
 	changed.emit()
 
 
+## "정렬": equipment, consumables, materials, camper goods, decor, then the rest; by name within.
+func sort() -> void:
+	var rank := {"equip": 0, "consumable": 1, "": 2, "tool": 3, "camper": 4, "decor": 5}
+	items.sort_custom(func(a: Dictionary, b: Dictionary) -> bool:
+		var ra: int = rank.get(str(ItemDB.info(a["id"]).get("kind", "")), 6)
+		var rb: int = rank.get(str(ItemDB.info(b["id"]).get("kind", "")), 6)
+		if ra != rb:
+			return ra < rb
+		return ItemDB.item_name(a["id"]) < ItemDB.item_name(b["id"]))
+	changed.emit()
+
+
 func duplicate_items() -> Array[Dictionary]:
 	var out: Array[Dictionary] = []
 	for e in items:

@@ -22,10 +22,11 @@ var hp := 0.0
 var mp := 0.0
 var sp := 0.0
 var inventory := Inventory.new()
-## Equipped items by slot (GDD 15.1 [확정]); "" = empty. Equipped items are not in the bag and
-## don't count toward carried weight [가정].
+## Equipped items by slot (GDD 15.1 [확정]); "" = empty. "back" (등: cloaks, packs) is the user's
+## layout addition. Equipped items are not in the bag but DO count toward carried weight (user
+## decision on GDD 8.3 [미정]).
 var equipment := {"main": "iron_sword", "off": "", "head": "", "body": "", "hands": "", "feet": "",
-	"neck": "", "ring1": "", "ring2": "", "belt": "lantern_belt"}
+	"neck": "", "ring1": "", "ring2": "", "belt": "lantern_belt", "back": ""}
 ## Prototype combat numbers [미정]: d20 + hit_bonus >= target AC (skills / gear add to it).
 var hit_bonus := 3
 var armor_class := 10
@@ -413,8 +414,17 @@ func carry_limit() -> float:
 	return carry_capacity() * 1.5
 
 
+## Bag + everything worn (equipment counts too).
 func carried_weight() -> float:
-	return inventory.weight()
+	return inventory.weight() + equipped_weight()
+
+
+func equipped_weight() -> float:
+	var w := 0.0
+	for slot: String in equipment:
+		if equipment[slot] != "":
+			w += ItemDB.weight(equipment[slot])
+	return w
 
 
 func can_carry(extra: float) -> bool:

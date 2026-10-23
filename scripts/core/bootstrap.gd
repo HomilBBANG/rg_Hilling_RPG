@@ -554,6 +554,8 @@ func _parse_args() -> void:
 		_run_expressions_tour()
 	elif tour == "statui":
 		_run_stat_ui_tour()
+	elif tour == "invui":
+		_run_inv_ui_tour()
 	elif tour == "wind":
 		_run_wind_check()
 	elif tour == "catfollow":
@@ -3500,6 +3502,96 @@ func _run_cutscene_tour() -> void:
 
 ## Plays dialogues through every speaker combination and records which portrait is lit:
 ## protagonist left, partner right, the one not speaking at 50% opacity, narration dims both.
+func _ui_find(text: String, cls: String) -> Control:
+	var stack: Array = [game_hud._panel]
+	while not stack.is_empty():
+		var n: Node = stack.pop_back()
+		if n == null:
+			continue
+		if n.get_class() == cls and str(n.get("text")).strip_edges().begins_with(text):
+			return n
+		stack.append_array(n.get_children())
+	return null
+
+
+## A bag / slot cell (Button) whose name label starts with text.
+func _ui_cell(text: String) -> Button:
+	var stack: Array = [game_hud._panel]
+	while not stack.is_empty():
+		var n: Node = stack.pop_back()
+		if n is Button:
+			for c in n.get_children():
+				if c is Label and str(c.text).begins_with(text):
+					return n
+		stack.append_array(n.get_children())
+	return null
+
+
+func _ui_move(c: Control) -> void:
+	var pos := c.get_global_rect().get_center()
+	var ev := InputEventMouseMotion.new()
+	ev.position = pos
+	ev.global_position = pos
+	get_viewport().warp_mouse(pos)
+	Input.parse_input_event(ev)
+	await _frames(3)
+
+
+func _ui_click(c: Control, double := false) -> void:
+	await _ui_move(c)
+	var pos := c.get_global_rect().get_center()
+	for i in (2 if double else 1):
+		for pressed in [true, false]:
+			var ev := InputEventMouseButton.new()
+			ev.button_index = MOUSE_BUTTON_LEFT
+			ev.pressed = pressed
+			ev.double_click = double and i == 1 and pressed
+			ev.position = pos
+			ev.global_position = pos
+			Input.parse_input_event(ev)
+			await _frames(2)
+	await _frames(4)
+
+
+## Inventory + equipment window (user mockup): tabs, equipment slot grid, weight bar (bag + worn),
+## 7-column bag grid with hover text, select / double-click to equip, 정렬, tab switch by click.
+func _run_inv_ui_tour() -> void:
+	Game.clock_running = false
+	Game.minute_of_day = 10.5 * 60.0
+	await wait_for_sprites()
+	var st := Game.player_state
+	for spec in [["iron_ore", 3], ["leather_cap", 1], ["heal_potion", 2], ["slime_jelly", 4], ["bread", 1], ["mana_potion", 1]]:
+		st.inventory.add(str(spec[0]), int(spec[1]))
+	print("[invui] weight: bag %.1f + worn %.1f = %.1f (carried_weight %.1f)" % [st.inventory.weight(), st.equipped_weight(),
+		st.inventory.weight() + st.equipped_weight(), st.carried_weight()])
+	game_hud.toggle_inventory()
+	await _frames(5)
+	await _p1_shot("invui_01_window", "inventory + equipment window", true)
+	await _ui_move(_ui_cell("가죽 모자"))
+	print("[invui] hover 가죽 모자 -> %s" % game_hud.tip_text().replace("\n", " / "))
+	await _p1_shot("invui_02_hover", "hover a bag cell", true)
+	await _ui_click(_ui_cell("가죽 모자"))
+	print("[invui] click -> selected %s, action button %s" % [game_hud._inv_sel, _ui_find("장착", "Button") != null])
+	var w0 := st.carried_weight()
+	await _ui_click(_ui_cell("가죽 모자"), true)
+	await _seconds(1.2)  # gear swap motion
+	print("[invui] double-click -> head slot '%s', bag cap %d, weight %.1f -> %.1f (same %s)" % [st.equipment["head"], st.inventory.count("leather_cap"),
+		w0, st.carried_weight(), is_equal_approx(w0, st.carried_weight())])
+	await _ui_move(_ui_cell("머리"))
+	print("[invui] hover head slot -> %s" % game_hud.tip_text().replace("\n", " / "))
+	var order0 := st.inventory.items.map(func(e: Dictionary) -> String: return ItemDB.item_name(e["id"]))
+	await _ui_click(_ui_find("정렬", "Button"))
+	var order1 := st.inventory.items.map(func(e: Dictionary) -> String: return ItemDB.item_name(e["id"]))
+	print("[invui] 정렬: %s -> %s" % [", ".join(order0), ", ".join(order1)])
+	await _p1_shot("invui_03_sorted_equipped", "after equip + sort", true)
+	await _ui_click(_ui_find("능력치", "Button"))
+	print("[invui] click 능력치 tab -> panel '%s'" % game_hud._panel_kind)
+	await _p1_shot("invui_04_stats_tab", "stats tab", true)
+	await _ui_click(_ui_find("소지품", "Button"))
+	print("[invui] click 소지품 tab -> panel '%s'" % game_hud._panel_kind)
+	get_tree().quit()
+
+
 ## Character sheet UI: hover descriptions (real mouse motion), + / − only plan points, the derived
 ## numbers preview "now → after", nothing changes before 확정, closing discards the plan.
 func _run_stat_ui_tour() -> void:

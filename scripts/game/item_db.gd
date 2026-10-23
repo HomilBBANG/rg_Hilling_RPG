@@ -116,8 +116,8 @@ const SPELLS := {
 }
 
 const SLOT_NAMES := {"main": "주무기 손", "off": "보조 손", "head": "머리", "body": "몸통", "hands": "장갑",
-	"feet": "신발", "neck": "목걸이", "ring1": "반지 1", "ring2": "반지 2", "belt": "허리띠"}
-const SLOT_ORDER := ["main", "off", "head", "body", "hands", "feet", "neck", "ring1", "ring2", "belt"]
+	"feet": "신발", "neck": "목걸이", "ring1": "반지 1", "ring2": "반지 2", "belt": "허리띠", "back": "등"}
+const SLOT_ORDER := ["main", "off", "head", "body", "hands", "feet", "neck", "ring1", "ring2", "belt", "back"]
 
 ## Random extra options [미정 pool]: one of these, rolled on acquisition.
 const OPTION_POOL := [

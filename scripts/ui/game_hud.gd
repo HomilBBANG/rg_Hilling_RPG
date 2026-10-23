@@ -518,6 +518,8 @@ func _open(kind: String, source: Node3D, range_m: float, build: Callable, width 
 		_adopt_tooltips(_panel)
 		_panel.reset_size()
 		_panel.position = Vector2(960 - _panel.size.x * 0.5, 470 - _panel.size.y * 0.5)
+		if kind in ["inventory", "character"]:
+			_panel.position.y = 40.0  # the two tabs of one window: same place, the tab bar doesn't jump
 	_panel_refresh.call()
 
 
@@ -606,91 +608,357 @@ func open_loot(source: LootContainer) -> void:
 		v.add_child(bottom))
 
 
+## The character window: one panel with tabs on top — 소지품·장비 (Tab) and 능력치 (C).
+func _window_tabs(v: VBoxContainer, active: String) -> void:
+	var bar := HBoxContainer.new()
+	bar.add_theme_constant_override("separation", 6)
+	for t: Array in [["inventory", "소지품 · 장비  (Tab)"], ["character", "능력치  (C)"]]:
+		var kind: String = t[0]
+		var b := _button(t[1], func() -> void:
+			if _panel_kind != kind:
+				toggle_inventory() if kind == "inventory" else toggle_character(), 230)
+		b.toggle_mode = true
+		b.button_pressed = kind == active
+		if kind == active:
+			var sb := StyleBoxFlat.new()
+			sb.bg_color = Color(0.5, 0.36, 0.16)
+			sb.border_color = Color(0.95, 0.78, 0.45)
+			sb.set_border_width_all(2)
+			sb.set_corner_radius_all(4)
+			sb.content_margin_left = 12
+			sb.content_margin_right = 12
+			for st_name in ["normal", "pressed", "hover"]:
+				b.add_theme_stylebox_override(st_name, sb)
+		bar.add_child(b)
+	v.add_child(bar)
+
+
+const INV_CELL := 84
+const INV_COLS := 7
+const INV_MIN_ROWS := 7
+## Equipment layout (user mockup): 3 columns × 3 rows, then the two hands below.
+const EQUIP_GRID := [["back", "head", "neck"], ["belt", "body", "ring1"], ["hands", "feet", "ring2"]]
+const KIND_COLORS := {"equip": Color(0.45, 0.62, 0.9), "consumable": Color(0.5, 0.82, 0.5), "camper": Color(0.9, 0.62, 0.3),
+	"decor": Color(0.82, 0.55, 0.82), "tool": Color(0.75, 0.7, 0.55)}
+## Slot captions in the window (user mockup wording; ItemDB.SLOT_NAMES elsewhere).
+const SLOT_CAPTIONS := {"main": "주무기", "off": "보조무기", "body": "몸"}
+## Selected thing in the inventory window: {"bag": item id} or {"slot": slot key}.
+var _inv_sel := {}
+
+
+func _framed(child: Control, pad := 14) -> PanelContainer:
+	var box := PanelContainer.new()
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = Color(0.1, 0.1, 0.11, 0.7)
+	sb.border_color = Color(0.55, 0.24, 0.1)
+	sb.set_border_width_all(2)
+	sb.set_content_margin_all(pad)
+	box.add_theme_stylebox_override("panel", sb)
+	box.add_child(child)
+	return box
+
+
+## One square cell (equipment slot or bag stack): caption on top, name in the middle, count corner.
+func _cell(caption: String, name: String, count: int, edge: Color, selected: bool, cb: Callable, dbl := Callable()) -> Button:
+	var b := Button.new()
+	b.focus_mode = Control.FOCUS_NONE
+	b.custom_minimum_size = Vector2(INV_CELL, INV_CELL)
+	for state in ["normal", "hover", "pressed", "disabled"]:
+		var sb := StyleBoxFlat.new()
+		sb.bg_color = {"normal": Color(0.25, 0.25, 0.26), "hover": Color(0.34, 0.33, 0.3), "pressed": Color(0.4, 0.36, 0.28),
+			"disabled": Color(0.2, 0.2, 0.2)}[state]
+		if selected:
+			sb.bg_color = Color(0.42, 0.34, 0.18)
+		sb.border_color = Color(1.0, 0.85, 0.45) if selected else edge
+		sb.set_border_width_all(3 if selected else 2)
+		b.add_theme_stylebox_override(state, sb)
+	b.gui_input.connect(func(ev: InputEvent) -> void:
+		if ev is InputEventMouseButton and ev.pressed and ev.button_index == MOUSE_BUTTON_LEFT:
+			if ev.double_click and dbl.is_valid():
+				dbl.call()
+			else:
+				cb.call())
+	if caption != "":
+		var c := Label.new()
+		c.text = caption
+		c.add_theme_font_size_override("font_size", 14)
+		c.add_theme_color_override("font_color", Color(0.72, 0.74, 0.78))
+		c.position = Vector2(5, 2)
+		c.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		b.add_child(c)
+	var n := Label.new()
+	n.text = name
+	n.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	n.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	n.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	n.add_theme_font_size_override("font_size", 15 if caption == "" else 14)
+	n.position = Vector2(3, 16 if caption != "" else 4)
+	n.size = Vector2(INV_CELL - 6, INV_CELL - (22 if caption != "" else 10))
+	n.max_lines_visible = 3
+	n.clip_text = true
+	n.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	b.add_child(n)
+	if count > 1:
+		var k := Label.new()
+		k.text = "×%d" % count
+		k.add_theme_font_size_override("font_size", 15)
+		k.add_theme_color_override("font_color", Color(1.0, 0.92, 0.6))
+		k.position = Vector2(INV_CELL - 34, INV_CELL - 24)
+		k.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		b.add_child(k)
+	return b
+
+
+## Hover text for an item: weight, what it does, and how to use it here.
+func _item_tip(id: String, count: int, where: String) -> String:
+	var lines := PackedStringArray()
+	var w := ItemDB.weight(id)
+	lines.append("무게 %.1f kg%s" % [w, " × %d = %.1f kg" % [count, w * count] if count > 1 else ""])
+	if ItemDB.is_equipment(id):
+		lines.append(ItemDB.equip_summary(id))
+	elif ItemDB.is_consumable(id):
+		var ci := ItemDB.info(id)
+		var ut: Dictionary = ItemDB.USE_TYPES[ci["use"]]
+		lines.append("%s · %s %.1f초%s" % [ItemDB.effect_text(ci["effect"]), ut["name"].replace(" 중", ""), ut["time"],
+			" (천천히 이동 가능)" if ut["move"] > 0.0 else " (멈춰서)"])
+	var desc := str(ItemDB.info(id).get("desc", ""))
+	if desc != "":
+		lines.append(desc)
+	if where == "slot":
+		lines.append("클릭: 선택 · 더블클릭: 해제")
+	elif ItemDB.is_equipment(id) or ItemDB.is_consumable(id):
+		lines.append("클릭: 선택 · 더블클릭: %s" % ("장착" if ItemDB.is_equipment(id) else "사용"))
+	else:
+		lines.append("클릭: 선택")
+	return "\n".join(lines)
+
+
 func toggle_inventory() -> void:
 	if _panel_kind == "inventory":
 		close_panel()
 		return
+	_inv_sel = {}
 	var st := Game.player_state
 	_open("inventory", null, 0.0, func(v: VBoxContainer) -> void:
-		v.add_child(_row_label("소지품 · 장비 — 슬롯 제한 없음 · 열어도 게임은 계속 진행", 900, 26, Color(1.0, 0.9, 0.6)))
-		v.add_child(_row_label(_weight_line() + " · 장착 장비 중량 제외", 1100, 19, Color(0.8, 0.84, 0.88)))
+		_window_tabs(v, "inventory")
 		var p := _player()
 		var swapping: bool = p != null and p.is_swapping()
-		v.add_child(_row_label("방어 %d · 명중 +%d · 치명 %d%% · 무기 %s%s" % [st.total_armor(), st.total_hit_bonus(),
-			st.total_crit_chance(), st.weapon()["name"], "   — 장비 교체 중…" if swapping else ""], 1100, 19, Color(0.75, 0.88, 0.75)))
 		var cols := HBoxContainer.new()
 		cols.add_theme_constant_override("separation", 24)
 		v.add_child(cols)
+		# ---- left: equipment slots, weight, selected item
 		var left := VBoxContainer.new()
-		var right := VBoxContainer.new()
+		left.add_theme_constant_override("separation", 10)
 		cols.add_child(left)
+		var eq := VBoxContainer.new()
+		eq.add_theme_constant_override("separation", 8)
+		for row: Array in EQUIP_GRID + [["main", "", "off"]]:
+			if row[0] == "main":
+				var gap := Control.new()
+				gap.custom_minimum_size.y = 44
+				eq.add_child(gap)
+			var h := HBoxContainer.new()
+			h.add_theme_constant_override("separation", 92)
+			for slot: String in row:
+				if slot == "":
+					var sp := Control.new()
+					sp.custom_minimum_size = Vector2(INV_CELL, INV_CELL)
+					h.add_child(sp)
+					continue
+				h.add_child(_slot_cell(slot, swapping))
+			eq.add_child(h)
+		left.add_child(_framed(eq, 22))
+		left.add_child(_weight_bar())
+		left.add_child(_row_label("방어 %d · 명중 +%d · 치명 %d%% · 무기 %s%s" % [st.total_armor(), st.total_hit_bonus(),
+			st.total_crit_chance(), st.weapon()["name"], "   — 장비 교체 중…" if swapping else ""], 520, 18, Color(0.75, 0.88, 0.75)))
+		left.add_child(_selected_box(swapping))
+		# ---- right: bag grid + sort
+		var right := VBoxContainer.new()
+		right.add_theme_constant_override("separation", 8)
 		cols.add_child(right)
-		left.add_child(_row_label("장착 슬롯", 300, 22, Color(1.0, 0.9, 0.6)))
-		for slot: String in ItemDB.SLOT_ORDER:
-			var row := HBoxContainer.new()
-			var id: String = st.equipment[slot]
-			row.add_child(_row_label(ItemDB.SLOT_NAMES[slot], 100, 19, Color(0.72, 0.76, 0.8)))
-			var txt := "—" if id == "" else ItemDB.item_name(id)
-			if slot == "off" and st.two_handed():
-				txt = "(양손 무기 사용 중)"
-			row.add_child(_row_label(txt, 330, 19))
-			if id != "":
-				var b := _button("해제", func() -> void: _change_gear(func() -> void: st.unequip(slot), "%s 해제" % ItemDB.item_name(id)))
-				b.disabled = swapping
-				b.tooltip_text = ItemDB.equip_summary(id)
-				row.add_child(b)
-			left.add_child(row)
-		right.add_child(_row_label("가방", 300, 22, Color(1.0, 0.9, 0.6)))
-		_items_list(right, st.inventory, func(h: HBoxContainer, id: String, _count: int) -> void:
-			if ItemDB.info(id).get("kind", "") == "decor":
-				var db := _button("배치", func() -> void:
-					close_panel()
-					boot.world.begin_place(id))
-				db.disabled = not (boot.world is CamperInteriorLab)
-				db.tooltip_text = "캠핑카 안에서만 놓을 수 있다" if db.disabled else "E 놓기 · R 돌리기 · X 취소"
-				h.add_child(db)
-			if ItemDB.info(id).get("kind", "") == "camper":
-				var cb := _button("주유" if ItemDB.info(id).get("camper", "") == "fuel" else "응급 수리", func() -> void:
-					boot.hud.toast(boot.use_camper_item(id))
+		var grid := GridContainer.new()
+		grid.columns = INV_COLS
+		grid.add_theme_constant_override("h_separation", 4)
+		grid.add_theme_constant_override("v_separation", 4)
+		var items := st.inventory.items
+		var cells := maxi(INV_COLS * INV_MIN_ROWS, ceili(items.size() / float(INV_COLS)) * INV_COLS)
+		for i in cells:
+			if i < items.size():
+				var id: String = items[i]["id"]
+				var count: int = items[i]["count"]
+				var c := _cell("", ItemDB.item_name(id), count, KIND_COLORS.get(str(ItemDB.info(id).get("kind", "")), Color(0.55, 0.24, 0.1)),
+					_inv_sel.get("bag", "") == id, func() -> void:
+						_inv_sel = {"bag": id}
+						_refresh_panel(),
+					func() -> void: _inv_default_action(id, swapping))
+				tip(c, ItemDB.item_name(id), _item_tip(id, count, "bag"))
+				grid.add_child(c)
+			else:
+				var empty := Panel.new()
+				empty.custom_minimum_size = Vector2(INV_CELL, INV_CELL)
+				var sb := StyleBoxFlat.new()
+				sb.bg_color = Color(0.25, 0.25, 0.26)
+				sb.border_color = Color(0.55, 0.24, 0.1)
+				sb.set_border_width_all(1)
+				empty.add_theme_stylebox_override("panel", sb)
+				grid.add_child(empty)
+		var scroll := ScrollContainer.new()
+		scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+		scroll.custom_minimum_size = Vector2(INV_COLS * (INV_CELL + 4) + 8, INV_MIN_ROWS * (INV_CELL + 4))
+		scroll.add_child(grid)
+		right.add_child(_framed(scroll, 10))
+		var bottom := HBoxContainer.new()
+		var sort := _button("정렬", func() -> void:
+			st.inventory.sort()
+			_refresh_panel(), 90)
+		sort.tooltip_text = "장비 → 소모품 → 재료 → 캠핑카 용품 → 소품 순, 같은 종류는 이름순"
+		bottom.add_child(sort)
+		bottom.add_child(_row_label("  %d종 · 칸 제한 없음 (중량만)" % items.size(), 360, 17, Color(0.7, 0.74, 0.78)))
+		right.add_child(bottom), 1240)
+
+
+func _slot_cell(slot: String, swapping: bool) -> Button:
+	var st := Game.player_state
+	var id: String = st.equipment.get(slot, "")
+	var name := "" if id == "" else ItemDB.item_name(id)
+	if slot == "off" and st.two_handed():
+		name = "(양손 무기)"
+	var c := _cell(SLOT_CAPTIONS.get(slot, ItemDB.SLOT_NAMES[slot]), name, 0, Color(0.1, 0.2, 0.25) if id == "" else Color(0.45, 0.62, 0.9),
+		_inv_sel.get("slot", "") == slot, func() -> void:
+			_inv_sel = {"slot": slot}
+			_refresh_panel(),
+		func() -> void:
+			if id != "" and not swapping:
+				_change_gear(func() -> void: st.unequip(slot), "%s 해제" % ItemDB.item_name(id)))
+	if id != "":
+		tip(c, "%s — %s" % [ItemDB.SLOT_NAMES[slot], ItemDB.item_name(id)], _item_tip(id, 1, "slot"))
+	else:
+		tip(c, ItemDB.SLOT_NAMES[slot], "비어 있다" + ("\n(망토·배낭 등을 걸 자리 — 아직 맞는 장비가 없다)" if slot == "back" else ""))
+	return c
+
+
+## Carried weight: bag + worn equipment, as a bar (the line marks where slowing starts).
+func _weight_bar() -> Control:
+	var st := Game.player_state
+	var w := st.carried_weight()
+	var cap := st.carry_capacity()
+	var lim := st.carry_limit()
+	var box := VBoxContainer.new()
+	box.add_theme_constant_override("separation", 2)
+	var bar := Panel.new()
+	bar.custom_minimum_size = Vector2(520, 40)
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = Color(0.12, 0.12, 0.13)
+	sb.border_color = Color(0.55, 0.24, 0.1)
+	sb.set_border_width_all(2)
+	bar.add_theme_stylebox_override("panel", sb)
+	var fill := ColorRect.new()
+	var frac := clampf(w / lim, 0.0, 1.0) if lim > 0.0 else 0.0
+	fill.color = Color(0.32, 0.55, 0.3) if w <= cap else (Color(0.8, 0.6, 0.2) if w < lim - 0.001 else Color(0.8, 0.28, 0.22))
+	fill.position = Vector2(2, 2)
+	fill.size = Vector2((520 - 4) * frac, 36)
+	fill.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	bar.add_child(fill)
+	var mark := ColorRect.new()
+	mark.color = Color(1.0, 0.9, 0.6, 0.8)
+	mark.position = Vector2(2 + (520 - 4) * cap / lim, 2)
+	mark.size = Vector2(2, 36)
+	mark.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	bar.add_child(mark)
+	var lbl := Label.new()
+	lbl.text = "소지 중량 · %s" % st.weight_state()
+	lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	lbl.size = Vector2(520, 40)
+	lbl.add_theme_font_size_override("font_size", 21)
+	lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	bar.add_child(lbl)
+	tip(bar, "소지 중량", "가방 %.1f kg + 착용 장비 %.1f kg = %.1f kg\n%.0f kg까지 보통 속도, 넘으면 느려짐(현재 ×%.2f), %.0f kg부터 더 주울 수 없음.\n힘(STR)·짐 꾸리기 요령·장비로 늘어난다." % [
+		st.inventory.weight(), st.equipped_weight(), w, cap, st.speed_factor(), lim])
+	box.add_child(bar)
+	var num := _row_label("%.1f / %.0f kg  (한계 %.0f)" % [w, cap, lim], 520, 18, Color(0.85, 0.88, 0.9))
+	num.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	box.add_child(num)
+	return box
+
+
+## Details + actions for whatever is selected (bag item or equipment slot).
+func _selected_box(swapping: bool) -> Control:
+	var st := Game.player_state
+	var v := VBoxContainer.new()
+	v.custom_minimum_size = Vector2(520, 150)
+	var id := ""
+	var from_slot := str(_inv_sel.get("slot", ""))
+	if from_slot != "":
+		id = st.equipment.get(from_slot, "")
+	elif _inv_sel.has("bag") and st.inventory.count(str(_inv_sel["bag"])) > 0:
+		id = str(_inv_sel["bag"])
+	if id == "":
+		v.add_child(_row_label("칸을 클릭하면 여기서 사용·장착·해제할 수 있다 (더블클릭 = 바로)", 520, 17, Color(0.7, 0.74, 0.78)))
+		return v
+	v.add_child(_row_label(ItemDB.item_name(id), 520, 22, Color(1.0, 0.9, 0.6)))
+	var info := Label.new()
+	info.text = _item_tip(id, 1 if from_slot != "" else st.inventory.count(id), "slot" if from_slot != "" else "bag").get_slice("\n클릭", 0)
+	info.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	info.custom_minimum_size.x = 520
+	info.add_theme_font_size_override("font_size", 17)
+	info.add_theme_color_override("font_color", Color(0.78, 0.8, 0.84))
+	v.add_child(info)
+	var h := HFlowContainer.new()
+	v.add_child(h)
+	if from_slot != "":
+		var ub := _button("해제", func() -> void: _change_gear(func() -> void: st.unequip(from_slot), "%s 해제" % ItemDB.item_name(id)))
+		ub.disabled = swapping
+		h.add_child(ub)
+		return v
+	var kind := str(ItemDB.info(id).get("kind", ""))
+	if ItemDB.is_equipment(id):
+		var slot := st.target_slot(id)
+		var eb := _button("장착 (%s)" % ItemDB.SLOT_NAMES[slot], func() -> void:
+			_change_gear(func() -> void: st.equip(id), "%s 장착" % ItemDB.item_name(id)))
+		eb.disabled = swapping
+		h.add_child(eb)
+	if ItemDB.is_consumable(id):
+		var reading: bool = ItemDB.info(id).get("use", "") == "read"
+		var ub2 := _button("읽기" if reading else "사용", func() -> void: _inv_default_action(id, swapping))
+		ub2.disabled = swapping
+		h.add_child(ub2)
+		if not reading:
+			for qi in PlayerState.QUICK_ITEM_SLOTS:
+				var on: bool = st.quick_items[qi] == id
+				var qb := _button(("[%d]" if on else "%d") % (qi + 1), func() -> void:
+					st.assign_quick_item(qi, "" if on else id)
 					_refresh_panel())
-				cb.tooltip_text = "캠핑카 곁에서 사용 — " + Game.camper_status_text()
-				h.add_child(cb)
-			if ItemDB.is_consumable(id):
-				var reading: bool = ItemDB.info(id).get("use", "") == "read"
-				var ub := _button("읽기" if reading else "사용", func() -> void:
-					var pl := _player()
-					if pl:
-						pl.begin_use_item(id)
-					_refresh_panel())
-				ub.disabled = swapping
-				h.add_child(ub)
-				if not reading:
-					for qi in PlayerState.QUICK_ITEM_SLOTS:
-						var on: bool = st.quick_items[qi] == id
-						var qb := _button(("[%d]" if on else "%d") % (qi + 1), func() -> void:
-							st.assign_quick_item(qi, "" if on else id)
-							_refresh_panel())
-						qb.tooltip_text = "소모품 퀵슬롯 %d에 등록" % (qi + 1)
-						h.add_child(qb)
-			if ItemDB.is_equipment(id):
-				var slot := st.target_slot(id)
-				var eb := _button("장착 (%s)" % ItemDB.SLOT_NAMES[slot], func() -> void:
-					_change_gear(func() -> void: st.equip(id), "%s 장착" % ItemDB.item_name(id)))
-				eb.disabled = swapping
-				eb.tooltip_text = ItemDB.equip_summary(id)
-				h.add_child(eb), "가방이 비어 있다")
-		var hint := PackedStringArray()
-		for e in st.inventory.items:
-			if ItemDB.is_equipment(e["id"]):
-				hint.append("%s: %s" % [ItemDB.item_name(e["id"]), ItemDB.equip_summary(e["id"])])
-			elif ItemDB.is_consumable(e["id"]):
-				var ci := ItemDB.info(e["id"])
-				var ut: Dictionary = ItemDB.USE_TYPES[ci["use"]]
-				hint.append("%s: %s · %s %.1f초%s" % [ci["name"], ItemDB.effect_text(ci["effect"]), ut["name"].replace(" 중", ""),
-					ut["time"], " (천천히 이동 가능)" if ut["move"] > 0.0 else " (멈춰서)"])
-		if not hint.is_empty():
-			right.add_child(_row_label("\n".join(hint), 620, 16, Color(0.7, 0.74, 0.78)))
-		v.add_child(_button("닫기 (Tab)", close_panel)), 1180)
+				qb.tooltip_text = "소모품 퀵슬롯 %d에 %s" % [qi + 1, "등록됨 — 누르면 해제" if on else "등록"]
+				h.add_child(qb)
+	if kind == "decor":
+		var db := _button("배치", func() -> void:
+			close_panel()
+			boot.world.begin_place(id))
+		db.disabled = not (boot.world is CamperInteriorLab)
+		db.tooltip_text = "캠핑카 안에서만 놓을 수 있다" if db.disabled else "E 놓기 · R 돌리기 · X 취소"
+		h.add_child(db)
+	if kind == "camper":
+		var cb := _button("주유" if ItemDB.info(id).get("camper", "") == "fuel" else "응급 수리", func() -> void:
+			boot.hud.toast(boot.use_camper_item(id))
+			_refresh_panel())
+		cb.tooltip_text = "캠핑카 곁에서 사용 — " + Game.camper_status_text()
+		h.add_child(cb)
+	return v
+
+
+## Double-click on a bag item: equip it or use / read it.
+func _inv_default_action(id: String, swapping: bool) -> void:
+	if swapping:
+		return
+	var st := Game.player_state
+	if ItemDB.is_equipment(id):
+		_change_gear(func() -> void: st.equip(id), "%s 장착" % ItemDB.item_name(id))
+	elif ItemDB.is_consumable(id):
+		var pl := _player()
+		if pl:
+			pl.begin_use_item(id)
+		_refresh_panel()
 
 
 ## Merchant (GDD 16): buy limited stock at the shop's price, sell bag items at this merchant's
@@ -1077,6 +1345,7 @@ func toggle_character() -> void:
 		return
 	var st := Game.player_state
 	_open("character", null, 0.0, func(v: VBoxContainer) -> void:
+		_window_tabs(v, "character")
 		v.add_child(_row_label("주인공 — Lv %d" % st.level, 400, 28, Color(1.0, 0.9, 0.6)))
 		var h := HBoxContainer.new()
 		h.add_child(tip(_row_label("일반 EXP %d / 레벨업 %d" % [st.gen_exp, st.exp_to_next()], 330, 22), "일반 EXP",
@@ -1139,7 +1408,7 @@ func toggle_character() -> void:
 			b.disabled = cost < 0 or st.gen_exp < cost
 			row2.add_child(b)
 			v.add_child(row2)
-		v.add_child(_button("닫기 (C)", close_panel)), 880)
+		v.add_child(_button("닫기 (C)", close_panel)), 1240)
 
 
 ## Stats (left) and the numbers they make (right). + / − only plan points; "확정" spends them,
