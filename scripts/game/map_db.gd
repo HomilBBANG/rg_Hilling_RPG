@@ -83,7 +83,7 @@ static func title(region: String) -> String:
 
 
 static func owned(region: String) -> bool:
-	return Game.maps_owned.has(region)
+	return not Engine.is_editor_hint() and Game.maps_owned.has(region)  # the editor has no game state
 
 
 ## Gives the region's map. Returns true the first time.

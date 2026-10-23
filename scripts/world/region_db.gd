@@ -127,7 +127,9 @@ static var _floor_cache := {}
 ## Random dungeon (GDD 12.2): the current run's seed + floor decide the layout; outside a run a
 ## placeholder floor 1 is returned (never shown).
 static func _random_floor(base: Dictionary) -> Dictionary:
-	var run: Dictionary = Game.run if Game.run.get("dungeon", "") == base["region_id"] else {}
+	var run: Dictionary = {}
+	if not Engine.is_editor_hint() and Game.run.get("dungeon", "") == base["region_id"]:  # no Game in the editor
+		run = Game.run
 	var seed_value := int(run.get("seed", 0))
 	var floor_n := int(run.get("floor", 1))
 	var key := "%s|%d|%d" % [base["region_id"], seed_value, floor_n]

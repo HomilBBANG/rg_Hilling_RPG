@@ -189,6 +189,7 @@ static func run(panel: DialogueEditorPanel, shot: Callable) -> void:
 	panel.refresh_list()
 	fails += await _cutscene_checks(panel, shot)
 	fails += await _monster_ai_checks(panel, shot)
+	fails += await _map_checks(panel, shot)
 	print("[editor] done: %d failed checks" % fails)
 
 
@@ -381,5 +382,64 @@ static func _monster_ai_checks(dpanel: DialogueEditorPanel, shot: Callable) -> i
 	DirAccess.remove_absolute(ProjectSettings.globalize_path(MonsterAI.path_for(AI_ID)))
 	ap.refresh_list()
 	ap.refresh_monsters()
+	dpanel._mode_tabs.current_tab = 0
+	return fails
+
+
+## The 지도 tab: open the meadow map, add / edit / move / undo a mark, add a field drop placed with a
+## canvas click, save → reload identical, the game-side MapDB sees it, then restore the file.
+static func _map_checks(dpanel: DialogueEditorPanel, shot: Callable) -> int:
+	var fails := 0
+	var mp := dpanel.map_panel
+	var before := FileAccess.get_file_as_string(MapDB.path_for("meadow"))
+	dpanel._mode_tabs.current_tab = 3
+	mp.open_map("meadow")
+	await _frames(mp, 6)
+	fails += 0 if _check(mp.is_visible_in_tree() and mp.region == "meadow" and mp.validate().is_empty(),
+		"지도 tab opens the meadow map (%d marks, %d sources, no issues)" % [mp.doc["marks"].size(), mp.doc["sources"].size()]) else 1
+	await shot.call("editor_30_map_meadow")
+	var n0: int = mp.doc["marks"].size()
+	mp.start_place("icon")
+	mp.canvas_click(mp.to_canvas(Vector2(10, -20)))
+	var id := mp.selected
+	var m := mp.mark(id)
+	fails += 0 if _check(mp.doc["marks"].size() == n0 + 1 and m.get("type", "") == "icon" and is_equal_approx(float(m["pos"][0]), 10.0),
+		"place an icon with a canvas click at (10, -20) -> %s" % id) else 1
+	mp.set_mark_field(id, "icon", "quest")
+	mp.set_mark_field(id, "text", "에디터 시험 표시")
+	mp.move_mark(id, Vector2(12.5, -18))
+	var moved: Array = mp.mark(id)["pos"]
+	mp.undo()
+	var undone: Array = mp.mark(id)["pos"]
+	mp.redo()
+	fails += 0 if _check(moved == [12.5, -18.0] and undone == [10.0, -20.0] and mp.mark(id)["pos"] == [12.5, -18.0],
+		"edit icon / text, move → undo → redo") else 1
+	var si := mp.add_source("drop")
+	mp.start_place("drop:%d" % si)
+	mp.canvas_click(mp.to_canvas(Vector2(-40, 30)))
+	var drop: Dictionary = mp.doc["sources"][si]
+	fails += 0 if _check(drop.get("region", "") == "meadow" and drop["pos"] == [-40.0, 30.0], "field drop placed with a canvas click at (-40, 30)") else 1
+	var bad := mp.add_source("shop")
+	mp.set_source_field(bad, "shop", "nobody")
+	var errs := mp.validate().filter(func(e: Dictionary) -> bool: return e["severity"] == "error")
+	mp.remove_source(bad)
+	fails += 0 if _check(errs.size() == 1 and mp.validate().is_empty(), "unknown shop caught (%s), fixed" % (errs[0]["message"] if not errs.is_empty() else "-")) else 1
+	await _frames(mp, 3)
+	await shot.call("editor_31_map_edited")
+	var snap := JSON.stringify(mp.doc)
+	var ok := mp.save()
+	mp.open_map("highland")
+	mp.open_map("meadow")
+	fails += 0 if _check(ok and JSON.stringify(mp.doc) == snap, "save → reload: marks, sources and positions identical") else 1
+	MapDB.reload()
+	var drops := MapDB.drops_in("meadow").filter(func(d: Dictionary) -> bool: return d["region"] == "meadow")
+	fails += 0 if _check(drops.size() == 1 and MapDB.info("meadow")["marks"].size() == n0 + 1, "game-side MapDB sees the new mark and the drop") else 1
+	# restore
+	var f := FileAccess.open(MapDB.path_for("meadow"), FileAccess.WRITE)
+	f.store_string(before)
+	f.close()
+	mp.dirty = false
+	mp.open_map("meadow")
+	fails += 0 if _check(FileAccess.get_file_as_string(MapDB.path_for("meadow")) == before, "meadow map file restored") else 1
 	dpanel._mode_tabs.current_tab = 0
 	return fails
