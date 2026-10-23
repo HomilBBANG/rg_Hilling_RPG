@@ -10,15 +10,15 @@ render_mode specular_disabled;
 uniform sampler2D noise_large : filter_linear, repeat_enable;
 uniform sampler2D noise_detail : filter_linear, repeat_enable;
 
-uniform vec3 grass_dark : source_color = vec3(0.24, 0.45, 0.24);
-uniform vec3 grass_mid : source_color = vec3(0.39, 0.61, 0.27);
+uniform vec3 grass_dark : source_color = vec3(0.3, 0.5, 0.23);
+uniform vec3 grass_mid : source_color = vec3(0.42, 0.6, 0.25);
 uniform vec3 grass_light : source_color = vec3(0.56, 0.74, 0.33);
 uniform vec3 grass_warm : source_color = vec3(0.70, 0.73, 0.36);
 uniform vec3 grass_cool : source_color = vec3(0.27, 0.55, 0.42);
 uniform vec3 dirt_dark : source_color = vec3(0.50, 0.34, 0.22);
-uniform vec3 dirt_mid : source_color = vec3(0.66, 0.48, 0.31);
+uniform vec3 dirt_mid : source_color = vec3(0.66, 0.56, 0.4);
 uniform vec3 dirt_light : source_color = vec3(0.80, 0.64, 0.43);
-uniform vec3 sand : source_color = vec3(0.86, 0.77, 0.56);
+uniform vec3 sand : source_color = vec3(0.78, 0.72, 0.54);
 uniform vec3 pebble : source_color = vec3(0.78, 0.74, 0.68);
 uniform float stylized = 1.0;  // 0 = flat legacy colours (camera style A)
 // 0 = flat cel colours: one colour per ground type, no specks/flowers/strokes (style D).

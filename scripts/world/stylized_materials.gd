@@ -83,9 +83,10 @@ static func rock(moss_amount := 0.5, tint := Color.WHITE) -> ShaderMaterial:
 		return _rock_cache[key]
 	var m := _make(preload("res://shaders/rock_stylized.gdshader"))
 	m.set_shader_parameter("moss_amount", moss_amount)
-	m.set_shader_parameter("stone_base", Color(0.62, 0.61, 0.6) * tint)
-	m.set_shader_parameter("stone_light", Color(0.8, 0.78, 0.72) * tint)
-	m.set_shader_parameter("stone_dark", Color(0.42, 0.42, 0.46) * tint)
+	# cool greys of the reference rocks: light top, blue-grey sides, slate underside
+	m.set_shader_parameter("stone_base", Color(0.5, 0.52, 0.57) * tint)
+	m.set_shader_parameter("stone_light", Color(0.66, 0.67, 0.7) * tint)
+	m.set_shader_parameter("stone_dark", Color(0.35, 0.39, 0.48) * tint)
 	_rock_cache[key] = m
 	return m
 

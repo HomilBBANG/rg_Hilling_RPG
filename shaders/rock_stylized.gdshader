@@ -31,7 +31,8 @@ void fragment() {
 	float m = smoothstep(0.45, 0.75, wnormal.y + (n - 0.5) * 0.6) * moss_amount * stylized;
 	col = mix(col, moss, m);
 	if (detail < 0.5) {
-		col = mix(stone_base, moss, step(0.68, wnormal.y) * step(0.01, moss_amount));
+		float u = wnormal.y + (n - 0.5) * 0.3;
+		col = u > 0.55 ? stone_light : (u > -0.25 ? stone_base : stone_dark);
 	}
 	ALBEDO = col;
 	ROUGHNESS = 0.95;

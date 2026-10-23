@@ -51,7 +51,11 @@ void fragment() {
 	col = mix(col, leaf_dark, smoothstep(0.34, 0.26, clump) * 0.22 * stylized);
 	col *= 1.0 + (n - 0.5) * 0.18 * stylized;
 	if (detail < 0.5) {
-		col = leaf_base;  // single flat colour; light/shadow comes only from cel lighting
+		// Three flat tones split by facing, with lumpy borders like clustered leaf clumps
+		// (reference tree): lime on top, mid green, deep green underneath. No gradients.
+		float dap = triplanar(wpos * 1.25 + vec3(0.7, 0.2, 0.4), wnormal);
+		float u = up + (clump - 0.5) * 0.6 + (dap - 0.5) * 0.45;
+		col = u > 0.5 ? leaf_light : (u > -0.28 ? leaf_base : leaf_dark);
 	}
 	col.r += hue_shift * 0.06;
 	col.b -= hue_shift * 0.04;

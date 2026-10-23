@@ -33,8 +33,8 @@ var camera_distance := 40.0
 ## "soft" (B/C) or "deadcells" (D): warm low key light + violet ambient, stronger bloom.
 var palette := "soft"
 
-const DC_SUN_DAY := Color(1.0, 0.82, 0.64)
-const DC_AMBIENT_DAY := Color(0.38, 0.44, 0.86)
+const DC_SUN_DAY := Color(1.0, 0.96, 0.88)  # near-white daylight like the reference (was a warm orange key)
+const DC_AMBIENT_DAY := Color(0.42, 0.55, 0.88)  # cooler, lighter shade (reference: clear blue shadows)
 const DC_AMBIENT_NIGHT := Color(0.18, 0.2, 0.58)
 const DC_MOON := Color(0.5, 0.58, 1.0)
 ## Background / haze follow the sea around the regions (clear turquoise by day, deep blue at night).
@@ -97,7 +97,7 @@ func apply(d: float, tw: float) -> void:
 			environment.background_color = Color(0.02, 0.02, 0.03)
 		elif palette == "deadcells":
 			environment.ambient_light_color = DC_AMBIENT_NIGHT.lerp(DC_AMBIENT_DAY, d)
-			environment.ambient_light_energy = lerpf(0.5, 0.62, d)
+			environment.ambient_light_energy = lerpf(0.5, 0.78, d)
 			environment.background_color = BG_NIGHT.lerp(DC_BG_DAY, d)
 			environment.fog_enabled = style_fog
 			environment.fog_light_color = DC_HAZE_NIGHT.lerp(DC_HAZE_DAY, d)
@@ -127,7 +127,7 @@ func apply(d: float, tw: float) -> void:
 		var col := (DC_MOON if dc else MOON).lerp(DC_SUN_DAY if dc else SUN_DAY, d)
 		col = col.lerp(SUN_TWILIGHT, tw * 0.7)
 		sun.light_color = col
-		sun.light_energy = lerpf(0.38 if dc else 0.3, 1.2 if dc else 1.0, d)
+		sun.light_energy = lerpf(0.38 if dc else 0.3, 1.05 if dc else 1.0, d)
 		# Sun from the south-east by day (lower and longer shadows for D), moon from the south-west.
 		var day_rot := Vector3(deg_to_rad(-34.0 if dc else -52.0), deg_to_rad(-48.0 if dc else -35.0), 0.0)
 		var night_rot := Vector3(deg_to_rad(-62.0), deg_to_rad(28.0), 0.0)
