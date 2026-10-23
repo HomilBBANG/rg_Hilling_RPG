@@ -80,6 +80,8 @@ func _apply(action: String, args: Dictionary) -> String:
 			return "레시피 습득(미리보기): %s" % args.get("recipe_id", "")
 		"receive_camper":
 			return "캠핑카 받음(미리보기)"
+		"give_map":
+			return "지도 받음(미리보기): %s" % args.get("region", "")
 		"cat_join":
 			return "고양이 동행 시작(미리보기)%s" % (" · 호감도 +%d" % int(args.get("affection", 0)) if int(args.get("affection", 0)) > 0 else "")
 	return "지원하지 않는 액션 %s — 무시" % action

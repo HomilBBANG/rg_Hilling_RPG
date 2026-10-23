@@ -54,6 +54,9 @@ func _apply(action: String, args: Dictionary) -> String:
 			if Game.hud:
 				Game.hud.toast_quest("캠핑카를 얻었다! — %s 성 앞 광장" % where)
 			return "캠핑카 받음 (%s)" % where
+		"give_map":
+			var r := str(args.get("region", ""))
+			return "지도 받음: %s%s" % [MapDB.title(r), "" if MapDB.give(r) else " (이미 있음)"]
 		"cat_join":
 			var aff := int(args.get("affection", 0))
 			var first := not Game.cat_joined

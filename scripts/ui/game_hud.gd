@@ -1017,6 +1017,25 @@ func open_shop(shop_id: String, source: Node3D) -> void:
 			b.tooltip_text = ItemDB.equip_summary(id) if ItemDB.is_equipment(id) else ItemDB.info(id).get("desc", "")
 			row.add_child(b)
 			left.add_child(row)
+		for me: Array in MapDB.shop_maps(shop_id):
+			var mid: String = me[0]
+			var mprice: int = me[1]
+			var have := MapDB.owned(MapDB.region_of(mid))
+			var mrow := HBoxContainer.new()
+			mrow.add_child(_row_label(ItemDB.item_name(mid), 190, 20, Color(0.85, 0.95, 1.0)))
+			mrow.add_child(_row_label("%d g" % mprice, 70, 19, Color(1.0, 0.85, 0.4)))
+			mrow.add_child(_row_label("가지고 있음" if have else "지도", 100, 18, Color(0.72, 0.76, 0.8)))
+			var mb := _button("구매", func() -> void:
+				var why := ShopDB.buy_map(mid, mprice)
+				if why != "":
+					boot.hud.toast(why)
+				else:
+					Game.combat_log.add("구매: %s (-%d 골드)" % [ItemDB.item_name(mid), mprice], "", "info")
+				_refresh_panel())
+			mb.disabled = have or st.gold < mprice
+			mb.tooltip_text = str(MapDB.item_info(mid)["desc"]) + "\n사면 바로 지도(M)에 추가된다 — 가방에 들어가지 않음"
+			mrow.add_child(mb)
+			left.add_child(mrow)
 		var groups := PackedStringArray()
 		for g: String in ShopDB.state(shop_id)["last"]:
 			var left_min: float = ShopDB.RESTOCK_DAYS[g] * 1440.0 - (Game.total_minutes() - ShopDB.state(shop_id)["last"][g])

@@ -1,0 +1,19 @@
+{
+  "version": 1,
+  "map_id": "map.cave",
+  "region": "cave",
+  "title": "고원 동굴 지도",
+  "order": 5,
+  "desc": "고원 동굴 안 길이 그려진 낡은 지도.",
+  "marks": [],
+  "sources": [
+    {
+      "kind": "drop",
+      "region": "highland",
+      "pos": [
+        2,
+        -18
+      ]
+    }
+  ]
+}

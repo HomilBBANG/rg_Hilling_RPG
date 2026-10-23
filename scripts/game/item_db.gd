@@ -139,6 +139,8 @@ static func base_id(id: String) -> String:
 
 static func info(id: String) -> Dictionary:
 	if not instances.has(id):
+		if not ITEMS.has(id) and id.begins_with("map."):
+			return MapDB.item_info(id)  # region maps (data/maps)
 		return ITEMS.get(id, {"name": id, "weight": 0.0})
 	var inst: Dictionary = instances[id]
 	var d: Dictionary = ITEMS[inst["base"]].duplicate(true)

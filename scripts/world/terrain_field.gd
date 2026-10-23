@@ -1,3 +1,4 @@
+@tool
 class_name TerrainField
 extends RefCounted
 ## Height + ground-colour field for an outdoor region, and its vertex-coloured mesh (in chunks,

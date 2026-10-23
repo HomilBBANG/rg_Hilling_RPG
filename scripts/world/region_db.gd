@@ -1,3 +1,4 @@
+@tool
 class_name RegionDB
 extends RefCounted
 ## Outdoor regions as data (res://data/regions/<region_id>.json, GDD 11.1 [확정]: several wide

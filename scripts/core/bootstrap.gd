@@ -562,6 +562,8 @@ func _parse_args() -> void:
 		_run_skill_ui_tour()
 	elif tour == "minimap":
 		_run_minimap_tour()
+	elif tour == "maps":
+		_run_maps_tour()
 	elif tour == "wind":
 		_run_wind_check()
 	elif tour == "catfollow":
@@ -2635,6 +2637,7 @@ func _run_king_tour() -> void:
 ## along the whole 잿빛 산길 on foot (monsters held still), past the burnt cart to the nest mouth;
 ## checks the quest flags, the map marks, the prompt to go down into the nest and the way back.
 func _run_dragon_road_tour() -> void:
+	_tour_own_all_maps()
 	Game.clock_running = false
 	Game.minute_of_day = 11.0 * 60.0
 	await wait_for_sprites()
@@ -3364,6 +3367,7 @@ func _run_camper_tour() -> void:
 ## Walks the enlarged world: meadow corners, the road north to the capital (walls, plaza, castle),
 ## the highland and its village; then the world map (see the map part below). Prints sizes.
 func _run_world_tour() -> void:
+	_tour_own_all_maps()
 	Game.clock_running = false
 	Game.minute_of_day = 11.0 * 60.0
 	await wait_for_sprites()
@@ -3559,9 +3563,90 @@ func _ui_click(c: Control, double := false) -> void:
 	await _frames(4)
 
 
+## Map tours that look at the map screen own every map (maps are collected in a real game).
+func _tour_own_all_maps() -> void:
+	for rid: String in MapDB.all():
+		if not Game.maps_owned.has(rid):
+			Game.maps_owned.append(rid)
+
+
+## Region maps (user design): none at the start; bought from Rosa, picked up in the field, given by
+## the king (dialogue action give_map); one same-size sheet per owned map; minimap terrain only with
+## the map; owned maps survive save / load.
+func _run_maps_tour() -> void:
+	Game.clock_running = false
+	Game.minute_of_day = 10.5 * 60.0
+	Game.maps_owned.clear()
+	await wait_for_sprites()
+	var st := Game.player_state
+	st.gold = 200
+	print("[maps] start: owned %s, map files %s" % [Game.maps_owned, MapDB.all().keys()])
+	for rid: String in MapDB.all():
+		var issues := MapDB.validate(MapDB.info(rid))
+		print("[maps]   %s '%s': %d marks, from %s, issues %d" % [rid, MapDB.title(rid), MapDB.info(rid).get("marks", []).size(), ", ".join(MapDB.sources_text(rid)), issues.size()])
+	game_hud.toggle_map()
+	await _frames(4)
+	print("[maps] M with no maps: page '%s'" % game_hud.map_view.page)
+	await _p1_shot("maps_01_empty", "map screen without maps", true)
+	game_hud.toggle_map()
+	await _frames(2)
+	print("[maps] minimap without the meadow map: active %s, terrain drawn %s" % [game_hud.minimap._active, MapDB.owned("meadow")])
+	await _p1_shot("maps_02_minimap_nomap", "minimap without a map", true)
+	# Rosa sells the meadow map (shop UI)
+	var rosa_stall: Vector3 = VisualLab.TRADE_STALLS[0][0]
+	_place_player(rosa_stall + Vector3(0, 0, 1.5), 0.0)
+	await _frames(3)
+	game_hud.open_shop("rosa", world._npc_for("rosa"))
+	await _frames(4)
+	var g0 := st.gold
+	await _ui_click(_ui_find("바람결 초원 지도", "Label").get_parent().get_child(3))
+	print("[maps] bought at Rosa: owned meadow %s, gold %d -> %d, bag has no map item %s" % [MapDB.owned("meadow"), g0, st.gold, st.inventory.count("map.meadow") == 0])
+	await _p1_shot("maps_03_shop", "Rosa's shop with maps", true)
+	game_hud.close_panel()
+	# a highland map lies by the east road
+	var drops: Array = get_tree().get_nodes_in_group("map_drop")
+	print("[maps] drops lying in the meadow: %s" % [drops.map(func(d: Node) -> String: return str(d.get_meta("map_region")))])
+	var hd: InteractPoint = drops[0] if not drops.is_empty() else null
+	if hd:
+		_place_player(hd.global_position + Vector3(0.6, 0, 0.6), 0.0)
+		await _seconds(0.6)
+		await _p1_shot("maps_04_drop", "a map lying in the field", true)
+		hd.interact(world.player)
+		await _frames(3)
+		print("[maps] picked up -> owned highland %s, drop gone %s" % [MapDB.owned("highland"), get_tree().get_nodes_in_group("map_drop").is_empty()])
+	# the king's map (dialogue action)
+	var ctx := GameDialogueContext.new()
+	print("[maps] give_map action -> '%s'" % ctx._apply("give_map", {"region": "ashen_pass"}))
+	await _seconds(1.0)
+	game_hud.toggle_map()
+	await _frames(4)
+	var mv: WorldMap = game_hud.map_view
+	print("[maps] M: page '%s', owned %s, sheet %s" % [mv.page, mv._known_regions(), WorldMap.SHEET])
+	await _p1_shot("maps_05_meadow_sheet", "meadow map sheet", true)
+	mv.turn(1)
+	await _frames(3)
+	print("[maps] ▶ -> '%s'" % mv.page)
+	await _p1_shot("maps_06_next_sheet", "next sheet", true)
+	mv.turn(1)
+	await _frames(3)
+	print("[maps] ▶ -> '%s'" % mv.page)
+	await _p1_shot("maps_07_ashen_sheet", "ashen pass sheet (same size)", true)
+	game_hud.toggle_map()
+	await _frames(3)
+	print("[maps] minimap with the meadow map: owned %s" % MapDB.owned("meadow"))
+	await _p1_shot("maps_08_minimap_map", "minimap with the map", true)
+	# saved
+	var keep := SaveManager.capture_state()
+	Game.maps_owned.clear()
+	SaveManager.apply_state(keep)
+	print("[maps] save -> load: owned %s" % [Game.maps_owned])
+	get_tree().quit()
+
+
 ## Minimap (top right): follows the hero (arrow in the middle), wheel zoom, click = world map,
 ## hidden in the camper interior and during dialogue, shows the new region after travelling.
 func _run_minimap_tour() -> void:
+	_tour_own_all_maps()
 	Game.clock_running = false
 	Game.minute_of_day = 10.5 * 60.0
 	await wait_for_sprites()
@@ -4070,6 +4155,7 @@ func _wait_travel() -> void:
 
 
 func _run_region_tour() -> void:
+	_tour_own_all_maps()
 	Dice.rng.seed = 21
 	Game.clock_running = false
 	Game.minute_of_day = 11.0 * 60.0

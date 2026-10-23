@@ -349,6 +349,7 @@ func _build_landmarks() -> void:
 		_build_refinery()
 	if has_feature("lost_parcels") or has_feature("trade_post"):
 		_build_quest_props()
+	_build_map_drops()
 	for cp: Dictionary in checkpoints:
 		var cpos: Vector3 = cp["pos"]
 		if cp["marker"]:
@@ -1313,6 +1314,29 @@ func _build_quest_props() -> void:
 			t[pid] = true
 			Game.field["parcels"] = t
 			Game.boot.hud.toast("흩어진 짐 꾸러미를 주웠다 (%d/3)" % Game.player_state.inventory.count("lost_parcel"))
+			pr.queue_free()
+			ip.queue_free()
+
+
+## Region maps lying in the field (data/maps "sources" kind drop, placed in the editor's 지도 tab):
+## a rolled-up map on the ground, E picks it up and it goes onto the map screen.
+func _build_map_drops() -> void:
+	for dr: Dictionary in MapDB.drops_in(Game.region):
+		var dp: Vector3 = dr["pos"]
+		var mr: String = dr["region"]
+		var pr := _on_ground(Node3D.new(), dp.x, dp.z)
+		pr.name = "MapDrop_" + mr
+		pr.rotation_degrees.y = float(mr.hash() % 90)
+		var paper := ProtoMesh.mat(Color(0.93, 0.86, 0.66))
+		ProtoMesh.box(pr, Vector3(0.62, 0.12, 0.14), Vector3(0, 0.07, 0), paper)
+		ProtoMesh.box(pr, Vector3(0.12, 0.13, 0.15), Vector3(-0.33, 0.07, 0), ProtoMesh.mat(Color(0.55, 0.32, 0.18)))
+		ProtoMesh.box(pr, Vector3(0.12, 0.13, 0.15), Vector3(0.33, 0.07, 0), ProtoMesh.mat(Color(0.55, 0.32, 0.18)))
+		ProtoMesh.box(pr, Vector3(0.05, 0.14, 0.16), Vector3(0, 0.08, 0), ProtoMesh.mat(Color(0.7, 0.18, 0.15)))
+		var ip := InteractPoint.make(self, dp, "E 지도 줍기 — %s" % MapDB.title(mr), Callable(), 1.3)
+		ip.add_to_group("map_drop")
+		ip.set_meta("map_region", mr)
+		ip.action = func(_pl: Node) -> void:
+			MapDB.give(mr)
 			pr.queue_free()
 			ip.queue_free()
 

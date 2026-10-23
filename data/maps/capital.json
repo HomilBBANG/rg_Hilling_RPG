@@ -1,0 +1,58 @@
+{
+  "version": 1,
+  "map_id": "map.capital",
+  "region": "capital",
+  "title": "왕도 루미나 안내도",
+  "order": 3,
+  "desc": "성과 광장, 남문이 그려진 왕도 안내도.",
+  "marks": [
+    {
+      "id": "c_castle",
+      "type": "icon",
+      "text": "왕성",
+      "pos": [
+        0,
+        -35
+      ],
+      "icon": "star"
+    },
+    {
+      "id": "c_plaza",
+      "type": "label",
+      "text": "광장",
+      "pos": [
+        0,
+        -6
+      ]
+    },
+    {
+      "id": "c_gate",
+      "type": "icon",
+      "text": "남문 → 초원",
+      "pos": [
+        0,
+        52
+      ],
+      "icon": "road"
+    },
+    {
+      "id": "c_park",
+      "type": "label",
+      "text": "캠핑카 주차장",
+      "pos": [
+        7,
+        44
+      ]
+    }
+  ],
+  "sources": [
+    {
+      "kind": "drop",
+      "region": "capital",
+      "pos": [
+        4,
+        40
+      ]
+    }
+  ]
+}

@@ -1,0 +1,103 @@
+{
+  "version": 1,
+  "map_id": "map.meadow",
+  "region": "meadow",
+  "title": "바람결 초원 지도",
+  "order": 1,
+  "desc": "시작 캠프부터 왕도·고원 갈림길까지 그려진 초원 지도.",
+  "marks": [
+    {
+      "id": "m_camp",
+      "type": "icon",
+      "text": "캠프",
+      "pos": [
+        -1,
+        4.8
+      ],
+      "icon": "camp"
+    },
+    {
+      "id": "m_trade",
+      "type": "icon",
+      "text": "교역소",
+      "pos": [
+        -22.8,
+        6
+      ],
+      "icon": "shop"
+    },
+    {
+      "id": "m_lake",
+      "type": "label",
+      "text": "호수",
+      "pos": [
+        24.5,
+        25.8
+      ]
+    },
+    {
+      "id": "m_silver",
+      "type": "label",
+      "text": "은빛 호수",
+      "pos": [
+        47,
+        34
+      ]
+    },
+    {
+      "id": "m_north",
+      "type": "icon",
+      "text": "북쪽 길 → 왕도",
+      "pos": [
+        -20,
+        -80
+      ],
+      "icon": "road"
+    },
+    {
+      "id": "m_east",
+      "type": "icon",
+      "text": "동쪽 길 → 고원",
+      "pos": [
+        100,
+        -4
+      ],
+      "icon": "road"
+    },
+    {
+      "id": "m_rift",
+      "type": "icon",
+      "text": "이상한 틈",
+      "pos": [
+        30.5,
+        24
+      ],
+      "icon": "danger"
+    },
+    {
+      "id": "m_hut",
+      "type": "label",
+      "text": "서쪽 오두막",
+      "pos": [
+        -84,
+        24
+      ]
+    },
+    {
+      "id": "m_note",
+      "type": "note",
+      "text": "숲 슬라임은 북동쪽 숲에",
+      "pos": [
+        60,
+        -40
+      ]
+    }
+  ],
+  "sources": [
+    {
+      "kind": "shop",
+      "shop": "rosa",
+      "price": 15
+    }
+  ]
+}

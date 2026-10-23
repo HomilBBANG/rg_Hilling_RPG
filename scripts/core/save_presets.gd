@@ -76,6 +76,7 @@ static func _chapter1() -> Dictionary:
 	q.complete("quest.main.dragon")
 	Game.cat_joined = true
 	Game.cat_affection = 40
+	Game.maps_owned = ["meadow", "highland", "capital", "ashen_pass"]  # bought / found / the king's on the way
 	Game.has_camper = true
 	Game.camper = {"region": "capital", "pos": Vector3(-6.3, 0.0, -12.0), "yaw": 0.0}
 	Game.camper_fuel = Game.camper_fuel_max()

@@ -1,3 +1,4 @@
+@tool
 class_name ShopDB
 extends RefCounted
 ## Shops (GDD 16 [확정]): gold, prices differ by merchant speciality, common goods sell to most
@@ -86,6 +87,20 @@ static func sell_price(shop_id: String, item: String) -> int:
 	if rate <= 0.0:
 		return 0
 	return maxi(1, roundi(ItemDB.value(item) * rate))
+
+
+## Buy a region map this shop sells (data/maps "sources"); it goes straight onto the map screen.
+static func buy_map(map_id: String, price: int) -> String:
+	var ps := Game.player_state
+	var region := MapDB.region_of(map_id)
+	if MapDB.owned(region):
+		return "이미 가진 지도다"
+	if ps.gold < price:
+		return "골드가 부족하다"
+	ps.gold -= price
+	ps.changed.emit()
+	MapDB.give(region)
+	return ""
 
 
 ## Buy one unit; returns "" on success or the reason it failed.

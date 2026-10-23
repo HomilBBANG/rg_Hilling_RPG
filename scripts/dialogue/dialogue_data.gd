@@ -43,6 +43,7 @@ const ACTIONS := {
 	"mark_event_complete": {"label": "이벤트 완료 기록", "args": [{"name": "event_id", "type": "event", "label": "이벤트 ID"}]},
 	"learn_recipe": {"label": "레시피 가르치기", "args": [{"name": "recipe_id", "type": "recipe", "label": "레시피"}]},
 	"receive_camper": {"label": "캠핑카 받기 (왕의 소원)", "args": []},
+	"give_map": {"label": "지도 주기", "args": [{"name": "region", "type": "text", "label": "지역 ID (data/maps)"}]},
 	"cat_join": {"label": "고양이 동행 시작", "args": [{"name": "affection", "type": "int", "label": "호감도 +", "default": 0}]},
 }
 

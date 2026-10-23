@@ -1,0 +1,65 @@
+{
+  "version": 1,
+  "map_id": "map.ashen_pass",
+  "region": "ashen_pass",
+  "title": "잿빛 산길 지도",
+  "order": 4,
+  "desc": "왕이 내린 지도. 고원 북쪽에서 드래곤의 둥지까지 이어진 굽잇길이 그려져 있다.",
+  "marks": [
+    {
+      "id": "a_foot",
+      "type": "label",
+      "text": "산기슭",
+      "pos": [
+        7,
+        97
+      ]
+    },
+    {
+      "id": "a_camp",
+      "type": "icon",
+      "text": "야영지",
+      "pos": [
+        22,
+        20
+      ],
+      "icon": "camp"
+    },
+    {
+      "id": "a_nest",
+      "type": "icon",
+      "text": "드래곤의 둥지",
+      "pos": [
+        0,
+        -95.5
+      ],
+      "icon": "boss"
+    },
+    {
+      "id": "a_south",
+      "type": "icon",
+      "text": "남쪽 길 → 고원",
+      "pos": [
+        0,
+        104
+      ],
+      "icon": "road"
+    },
+    {
+      "id": "a_note",
+      "type": "note",
+      "text": "불씨 슬라임 주의",
+      "pos": [
+        -30,
+        40
+      ]
+    }
+  ],
+  "sources": [
+    {
+      "kind": "npc",
+      "speaker": "king",
+      "note": "드래곤 토벌 의뢰를 받을 때 (왕의 알현 대화)"
+    }
+  ]
+}

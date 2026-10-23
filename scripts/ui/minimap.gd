@@ -4,6 +4,7 @@ extends Control
 ## world map, M), north up, with the hero as an arrow in the middle. Also the parked camper (blue),
 ## NPCs (yellow), towns, found checkpoints / story spots / cave entrances, region exits (white) and
 ## nearby monsters. The cat is not shown.
+## Without the region's map (MapDB) there is no terrain — only the hero, NPCs, monsters and the camper.
 ## Mouse wheel = zoom, click = open the world map. Fixed dungeons show their floor plan; the
 ## random dungeon and the camper interior have no minimap.
 
@@ -89,8 +90,8 @@ func _draw() -> void:
 	# terrain of every mapped region in view (neighbours too, so crossing a border is seamless)
 	for rid: String in all:
 		var reg: Dictionary = all[rid]
-		if rid != Game.region and not WorldMap.known(rid, reg):
-			continue
+		if not MapDB.owned(rid):
+			continue  # no map of that region: no terrain (user design — maps are collected)
 		if RegionDB.is_random_dungeon(rid):
 			continue
 		var r := RegionDB.map_rect(rid)
@@ -104,7 +105,7 @@ func _draw() -> void:
 				var wpos := RegionDB.grid_to_world(int(fc[0]), int(fc[1]), int(reg["_cols"]), int(reg["_rows"]), cl)
 				draw_rect(Rect2(_to_screen(center, RegionDB.map_pos(rid, wpos - Vector2(cl, cl) * 0.5)), Vector2(cl, cl) * zoom), Color(0.55, 0.52, 0.5))
 		else:
-			draw_texture_rect(WorldMap.terrain_texture(rid), sr, false)
+			draw_texture_rect(MapDB.terrain_texture(rid), sr, false)
 		# marks in this region
 		for cp: Dictionary in reg.get("checkpoints", []):
 			if Game.discovered.has("%s:%s" % [rid, cp["id"]]):
@@ -125,10 +126,15 @@ func _draw() -> void:
 			elif rid == Game.region:
 				draw_circle(c3, 4.0, Color(0.95, 0.95, 0.95))  # white: yellow is for NPCs
 				draw_arc(c3, 4.0, 0, TAU, 10, Color(0, 0, 0, 0.7), 1.0)
-	# towns
+	if not MapDB.owned(Game.region):
+		var f0: Font = font if font else get_theme_default_font()
+		draw_string(f0, Vector2(10, size.y - 12), "지도 없음", HORIZONTAL_ALIGNMENT_LEFT, -1, 16, Color(0.75, 0.78, 0.82))
+	# towns (only on owned maps)
 	var cities := RegionDB.cities()
 	for id: String in cities:
 		var ct: Dictionary = cities[id]
+		if not MapDB.owned(str(ct["region"])):
+			continue
 		var c4 := _to_screen(center, ct["map"])
 		if Rect2(Vector2(-20, -20), size + Vector2(40, 40)).has_point(c4):
 			draw_circle(c4, 7.0, Color(0, 0, 0, 0.6))

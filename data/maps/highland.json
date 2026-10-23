@@ -1,0 +1,84 @@
+{
+  "version": 1,
+  "map_id": "map.highland",
+  "region": "highland",
+  "title": "솔바람 고원 지도",
+  "order": 2,
+  "desc": "솔방울 마을과 북쪽 고개가 그려진 고원 지도.",
+  "marks": [
+    {
+      "id": "h_village",
+      "type": "icon",
+      "text": "솔방울 마을",
+      "pos": [
+        50,
+        38
+      ],
+      "icon": "town"
+    },
+    {
+      "id": "h_cave",
+      "type": "icon",
+      "text": "동굴",
+      "pos": [
+        -3,
+        -26
+      ],
+      "icon": "cave"
+    },
+    {
+      "id": "h_pass",
+      "type": "icon",
+      "text": "북쪽 고개 → 잿빛 산길",
+      "pos": [
+        40,
+        -78
+      ],
+      "icon": "road"
+    },
+    {
+      "id": "h_west",
+      "type": "icon",
+      "text": "서쪽 길 → 초원",
+      "pos": [
+        -92,
+        1
+      ],
+      "icon": "road"
+    },
+    {
+      "id": "h_spring",
+      "type": "icon",
+      "text": "샘",
+      "pos": [
+        12,
+        18
+      ],
+      "icon": "water"
+    },
+    {
+      "id": "h_look",
+      "type": "label",
+      "text": "동쪽 전망대",
+      "pos": [
+        90,
+        12
+      ]
+    }
+  ],
+  "sources": [
+    {
+      "kind": "shop",
+      "shop": "rosa",
+      "price": 30
+    },
+    {
+      "kind": "drop",
+      "region": "meadow",
+      "pos": [
+        92,
+        -1
+      ]
+    }
+  ]
+}

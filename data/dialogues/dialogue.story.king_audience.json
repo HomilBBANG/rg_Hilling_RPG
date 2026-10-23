@@ -257,6 +257,20 @@
       "id": "end",
       "type": "end",
       "complete_event": "story.king_audience"
+    },
+    {
+      "id": "l6_map",
+      "type": "line",
+      "speaker_id": "king",
+      "text": "그리고 이 지도를 가져가게. 잿빛 산길이 그려져 있으니 길을 잃지는 않을 걸세. (임시 대사)"
+    },
+    {
+      "id": "act_map",
+      "type": "action",
+      "action": "give_map",
+      "args": {
+        "region": "ashen_pass"
+      }
     }
   ],
   "connections": [
@@ -333,7 +347,7 @@
     {
       "from": "l6",
       "port": "next",
-      "to": "l7"
+      "to": "l6_map"
     },
     {
       "from": "l7",
@@ -439,6 +453,16 @@
       "from": "cond_done",
       "port": "false",
       "to": "cond_taken"
+    },
+    {
+      "from": "l6_map",
+      "port": "next",
+      "to": "act_map"
+    },
+    {
+      "from": "act_map",
+      "port": "next",
+      "to": "l7"
     }
   ],
   "editor_positions": {
@@ -585,6 +609,14 @@
     "end_later": [
       1800,
       -640
+    ],
+    "l6_map": [
+      3320,
+      660
+    ],
+    "act_map": [
+      3580,
+      660
     ]
   }
 }
