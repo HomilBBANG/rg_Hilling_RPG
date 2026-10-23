@@ -284,6 +284,12 @@ func daylight() -> float:
 	return smoothstep(300.0, 420.0, m) * (1.0 - smoothstep(1080.0, 1200.0, m))
 
 
+## Morning sun (user request: 아침 햇살 in the camper): rises 06:00-08:00, fades 10:00-12:00.
+func morning() -> float:
+	var m := minute_of_day
+	return smoothstep(360.0, 480.0, m) * (1.0 - smoothstep(600.0, 720.0, m))
+
+
 ## 1 at the middle of dawn/dusk, 0 otherwise (used for a warm tint).
 func twilight() -> float:
 	var d := daylight()

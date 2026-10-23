@@ -509,6 +509,8 @@ func _parse_args() -> void:
 		_run_walk_tour()
 	elif tour == "facing":
 		_run_facing_tour()
+	elif tour == "interior":
+		_run_interior_tour()
 	elif tour == "p1":
 		_run_p1_tour()
 	elif tour == "p2":
@@ -1369,6 +1371,24 @@ func _run_walk_d() -> void:
 		await _walk_to(p, goal)
 	p.scripted_move = Vector2.ZERO
 	await _frames(20)
+	get_tree().quit()
+
+
+## The camper interior at morning / noon / night: lamp warmth, morning sun on the floor, floor
+## seams and the outline pass around furniture (user requests 2026-10-23).
+func _run_interior_tour() -> void:
+	_touring = true
+	hud.show_help_panel(false)
+	Game.clock_running = false
+	Game.lantern_on = false
+	Game.request_world(Game.WORLD_INTERIOR)
+	await wait_for_sprites()
+	for sdef: Array in [["morning", 8.5 * 60.0], ["noon", 13.0 * 60.0], ["night", 21.5 * 60.0]]:
+		Game.minute_of_day = sdef[1]
+		_place_player(Vector3(-2.2, 0, -0.4), -PI * 0.3)
+		hud.set_capture_mode(true, "")
+		await _frames(30)
+		await _shot("interior_%s.png" % sdef[0])
 	get_tree().quit()
 
 

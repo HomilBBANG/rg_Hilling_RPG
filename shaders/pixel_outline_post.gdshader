@@ -58,16 +58,25 @@ void fragment() {
 	float c_d = lin_depth(uv, INV_PROJECTION_MATRIX);
 	vec2 offs[4] = vec2[](vec2(px.x, 0.0), vec2(-px.x, 0.0), vec2(0.0, px.y), vec2(0.0, -px.y));
 	float depth_edge = 0.0;
-	float normal_edge = 0.0;
 	for (int i = 0; i < 4; i++) {
 		vec2 nuv = uv + offs[i];
 		float nd = lin_depth(nuv, INV_PROJECTION_MATRIX);
 		depth_edge += clamp(nd - c_d, 0.0, 1.0);
+	}
+	// Crease highlight only on a real top edge: this texel faces up, the texel just below it on
+	// screen belongs to a side face that is not nearer (a box top over its front). A floor texel
+	// beside a crate or under a character has its differing neighbour above or nearer, so the
+	// ground never gets the light line (user report: white lines where things touch the floor).
+	float normal_edge = 0.0;
+	if (c_nr.y > 0.5) {
+		vec2 nuv = uv + offs[2];
+		float nd = lin_depth(nuv, INV_PROJECTION_MATRIX);
 		vec3 nn = normal_rough(nuv).xyz;
 		vec3 diff = c_nr.xyz - nn;
 		float along = dot(diff, normalize(normal_edge_bias));
 		float same_surface = 1.0 - smoothstep(0.05, 0.2, abs(nd - c_d));
-		normal_edge += max(0.0, along) * same_surface * step(normal_threshold, length(diff));
+		float not_nearer = step(c_d - 0.02, nd);
+		normal_edge = max(0.0, along) * same_surface * not_nearer * step(normal_threshold, length(diff));
 	}
 	vec3 base = texture(screen_tex, uv).rgb;
 	// Outline colour = a deeper, slightly more saturated shade of the texel's own colour (pixel-art
@@ -90,7 +99,8 @@ void fragment() {
 			ALBEDO = mix(max(deep, vec3(0.0)), outline_tint, outline_tint_amount);
 		}
 	} else if (highlight_enabled && normal_edge > 0.2 && c_nr.w < 0.96) {
-		ALBEDO = base + (vec3(1.0, 0.97, 0.88) - base) * highlight_strength;
+		// the texel's own colour, lightened (never a white line)
+		ALBEDO = min(base * (1.0 + highlight_strength * 0.9) + vec3(0.03, 0.02, 0.0) * highlight_strength, vec3(1.0));
 	} else {
 		discard;
 	}

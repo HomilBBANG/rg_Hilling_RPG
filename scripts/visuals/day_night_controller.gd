@@ -92,8 +92,12 @@ func apply(d: float, tw: float) -> void:
 		return
 	if environment:
 		if interior:
-			environment.ambient_light_color = Color(0.55, 0.5, 0.45).lerp(Color(0.7, 0.68, 0.64), d)
-			environment.ambient_light_energy = lerpf(0.28, 0.5, d)
+			# soft, warm (user request: 은은한 주황색) — a little brighter and warmer in the morning sun
+			var mo := Game.morning()
+			environment.ambient_light_color = Color(0.5, 0.4, 0.3).lerp(Color(0.68, 0.58, 0.46), d).lerp(Color(0.78, 0.66, 0.5), mo * 0.5)
+			environment.ambient_light_energy = lerpf(0.22, 0.3, d) + mo * 0.05
+			environment.glow_intensity = 0.15
+			environment.glow_hdr_threshold = 1.6
 			environment.background_color = Color(0.02, 0.02, 0.03)
 		elif palette == "deadcells":
 			environment.ambient_light_color = DC_AMBIENT_NIGHT.lerp(DC_AMBIENT_DAY, d)
@@ -132,6 +136,7 @@ func apply(d: float, tw: float) -> void:
 		var day_rot := Vector3(deg_to_rad(-34.0 if dc else -52.0), deg_to_rad(-48.0 if dc else -35.0), 0.0)
 		var night_rot := Vector3(deg_to_rad(-62.0), deg_to_rad(28.0), 0.0)
 		sun.rotation = night_rot.lerp(day_rot, d)
+	var mo := Game.morning()
 	for m in window_materials:
-		m.emission_energy_multiplier = lerpf(0.05, 1.4, d)
-		m.emission = Color(0.25, 0.3, 0.5).lerp(Color(0.85, 0.92, 1.0), d)
+		m.emission_energy_multiplier = lerpf(0.05, 1.1, d) + mo * 0.7
+		m.emission = Color(0.25, 0.3, 0.5).lerp(Color(0.85, 0.9, 0.95), d).lerp(Color(1.0, 0.82, 0.55), mo)

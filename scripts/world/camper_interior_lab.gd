@@ -26,6 +26,7 @@ var camera: TopdownCamera
 var cat: CatCompanion
 var day_night: DayNightController
 var _fill_light: OmniLight3D
+var _sun_patches: Array[StandardMaterial3D] = []
 var _room_spots: Array[Vector3] = []   # extra cat spots from rooms / decor
 var _placing := ""                     # decor item being placed ("" = not placing)
 var _ghost: Node3D
@@ -275,8 +276,8 @@ func _build_rooms() -> void:
 		ProtoMesh.box(self, Vector3(1.2, 0.7, 0.04), Vector3(cx, 1.65, -ROOM_Z + 0.01), wm)
 		var l := OmniLight3D.new()
 		l.position = Vector3(cx, 2.3, -0.2)
-		l.light_color = Color(1.0, 0.86, 0.7)
-		l.light_energy = 1.3
+		l.light_color = Color(1.0, 0.72, 0.45)
+		l.light_energy = 0.6
 		l.omni_range = 5.5
 		add_child(l)
 		_build_purpose(i, str(rooms[i].get("purpose", "")), Vector3(cx, 0, 0))
@@ -502,8 +503,8 @@ func _build_lights() -> void:
 	for lx in [-2.4, 1.6]:
 		var l := OmniLight3D.new()
 		l.position = Vector3(lx, 2.35, -0.3)
-		l.light_color = Color(1.0, 0.84, 0.62)
-		l.light_energy = 1.4
+		l.light_color = Color(1.0, 0.72, 0.45)  # soft orange lamps (user request)
+		l.light_energy = 0.6
 		l.omni_range = 5.5
 		l.shadow_enabled = true
 		l.shadow_bias = 0.06
@@ -514,9 +515,19 @@ func _build_lights() -> void:
 	# Cool daylight fill through the windows (energy follows the clock)
 	_fill_light = OmniLight3D.new()
 	_fill_light.position = Vector3(0.5, 1.8, -1.2)
-	_fill_light.light_color = Color(0.8, 0.88, 1.0)
+	_fill_light.light_color = Color(1.0, 0.86, 0.68)
 	_fill_light.omni_range = 7.0
 	add_child(_fill_light)
+	# Morning sun through the back windows: warm patches on the floor (alpha follows Game.morning)
+	for wx in [-3.0, 0.9, 3.2]:
+		var sm := StandardMaterial3D.new()
+		sm.albedo_color = Color(0, 0, 0)  # additive: the colour itself is the strength (set per frame)
+		sm.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
+		sm.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+		sm.roughness = 1.0
+		var patch := ProtoMesh.box(self, Vector3(1.3, 0.01, 2.0), Vector3(wx + 0.35, 0.02, -ROOM_Z + 1.15), sm, Vector3(0, -12.0, 0))
+		patch.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		_sun_patches.append(sm)
 
 
 func _spawn_actors() -> void:
@@ -566,7 +577,9 @@ func _process(_delta: float) -> void:
 		_ghost.position = _ghost_pos()
 		_ghost.rotation.y = _ghost_yaw
 	if _fill_light:
-		_fill_light.light_energy = lerpf(0.0, 0.8, Game.daylight())
+		_fill_light.light_energy = lerpf(0.0, 0.45, Game.daylight()) + Game.morning() * 0.35
+	for sm in _sun_patches:
+		sm.albedo_color = Color(1.0, 0.8, 0.45) * (0.22 * Game.morning())
 
 
 func sprite_targets() -> Array:
