@@ -113,7 +113,7 @@ static func potted_plant(rng: RandomNumberGenerator, flowering: bool) -> Node3D:
 	var pot := ProtoMesh.mat(Color(0.8, 0.45, 0.3))
 	ProtoMesh.cylinder(root, 0.17, 0.3, Vector3(0, 0.15, 0), pot, Vector3.ZERO, 9, 0.21)
 	ProtoMesh.cylinder(root, 0.23, 0.05, Vector3(0, 0.31, 0), ProtoMesh.mat(Color(0.86, 0.52, 0.36)), Vector3.ZERO, 9)
-	var leaves := StylizedMaterials.foliage(Color(0.36, 0.55, 0.22), Color(0.53, 0.68, 0.28), Color(0.2, 0.39, 0.18))
+	var leaves := StylizedMaterials.foliage(Color(0.3, 0.58, 0.28), Color(0.6, 0.8, 0.34), Color(0.14, 0.34, 0.2))
 	OrganicMesh.blob_instance(root, rng.randi() % 500, Vector3(0, 0.5, 0), Vector3(0.26, 0.24, 0.26), leaves)
 	if flowering:
 		var c := Color(0.96, 0.6, 0.72) if rng.randf() < 0.5 else Color(0.99, 0.85, 0.4)

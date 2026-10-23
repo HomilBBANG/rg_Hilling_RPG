@@ -6,16 +6,16 @@ render_mode specular_disabled, cull_disabled;
 #include "res://shaders/cel_light.gdshaderinc"
 #include "res://shaders/wind.gdshaderinc"
 
-uniform vec3 root_color : source_color = vec3(0.33, 0.52, 0.23);
-uniform vec3 tip_color : source_color = vec3(0.55, 0.68, 0.3);
+uniform vec3 root_color : source_color = vec3(0.34, 0.56, 0.26);
+uniform vec3 tip_color : source_color = vec3(0.58, 0.76, 0.33);
 uniform float wind_strength = 0.09;  // tip offset in metres (~3 texels at the default zoom)
 uniform bool is_flower = false;
 uniform float detail = 1.0;
 // Flat look: each tuft is drawn a fixed amount darker than the ground under it (same two-tone
 // grass + forest shade as terrain_stylized), so it shows on light and dark grass alike.
 uniform sampler2D noise_large : filter_linear, repeat_enable;
-uniform vec3 grass_dark : source_color = vec3(0.3, 0.5, 0.23);
-uniform vec3 grass_mid : source_color = vec3(0.42, 0.6, 0.25);
+uniform vec3 grass_dark : source_color = vec3(0.24, 0.45, 0.24);
+uniform vec3 grass_mid : source_color = vec3(0.39, 0.61, 0.27);
 uniform float tuft_darken = 0.7;
 
 varying float tint;

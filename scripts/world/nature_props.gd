@@ -6,10 +6,9 @@ extends RefCounted
 enum TreeKind { PINE, BROADLEAF, BIRCH, BLOSSOM }
 
 const PALETTES := {
-	# [base, light, dark] — after the user's reference tree: lime top, fresh mid green, deep green underside
-	TreeKind.BROADLEAF: [Color(0.38, 0.56, 0.22), Color(0.55, 0.69, 0.29), Color(0.21, 0.4, 0.19)],
-	TreeKind.PINE: [Color(0.22, 0.43, 0.26), Color(0.36, 0.56, 0.28), Color(0.11, 0.28, 0.22)],
-	TreeKind.BIRCH: [Color(0.46, 0.62, 0.23), Color(0.62, 0.74, 0.33), Color(0.29, 0.46, 0.19)],
+	TreeKind.BROADLEAF: [Color(0.33, 0.58, 0.26), Color(0.64, 0.81, 0.34), Color(0.15, 0.35, 0.22)],
+	TreeKind.PINE: [Color(0.2, 0.46, 0.33), Color(0.44, 0.67, 0.4), Color(0.09, 0.26, 0.22)],
+	TreeKind.BIRCH: [Color(0.56, 0.71, 0.28), Color(0.82, 0.88, 0.42), Color(0.3, 0.48, 0.2)],
 	TreeKind.BLOSSOM: [Color(0.93, 0.62, 0.7), Color(1.0, 0.86, 0.88), Color(0.66, 0.36, 0.47)],
 }
 
@@ -65,7 +64,7 @@ static func tree(kind: TreeKind, scale: float, rng: RandomNumberGenerator) -> No
 static func bush(kind: int, scale: float, rng: RandomNumberGenerator) -> Node3D:
 	## kind 0 = plain, 1 = flowering, 2 = berries
 	var root := Node3D.new()
-	var leaves := StylizedMaterials.foliage(Color(0.34, 0.53, 0.21), Color(0.51, 0.66, 0.27), Color(0.18, 0.37, 0.17), rng.randf_range(-1, 1))
+	var leaves := StylizedMaterials.foliage(Color(0.28, 0.54, 0.25), Color(0.58, 0.77, 0.32), Color(0.13, 0.33, 0.2), rng.randf_range(-1, 1))
 	leaves.set_shader_parameter("wind_strength", 0.05)  # low and stiff: less sway than canopies
 	var seed := rng.randi() % 1000
 	OrganicMesh.blob_instance(root, seed, Vector3(0, 0.38, 0), Vector3(0.65, 0.45, 0.6), leaves)

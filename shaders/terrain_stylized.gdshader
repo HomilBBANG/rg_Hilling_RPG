@@ -10,8 +10,8 @@ render_mode specular_disabled;
 uniform sampler2D noise_large : filter_linear, repeat_enable;
 uniform sampler2D noise_detail : filter_linear, repeat_enable;
 
-uniform vec3 grass_dark : source_color = vec3(0.3, 0.5, 0.23);
-uniform vec3 grass_mid : source_color = vec3(0.42, 0.6, 0.25);
+uniform vec3 grass_dark : source_color = vec3(0.24, 0.45, 0.24);
+uniform vec3 grass_mid : source_color = vec3(0.39, 0.61, 0.27);
 uniform vec3 grass_light : source_color = vec3(0.56, 0.74, 0.33);
 uniform vec3 grass_warm : source_color = vec3(0.70, 0.73, 0.36);
 uniform vec3 grass_cool : source_color = vec3(0.27, 0.55, 0.42);
