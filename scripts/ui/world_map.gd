@@ -8,8 +8,9 @@ extends Control
 ## the designer's marks (data/maps, editor 지도 tab), towns (click = card with fast travel, GDD
 ## 11.4), found checkpoints, the parked camper, the player and the player's own pins; regions
 ## without the map are under clouds. Wheel = zoom, drag = move, right click = new pin.
-## 세계 지도: the whole continent — terrain shape and region names only; regions never visited hide
-## under grey clouds; clicking a region whose map is owned zooms to it. 현재 지도 = back to the hero.
+## 세계 지도: the whole continent — terrain shape and region names only; regions whose map the
+## player doesn't own hide under grey clouds (visiting reveals nothing — only buying / getting the
+## map does, user design); clicking an owned region zooms to it. 현재 지도 = back to the hero.
 ## Left: owned maps (click = look at that region). Fast travel: bootstrap.fast_travel_quote() / fast_travel().
 
 const PIN_LIMIT := 40
@@ -418,7 +419,7 @@ func _draw() -> void:
 	draw_rect(Rect2(0, v.end.y + 6, size.x, size.y - v.end.y), bg)
 	draw_rect(v.grow(3), Color(0.35, 0.25, 0.15), false, 6.0)
 	if world_view:
-		_text(Vector2(v.position.x, v.end.y + 24), "세계 지도 — 지역의 생김새와 이름만 · 안 가 본 곳은 구름 (지도를 가진 지역 클릭 = 그 지역 확대)", 15, Color(0.85, 0.87, 0.9))
+		_text(Vector2(v.position.x, v.end.y + 24), "세계 지도 — 지역의 생김새와 이름만 · 지도가 없는 곳은 구름 (지도를 가진 지역 클릭 = 그 지역 확대)", 15, Color(0.85, 0.87, 0.9))
 	else:
 		_text(Vector2(v.position.x, v.end.y + 24), "● 도시(노랑 = 가 본 곳, 클릭 = 빠른 이동)   ▲ 체크포인트   파란 ■ 캠핑카   ➤ 나   ♦ 내 핀 (오른쪽 클릭)   지도 없는 지역 = 구름", 15, Color(0.85, 0.87, 0.9))
 
@@ -510,7 +511,7 @@ func _draw_dungeon_sheet() -> void:
 	MapDB.text_on(self, f, v.position + Vector2(18, 40), MapDB.title(page), 30, Color(1.0, 0.95, 0.82))
 
 
-## The world map: names on visited regions, clouds over the others and over the open sea.
+## The world map: names on regions whose map is owned, clouds over the others and over the open sea.
 func _draw_world_layer() -> void:
 	var f: Font = font if font else get_theme_default_font()
 	var wr: Rect2 = MapDB.world_picture()["rect"]
@@ -529,8 +530,8 @@ func _draw_world_layer() -> void:
 	for rid: String in world_regions():
 		var r := RegionDB.map_rect(rid)
 		var sr := Rect2(to_screen(r.position), r.size * _zoom)
-		if not visited(rid):
-			_draw_clouds(sr, rid, false)  # never been there: hidden under grey clouds
+		if not MapDB.owned(rid):
+			_draw_clouds(sr, rid, false)  # no map of it yet: hidden under grey clouds, visited or not
 			continue
 		var name := RegionDB.region_name(rid)
 		var w := f.get_string_size(name, HORIZONTAL_ALIGNMENT_LEFT, -1, 22).x
@@ -541,11 +542,7 @@ func _draw_world_layer() -> void:
 			Color(0.55, 0.18, 0.1) if rid == Game.region else MapDB.INK)
 
 
-static func visited(rid: String) -> bool:
-	return rid == Game.region or Game.discovered.has("region:" + rid)
-
-
-## Cloud cover: grey over places not visited / without a map, parchment over the open sea.
+## Cloud cover: grey over places without a map, parchment over the open sea.
 func _draw_clouds(sr: Rect2, key: String, light: bool) -> void:
 	var rng := RandomNumberGenerator.new()
 	rng.seed = hash(key)

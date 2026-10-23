@@ -3867,8 +3867,13 @@ func _run_maps_tour() -> void:
 	mv = game_hud.map_view
 	print("[maps] M again in the meadow -> page '%s' (the current region)" % mv.page)
 	await _ui_click(_ui_find("세계 지도", "Button"))
-	print("[maps] 세계 지도 -> world view %s, regions %s (shape + name only), visited %s, under clouds %s" % [mv.world_view, mv.world_regions(),
-		mv.world_regions().filter(func(r: String) -> bool: return WorldMap.visited(r)), mv.world_regions().filter(func(r: String) -> bool: return not WorldMap.visited(r))])
+	var owned_w := mv.world_regions().filter(func(r: String) -> bool: return MapDB.owned(r))
+	var clouded := mv.world_regions().filter(func(r: String) -> bool: return not MapDB.owned(r))
+	print("[maps] 세계 지도 -> world view %s, regions %s (shape + name only), named (map owned) %s, under clouds %s -> %s" % [mv.world_view, mv.world_regions(),
+		owned_w, clouded, "방문 아님, 지도 기준 ✔" if owned_w.has("ashen_pass") and not Game.discovered.has("region:ashen_pass") else "✘"])
+	# visiting a region without its map reveals nothing
+	Game.discovered["region:capital"] = true
+	print("[maps] been to 왕도 but no map -> under clouds %s %s" % [not MapDB.owned("capital"), "✔" if not MapDB.owned("capital") else "✘"])
 	await _p1_shot("maps_09_world", "world map: shapes and names", true)
 	var hl := RegionDB.map_rect("highland")
 	mv._gui_input(_mouse_click_event(mv.world_to_screen(hl.get_center())))
