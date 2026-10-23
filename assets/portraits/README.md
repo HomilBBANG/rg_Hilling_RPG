@@ -10,6 +10,7 @@
 | `player_angry.png` | 주인공 (화남) | 왼쪽 |
 | `player_happy.png` | 주인공 (기대·기쁨) | 왼쪽 |
 | `player_sad.png` | 주인공 (실망·슬픔) | 왼쪽 |
+| `player_scared.png` | 주인공 (겁에 질림) | 왼쪽 |
 | `rosa.png` | 로사 | 오른쪽 |
 | `bron.png` | 브론 | 오른쪽 |
 | `cat.png` | 검은 고양이 | 오른쪽 |
