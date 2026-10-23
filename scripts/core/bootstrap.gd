@@ -3537,6 +3537,14 @@ func _ui_cell(text: String) -> Button:
 	return null
 
 
+func _mouse_click_event(pos: Vector2) -> InputEventMouseButton:
+	var ev := InputEventMouseButton.new()
+	ev.button_index = MOUSE_BUTTON_LEFT
+	ev.pressed = true
+	ev.position = pos
+	return ev
+
+
 func _ui_move(c: Control) -> void:
 	var pos := c.get_global_rect().get_center()
 	var ev := InputEventMouseMotion.new()
@@ -3631,6 +3639,25 @@ func _run_maps_tour() -> void:
 	await _frames(3)
 	print("[maps] ▶ -> '%s'" % mv.page)
 	await _p1_shot("maps_07_ashen_sheet", "ashen pass sheet (same size)", true)
+	game_hud.toggle_map()
+	await _frames(3)
+	game_hud.toggle_map()
+	await _frames(4)
+	mv = game_hud.map_view
+	print("[maps] M again in the meadow -> page '%s' (the current region)" % mv.page)
+	await _ui_click(_ui_find("세계 지도", "Button"))
+	print("[maps] 세계 지도 -> world view %s, regions %s (shape + name only, highland owned/capital not)" % [mv.world_view, mv.world_regions()])
+	await _p1_shot("maps_09_world", "world map: shapes and names", true)
+	var hl := RegionDB.map_rect("highland")
+	mv._gui_input(_mouse_click_event(mv.world_to_screen(hl.get_center())))
+	await _frames(3)
+	print("[maps] click 솔바람 고원 on the world map -> page '%s', world view %s" % [mv.page, mv.world_view])
+	mv.show_world(true)
+	var cp := RegionDB.map_rect("capital")
+	mv._gui_input(_mouse_click_event(mv.world_to_screen(cp.get_center())))
+	print("[maps] click 왕도 (no map) -> still world view %s" % mv.world_view)
+	await _ui_click(_ui_find("현재 지도", "Button"))
+	print("[maps] 현재 지도 -> page '%s', world view %s" % [mv.page, mv.world_view])
 	game_hud.toggle_map()
 	await _frames(3)
 	print("[maps] minimap with the meadow map: owned %s" % MapDB.owned("meadow"))

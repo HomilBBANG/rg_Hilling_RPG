@@ -7,6 +7,8 @@ extends Control
 ## GDD 11.4), found checkpoints, the parked camper, the player and the player's own pins.
 ##
 ## Left: the list of maps (owned ones open, others "지도 없음"). ◀ ▶ / list = turn the page.
+## 세계 지도: every surface region at its real place — terrain shape and name only (no marks,
+## towns, pins or player); clicking a region whose map is owned opens that map. 현재 지도 = back.
 ## Right click on the sheet = new pin, click a pin = edit, click a town = its card.
 ## Fast travel itself is bootstrap.fast_travel_quote() / fast_travel().
 
@@ -20,6 +22,10 @@ const MARGIN := 46.0
 var font: Font
 var boot: Node
 var page := ""  ## region id of the sheet on screen ("" = no maps yet)
+## World map view (button 세계 지도): every surface region by its real place, shape and name only.
+var world_view := false
+var _w_zoom := 1.0
+var _w_off := Vector2.ZERO
 var _scale := 1.0      # sheet pixels per region metre
 var _origin := Vector2.ZERO  # screen position of region (0, 0)
 var _card: PanelContainer
@@ -63,8 +69,7 @@ func _ready() -> void:
 	_card_box = VBoxContainer.new()
 	_card_box.add_theme_constant_override("separation", 8)
 	_card.add_child(_card_box)
-	var owned := _known_regions()
-	set_page(Game.region if owned.has(Game.region) else (str(owned[0]) if not owned.is_empty() else ""))
+	set_page(Game.region)  # M opens the map of where the hero is (an empty sheet if not owned yet)
 
 
 # ---------------------------------------------------------------- pages
@@ -80,6 +85,7 @@ func _known_regions() -> Array:
 
 
 func set_page(rid: String) -> void:
+	world_view = false
 	page = rid if MapDB.owned(rid) else ""
 	close_card()
 	fit_all()
@@ -136,11 +142,69 @@ func _rebuild_side() -> void:
 		_title_bar.remove_child(c)
 		c.queue_free()
 	_title_bar.position = SHEET_POS + Vector2(SHEET.x + 14, 0)
+	if world_view:
+		_title_bar.position = Vector2(size.x - 200, 20)
+		_title_bar.add_child(_button("현재 지도", func() -> void:
+			set_page(Game.region if MapDB.owned(Game.region) else page)))
+		return
 	if _known_regions().size() > 1:
 		_title_bar.add_child(_button("◀", func() -> void: turn(-1)))
 		_title_bar.add_child(_button("▶", func() -> void: turn(1)))
 	if MapDB.owned(Game.region) and page != Game.region:
 		_title_bar.add_child(_button("현재 위치", center_on_player))
+	_title_bar.add_child(_button("세계 지도", func() -> void: show_world(true)))
+
+
+# ---------------------------------------------------------------- world map view
+
+## Surface regions on the world map: the outdoor fields (not dungeons, interiors or the random
+## dungeon), whether or not their map is owned — the world map only shows shapes and names.
+func world_regions() -> Array:
+	var out := []
+	var all := RegionDB.all()
+	for rid: String in all:
+		var reg: Dictionary = all[rid]
+		if reg.get("kind", "") in ["dungeon", "random_dungeon"] or reg.get("no_map", false):
+			continue
+		if reg.get("hidden", false) and not Game.discovered.has("region:" + rid):
+			continue
+		out.append(rid)
+	return out
+
+
+func show_world(on: bool) -> void:
+	world_view = on
+	close_card()
+	if on:
+		var lo := Vector2(INF, INF)
+		var hi := Vector2(-INF, -INF)
+		for rid: String in world_regions():
+			var r := RegionDB.map_rect(rid)
+			lo = lo.min(r.position)
+			hi = hi.max(r.end)
+		var area := _world_area()
+		if lo.x != INF:
+			_w_zoom = minf((area.size.x - 60.0) / (hi.x - lo.x), (area.size.y - 60.0) / (hi.y - lo.y))
+			_w_off = area.position + (area.size - (hi - lo) * _w_zoom) * 0.5 - lo * _w_zoom
+	_rebuild_side()
+	queue_redraw()
+
+
+func _world_area() -> Rect2:
+	return Rect2(SHEET_POS, Vector2(maxf(SHEET.x, size.x - SHEET_POS.x - 220.0), SHEET.y))
+
+
+func world_to_screen(map_p: Vector2) -> Vector2:
+	return _w_off + map_p * _w_zoom
+
+
+## Region under a screen point on the world map ("" = none).
+func world_region_at(screen: Vector2) -> String:
+	for rid: String in world_regions():
+		var r := RegionDB.map_rect(rid)
+		if Rect2(world_to_screen(r.position), r.size * _w_zoom).has_point(screen):
+			return rid
+	return ""
 
 
 # ---------------------------------------------------------------- coordinates
@@ -178,6 +242,13 @@ func player_map_pos() -> Vector2:
 
 func _gui_input(ev: InputEvent) -> void:
 	if not (ev is InputEventMouseButton and ev.pressed):
+		return
+	if world_view:
+		if ev.button_index == MOUSE_BUTTON_LEFT:
+			var rid := world_region_at(ev.position)
+			if rid != "" and MapDB.owned(rid):
+				set_page(rid)  # a region with its map: open that map
+			accept_event()
 		return
 	if page == "" or not _sheet_rect().has_point(ev.position):
 		return
@@ -322,12 +393,16 @@ func _button(text: String, cb: Callable) -> Button:
 
 func _draw() -> void:
 	draw_rect(Rect2(Vector2.ZERO, size), Color(0.1, 0.12, 0.15))
+	if world_view:
+		_draw_world()
+		return
 	var sheet := _sheet_rect()
 	draw_rect(sheet.grow(6), Color(0.35, 0.25, 0.15))
 	draw_rect(sheet, Color(0.88, 0.82, 0.67))
 	if page == "":
-		_text_centered(sheet.get_center() - Vector2(0, 20), "아직 가진 지도가 없다", 28, Color(0.3, 0.22, 0.14))
-		_text_centered(sheet.get_center() + Vector2(0, 22), "상인이나 NPC에게서 지도를 얻거나, 필드에 떨어진 지도를 주워 보자", 18, Color(0.35, 0.28, 0.2))
+		var here := RegionDB.region_name(Game.region)
+		_text_centered(sheet.get_center() - Vector2(0, 20), "%s의 지도가 아직 없다" % here if MapDB.mappable(Game.region) else "아직 가진 지도가 없다", 28, Color(0.3, 0.22, 0.14))
+		_text_centered(sheet.get_center() + Vector2(0, 22), "상인이나 NPC에게서 지도를 얻거나, 필드에 떨어진 지도를 주워 보자 (세계 지도는 위 버튼)", 18, Color(0.35, 0.28, 0.2))
 		return
 	var reg: Dictionary = RegionDB.all()[page]
 	var r := MapDB.region_rect(page)
@@ -388,6 +463,25 @@ func _draw() -> void:
 	# legend under the sheet
 	var lg := "● 도시(노랑 = 가 본 곳, 클릭 = 빠른 이동)   ▲ 체크포인트   파란 ■ 캠핑카   ➤ 나   ♦ 내 핀 (오른쪽 클릭)"
 	_text(Vector2(SHEET_POS.x, SHEET_POS.y + SHEET.y + 18), lg, 15, Color(0.85, 0.87, 0.9))
+
+
+## World map: each surface region's terrain picture at its real place, with its name — nothing else.
+func _draw_world() -> void:
+	var area := _world_area()
+	draw_rect(area.grow(6), Color(0.35, 0.25, 0.15))
+	draw_rect(area, Color(0.88, 0.82, 0.67))
+	_text_centered(area.position + Vector2(area.size.x * 0.5, 34), "세계 지도", 26, Color(0.25, 0.17, 0.1), false)
+	var f: Font = font if font else get_theme_default_font()
+	for rid: String in world_regions():
+		var r := RegionDB.map_rect(rid)
+		var sr := Rect2(world_to_screen(r.position), r.size * _w_zoom)
+		draw_texture_rect(MapDB.terrain_texture(rid), sr, false)
+		draw_rect(sr, Color(0.3, 0.22, 0.14), false, 2.0)
+		var name := RegionDB.region_name(rid)
+		var w := f.get_string_size(name, HORIZONTAL_ALIGNMENT_LEFT, -1, 22).x
+		MapDB.text_on(self, f, sr.get_center() - Vector2(w * 0.5, -8), name, 22,
+			Color(1.0, 0.86, 0.45) if rid == Game.region else Color(1.0, 0.97, 0.9))
+	_text(Vector2(area.position.x, area.end.y + 18), "지역의 생김새와 이름만 — 자세한 지도는 지역 지도를 모아서 본다 (가진 지역 클릭 = 그 지역 지도)", 15, Color(0.85, 0.87, 0.9))
 
 
 func _text(pos: Vector2, s: String, fsize: int, col: Color) -> void:
