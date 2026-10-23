@@ -201,7 +201,7 @@ const ACTIONS := {
 	"toggle_lantern": [KEY_L],
 	"toggle_interior": [KEY_I],
 	"toggle_help": [KEY_H],
-	"toggle_snap": [KEY_K],
+	"toggle_snap": [KEY_F5],  # debug (K is the skill window)
 	"toggle_projection": [KEY_F7],  # debug (C is the character sheet)
 	"toggle_occlusion": [KEY_X],
 	"zoom_in": [KEY_EQUAL, KEY_KP_ADD],
@@ -212,6 +212,7 @@ const ACTIONS := {
 	"interact_alt": [KEY_R],
 	"inventory": [KEY_TAB],
 	"character": [KEY_C],
+	"skills": [KEY_K],
 	"combat_log": [KEY_G],
 	"debug_status": [KEY_F10],
 	"debug_heal": [KEY_F8],

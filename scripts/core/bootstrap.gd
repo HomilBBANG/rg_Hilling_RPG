@@ -364,6 +364,8 @@ func _unhandled_input(event: InputEvent) -> void:
 		game_hud.toggle_inventory()
 	elif event.is_action("character"):
 		game_hud.toggle_character()
+	elif event.is_action("skills"):
+		game_hud.toggle_skills()
 	elif event.is_action("journal"):
 		game_hud.toggle_journal()
 	elif event.is_action("world_map"):
@@ -556,6 +558,8 @@ func _parse_args() -> void:
 		_run_stat_ui_tour()
 	elif tour == "invui":
 		_run_inv_ui_tour()
+	elif tour == "skillui":
+		_run_skill_ui_tour()
 	elif tour == "wind":
 		_run_wind_check()
 	elif tour == "catfollow":
@@ -3553,6 +3557,52 @@ func _ui_click(c: Control, double := false) -> void:
 	await _frames(4)
 
 
+## Skill window (K): 스킬 tab (일반 스킬 learned with EXP, 마법 with quickslots 5-8) and 생활 스킬
+## tab (채집 / 낚시 / 요리 / 제작: mastery + life skills); the 능력치 tab keeps only stats.
+func _run_skill_ui_tour() -> void:
+	Game.clock_running = false
+	Game.minute_of_day = 10.5 * 60.0
+	await wait_for_sprites()
+	var st := Game.player_state
+	st.gen_exp = 60
+	st.life_exp = 20
+	st.add_mastery("gathering", 20)
+	st.learn_spell("minor_heal")
+	await _key(KEY_C)
+	var stat_only := _ui_find("힘 STR", "Label") != null and _ui_find("명중 훈련", "Label") == null and _ui_find("  채집", "Label") == null
+	print("[skillui] C -> '%s': stats there, skills/life gone %s" % [game_hud._panel_kind, stat_only])
+	await _p1_shot("skillui_01_stats_tab", "능력치 tab (stats only)", true)
+	await _key(KEY_C)
+	await _key(KEY_K)
+	print("[skillui] K -> '%s' tab '%s', 일반 스킬 %s, 마법 %s" % [game_hud._panel_kind, game_hud.skill_tab, _ui_find("일반 스킬", "Label") != null, _ui_find("마법", "Label") != null])
+	await _ui_move(_ui_find("명중 훈련", "Label"))
+	print("[skillui] hover 명중 훈련 -> %s" % game_hud.tip_text().replace("\n", " / "))
+	var r0 := st.skill_rank("accuracy")
+	await _ui_click(_ui_find("명중 훈련", "Label").get_parent().get_child(2))
+	print("[skillui] 배우기 click -> 명중 훈련 %d -> %d, EXP %d" % [r0, st.skill_rank("accuracy"), st.gen_exp])
+	var spell_row: Control = _ui_find("작은 치유", "Label")
+	if spell_row:
+		var q0 := st.quick_skills.duplicate()
+		await _ui_click(_ui_find("작은 치유", "Label").get_parent().get_child(5))
+		print("[skillui] spell quickslot 7 click -> quick skills %s -> %s" % [q0, st.quick_skills])
+	await _p1_shot("skillui_02_skill_tab", "스킬 tab", true)
+	await _ui_click(_ui_find("생활 스킬", "Button"))
+	var fields := PackedStringArray()
+	for f: String in LifeDB.FIELDS:
+		if _ui_find(LifeDB.field_name(f), "Label"):
+			fields.append(LifeDB.field_name(f))
+	print("[skillui] 생활 스킬 tab -> '%s', sections %s" % [game_hud.skill_tab, ", ".join(fields)])
+	await _ui_click(_ui_find("채집 요령", "Label").get_parent().get_child(1))
+	print("[skillui] 채집 요령 배우기 -> learned %s, life EXP %d" % [st.has_life_skill("gather_knack"), st.life_exp])
+	await _p1_shot("skillui_03_life_tab", "생활 스킬 tab", true)
+	await _ui_click(_ui_find("소지품", "Button"))
+	print("[skillui] top tab 소지품 -> '%s'" % game_hud._panel_kind)
+	await _key(KEY_K)
+	await _key(KEY_K)
+	print("[skillui] K twice -> panel '%s' (closed)" % game_hud._panel_kind)
+	get_tree().quit()
+
+
 ## Inventory + equipment window (user mockup): tabs, equipment slot grid, weight bar (bag + worn),
 ## 7-column bag grid with hover text, select / double-click to equip, 정렬, tab switch by click.
 func _run_inv_ui_tour() -> void:
@@ -4464,8 +4514,9 @@ func _run_life_tour() -> void:
 		st.learn_life_skill("gather_knack"), st.life_exp])
 	print("[life] angler_sense block: '%s'" % st.life_skill_block("angler_sense"))
 	await _seconds(2.8)  # let toasts fade
-	await _key(KEY_C)
-	await _p1_shot("life_05_character", "character panel: life EXP, mastery, life skills", true)
+	game_hud.skill_tab = "life"
+	await _key(KEY_K)
+	await _p1_shot("life_05_character", "skill window (K), 생활 스킬 tab: life EXP, mastery, life skills", true)
 	await _key(KEY_C)
 	# life-EXP-only quest reward (13.4)
 	Game.quests.accept("quest.board.herbs")

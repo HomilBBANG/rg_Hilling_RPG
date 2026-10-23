@@ -518,7 +518,7 @@ func _open(kind: String, source: Node3D, range_m: float, build: Callable, width 
 		_adopt_tooltips(_panel)
 		_panel.reset_size()
 		_panel.position = Vector2(960 - _panel.size.x * 0.5, 470 - _panel.size.y * 0.5)
-		if kind in ["inventory", "character"]:
+		if kind in ["inventory", "character", "skills"]:
 			_panel.position.y = 40.0  # the two tabs of one window: same place, the tab bar doesn't jump
 	_panel_refresh.call()
 
@@ -612,11 +612,9 @@ func open_loot(source: LootContainer) -> void:
 func _window_tabs(v: VBoxContainer, active: String) -> void:
 	var bar := HBoxContainer.new()
 	bar.add_theme_constant_override("separation", 6)
-	for t: Array in [["inventory", "소지품 · 장비  (Tab)"], ["character", "능력치  (C)"]]:
+	for t: Array in [["inventory", "소지품 · 장비  (Tab)"], ["character", "능력치  (C)"], ["skills", "스킬  (K)"]]:
 		var kind: String = t[0]
-		var b := _button(t[1], func() -> void:
-			if _panel_kind != kind:
-				toggle_inventory() if kind == "inventory" else toggle_character(), 230)
+		var b := _button(t[1], func() -> void: _open_window_tab(kind), 230)
 		b.toggle_mode = true
 		b.button_pressed = kind == active
 		if kind == active:
@@ -631,6 +629,17 @@ func _window_tabs(v: VBoxContainer, active: String) -> void:
 				b.add_theme_stylebox_override(st_name, sb)
 		bar.add_child(b)
 	v.add_child(bar)
+
+
+func _open_window_tab(kind: String) -> void:
+	if _panel_kind == kind:
+		return
+	if kind == "inventory":
+		toggle_inventory()
+	elif kind == "character":
+		toggle_character()
+	else:
+		toggle_skills()
 
 
 const INV_BORDER := Color(0.46, 0.46, 0.48)  ## frames, cell lines, weight bar (gray)
@@ -1338,8 +1347,8 @@ func open_sleep(source: Node3D) -> void:
 
 # ---------------------------------------------------------------- per frame
 
-## Character sheet (GDD 5.1-5.3): spend general EXP on a level-up (+1 stat point) or on basic
-## skills; put stat points into the 7 stats. Nothing happens automatically.
+## Character sheet (GDD 5.1-5.2): level-up with general EXP (+1 stat point) and the 7 stats with
+## their derived numbers. Skills and life skills are in the skill window (K).
 func toggle_character() -> void:
 	if _panel_kind == "character":
 		close_panel()
@@ -1347,69 +1356,158 @@ func toggle_character() -> void:
 	var st := Game.player_state
 	_open("character", null, 0.0, func(v: VBoxContainer) -> void:
 		_window_tabs(v, "character")
-		v.add_child(_row_label("주인공 — Lv %d" % st.level, 400, 28, Color(1.0, 0.9, 0.6)))
-		var h := HBoxContainer.new()
-		h.add_child(tip(_row_label("일반 EXP %d / 레벨업 %d" % [st.gen_exp, st.exp_to_next()], 330, 22), "일반 EXP",
-			"전투·퀘스트로 얻는다. 레벨업(능력치 포인트 +%d)이나 기본 스킬 습득에 직접 쓴다 — 저절로 쓰이지 않는다." % PlayerState.STAT_POINTS_PER_LEVEL))
+		var head := HBoxContainer.new()
+		head.add_child(_row_label("주인공 — Lv %d" % st.level, 300, 28, Color(1.0, 0.9, 0.6)))
+		head.add_child(tip(_row_label("일반 EXP %d / %d" % [st.gen_exp, st.exp_to_next()], 260, 22), "일반 EXP",
+			"전투·퀘스트로 얻는다. 레벨업(능력치 포인트 +%d)이나 기본 스킬 습득(스킬 창, K)에 직접 쓴다 — 저절로 쓰이지 않는다." % PlayerState.STAT_POINTS_PER_LEVEL))
 		var lv := _button("레벨업 (EXP %d 사용)" % st.exp_to_next(), func() -> void:
 			if st.level_up():
 				Game.combat_log.add("레벨 %d — 능력치 포인트 +%d" % [st.level, PlayerState.STAT_POINTS_PER_LEVEL], "", "info")
 				boot.hud.toast("레벨 %d! 능력치 포인트를 투자하세요" % st.level)
 			_refresh_panel())
 		lv.disabled = not st.can_level_up()
-		h.add_child(lv)
-		v.add_child(h)
-		# life side (GDD 5.2 / 5.4): life EXP is spent on life skills; mastery grows by doing
-		var mparts := PackedStringArray()
-		for f: String in LifeDB.FIELDS:
-			var pts := int(st.mastery.get(f, 0))
-			var nxt := LifeDB.next_threshold(pts)
-			mparts.append("%s Lv %d (%s)" % [LifeDB.field_name(f), st.mastery_level(f), "%d/%d" % [pts, nxt] if nxt > 0 else "최대"])
-		v.add_child(tip(_row_label("생활 EXP %d · 숙련도: %s" % [st.life_exp, ", ".join(mparts)], 760, 18, Color(0.75, 0.9, 0.75)), "생활 EXP · 숙련도",
-			"생활 EXP는 채집·낚시·요리·제작과 퀘스트로 얻고, 생활 기술을 배우는 데 쓴다.\n숙련도는 그 활동을 반복하면 저절로 오른다."))
-		for sid: String in LifeDB.data().get("skills", {}):
+		head.add_child(lv)
+		v.add_child(head)
+		v.add_child(HSeparator.new())
+		_build_stat_block(v)
+		v.add_child(_button("닫기 (C)", close_panel)), 1240)
+
+
+## Skill window (K): two tabs — 스킬 (basic skills bought with general EXP, magic on quickslots)
+## and 생활 스킬 (one section per life field: mastery + its life skills).
+var skill_tab := "skill"
+
+
+func toggle_skills(tab := "") -> void:
+	if tab != "":
+		skill_tab = tab
+	elif _panel_kind == "skills":
+		close_panel()
+		return
+	var st := Game.player_state
+	_open("skills", null, 0.0, func(v: VBoxContainer) -> void:
+		_window_tabs(v, "skills")
+		var sub := HBoxContainer.new()
+		sub.add_theme_constant_override("separation", 6)
+		for t: Array in [["skill", "스킬"], ["life", "생활 스킬"]]:
+			var key: String = t[0]
+			var b := _button(t[1], func() -> void:
+				skill_tab = key
+				_refresh_panel(), 160)
+			if key == skill_tab:
+				b.add_theme_color_override("font_color", Color(1.0, 0.88, 0.5))
+				var sb := StyleBoxFlat.new()
+				sb.bg_color = Color(0.3, 0.24, 0.14)
+				sb.border_color = Color(0.85, 0.7, 0.42)
+				sb.border_width_bottom = 3
+				sb.content_margin_left = 12
+				sb.content_margin_right = 12
+				for st_name in ["normal", "hover", "pressed"]:
+					b.add_theme_stylebox_override(st_name, sb)
+			sub.add_child(b)
+		v.add_child(sub)
+		v.add_child(HSeparator.new())
+		if skill_tab == "life":
+			_build_life_skills(v)
+		else:
+			_build_combat_skills(v)
+		v.add_child(_button("닫기 (K)", close_panel)), 1240)
+
+
+func _section(v: VBoxContainer, title: String, help := "") -> void:
+	var l := _row_label(title, 600, 23, Color(1.0, 0.9, 0.6))
+	v.add_child(tip(l, title, help) if help != "" else l)
+
+
+func _build_combat_skills(v: VBoxContainer) -> void:
+	var st := Game.player_state
+	v.add_child(tip(_row_label("일반 EXP %d" % st.gen_exp, 400, 21, Color(0.85, 0.9, 0.95)), "일반 EXP", "기본 스킬 습득과 레벨업(능력치 창)에 쓴다."))
+	_section(v, "일반 스킬", "스승 없이 일반 EXP로 배우는 패시브 기술. 배우면 바로 적용되고 퀵슬롯이 필요 없다.")
+	for id: String in PlayerState.SKILLS:
+		var sk: Dictionary = PlayerState.SKILLS[id]
+		var row := HBoxContainer.new()
+		var rank := st.skill_rank(id)
+		row.add_child(tip(_row_label("  %s" % sk["name"], 260, 21), sk["name"], "%s (단계마다)\n%d / %d단계" % [sk["desc"], rank, sk["max"]]))
+		row.add_child(_row_label("%d / %d단계" % [rank, sk["max"]], 160, 20, Color(0.85, 0.88, 0.9)))
+		var cost := st.skill_cost(id)
+		var b := _button("최대" if cost < 0 else "배우기 (EXP %d)" % cost, func() -> void:
+			if st.learn_skill(id):
+				Game.combat_log.add("기본 스킬 습득: %s %d단계" % [sk["name"], st.skill_rank(id)], "", "info")
+			_refresh_panel(), 200)
+		b.disabled = cost < 0 or st.gen_exp < cost
+		if cost >= 0 and st.gen_exp < cost:
+			b.tooltip_text = "일반 EXP %d 필요 (지금 %d)" % [cost, st.gen_exp]
+		row.add_child(b)
+		v.add_child(row)
+	v.add_child(HSeparator.new())
+	_section(v, "마법", "마법서·NPC·퀘스트로 배운다. 퀵슬롯 5~8에 등록해야 쓸 수 있고, MP를 쓴다.")
+	if st.spells.is_empty():
+		v.add_child(_row_label("  아직 배운 마법이 없다 (보급 상자의 '마법서: 작은 치유'를 소지품에서 읽기)", 900, 18, Color(0.7, 0.74, 0.78)))
+	for sid: String in st.spells:
+		var spi: Dictionary = ItemDB.SPELLS[sid]
+		var row2 := HBoxContainer.new()
+		row2.add_child(tip(_row_label("  " + str(spi["name"]), 260, 21), spi["name"], "%s\nMP %d · %.1f초 시전 · 재사용 %.0f초" % [spi["desc"], spi["mp"], spi["time"], spi["cooldown"]]))
+		row2.add_child(_row_label("MP %d" % spi["mp"], 160, 20, Color(0.6, 0.75, 1.0)))
+		row2.add_child(_row_label("퀵슬롯", 80, 18, Color(0.72, 0.76, 0.8)))
+		for qi in PlayerState.QUICK_SKILL_SLOTS:
+			var on: bool = st.quick_skills[qi] == sid
+			var qb := _button(("[%d]" if on else "%d") % (qi + 5), func() -> void:
+				st.assign_quick_skill(qi, "" if on else sid)
+				_refresh_panel())
+			qb.tooltip_text = "퀵슬롯 %d에 %s" % [qi + 5, "등록됨 — 누르면 해제" if on else "등록"]
+			row2.add_child(qb)
+		v.add_child(row2)
+
+
+func _build_life_skills(v: VBoxContainer) -> void:
+	var st := Game.player_state
+	v.add_child(tip(_row_label("생활 EXP %d" % st.life_exp, 400, 21, Color(0.75, 0.92, 0.75)), "생활 EXP",
+		"채집·낚시·요리·제작과 퀘스트로 얻고, 생활 기술을 배우는 데 쓴다."))
+	var by_field := {}
+	for sid: String in LifeDB.data().get("skills", {}):
+		for f: String in LifeDB.skill(sid).get("req", {}):
+			by_field[f] = by_field.get(f, []) + [sid]
+	var hint := {"gathering": "풀·버섯·나무·광석을 모을수록 오른다.", "fishing": "물고기를 낚을수록 오른다.",
+		"cooking": "요리를 만들수록 오른다 (U 요리·제작).", "crafting": "물건을 만들수록 오른다 (U 요리·제작)."}
+	for f: String in LifeDB.FIELDS:
+		var pts := int(st.mastery.get(f, 0))
+		var nxt := LifeDB.next_threshold(pts)
+		var head := HBoxContainer.new()
+		head.add_child(tip(_row_label(LifeDB.field_name(f), 160, 23, Color(1.0, 0.9, 0.6)), "%s 숙련도" % LifeDB.field_name(f),
+			"%s\n숙련도는 그 활동을 반복하면 저절로 오른다 (EXP로 사지 않음)." % hint.get(f, "")))
+		head.add_child(_row_label("숙련도 Lv %d" % st.mastery_level(f), 160, 20, Color(0.85, 0.9, 0.85)))
+		var bar := ProgressBar.new()
+		bar.custom_minimum_size = Vector2(260, 18)
+		bar.show_percentage = false
+		bar.max_value = maxf(1.0, float(nxt))
+		bar.value = float(pts) if nxt > 0 else bar.max_value
+		bar.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		for part: Array in [["background", Color(0.13, 0.13, 0.14), Color(0.46, 0.46, 0.48)], ["fill", Color(0.4, 0.7, 0.38), Color(0.4, 0.7, 0.38)]]:
+			var psb := StyleBoxFlat.new()
+			psb.bg_color = part[1]
+			psb.border_color = part[2]
+			psb.set_border_width_all(1)
+			bar.add_theme_stylebox_override(part[0], psb)
+		head.add_child(bar)
+		head.add_child(_row_label("  %s" % ("%d / %d" % [pts, nxt] if nxt > 0 else "최대"), 140, 18, Color(0.72, 0.76, 0.8)))
+		v.add_child(head)
+		var list: Array = by_field.get(f, [])
+		if list.is_empty():
+			v.add_child(_row_label("    배울 수 있는 생활 기술이 아직 없다", 600, 17, Color(0.6, 0.63, 0.67)))
+		for sid: String in list:
 			var sk := LifeDB.skill(sid)
-			var srow := HBoxContainer.new()
-			srow.add_child(tip(_row_label("  " + str(sk.get("name", sid)), 560, 17), str(sk.get("name", sid)), str(sk.get("desc", ""))))
+			var row := HBoxContainer.new()
+			row.add_child(tip(_row_label("    " + str(sk.get("name", sid)), 260, 20), str(sk.get("name", sid)), str(sk.get("desc", ""))))
 			var block := st.life_skill_block(sid)
-			var sb := _button("배움" if st.has_life_skill(sid) else ("배우기 (생활 EXP %d)" % int(sk.get("cost", 0))), func() -> void:
+			var b := _button("배움" if st.has_life_skill(sid) else "배우기 (생활 EXP %d)" % int(sk.get("cost", 0)), func() -> void:
 				if st.learn_life_skill(sid):
 					boot.hud.toast("생활 기술 습득: " + str(sk.get("name", sid)))
-				_refresh_panel(), 190)
-			sb.disabled = block != ""
-			sb.tooltip_text = block
-			srow.add_child(sb)
-			v.add_child(srow)
-		_build_stat_block(v)
-		v.add_child(_row_label("마법·특수 스킬 — 퀵슬롯(5~8)에 등록해야 사용 · 마법서/NPC/퀘스트로 습득", 840, 22, Color(1.0, 0.9, 0.6)))
-		if st.spells.is_empty():
-			v.add_child(_row_label("  아직 배운 마법이 없다 (보급 상자의 '마법서: 작은 치유'를 Tab에서 읽기)", 840, 18, Color(0.7, 0.74, 0.78)))
-		for sid: String in st.spells:
-			var spi: Dictionary = ItemDB.SPELLS[sid]
-			var srow := HBoxContainer.new()
-			srow.add_child(tip(_row_label(spi["name"], 160, 21), spi["name"], "%s\nMP %d · %.1f초 시전 · 재사용 %.0f초" % [spi["desc"], spi["mp"], spi["time"], spi["cooldown"]]))
-			srow.add_child(_row_label("MP %d" % spi["mp"], 420, 18, Color(0.72, 0.76, 0.8)))
-			for qi in PlayerState.QUICK_SKILL_SLOTS:
-				var on: bool = st.quick_skills[qi] == sid
-				srow.add_child(_button(("[%d]" if on else "%d") % (qi + 5), func() -> void:
-					st.assign_quick_skill(qi, "" if on else sid)
-					_refresh_panel()))
-			v.add_child(srow)
-		v.add_child(_row_label("기본 스킬 — 일반 EXP로 스승 없이 습득 (패시브, 퀵슬롯 불필요)", 700, 22, Color(1.0, 0.9, 0.6)))
-		for id: String in PlayerState.SKILLS:
-			var sk: Dictionary = PlayerState.SKILLS[id]
-			var row2 := HBoxContainer.new()
-			var rank := st.skill_rank(id)
-			row2.add_child(tip(_row_label("%s %d/%d" % [sk["name"], rank, sk["max"]], 440, 21), sk["name"], "%s (단계마다)\n%d / %d단계" % [sk["desc"], rank, sk["max"]]))
-			var cost := st.skill_cost(id)
-			var b := _button("최대" if cost < 0 else "습득 (EXP %d)" % cost, func() -> void:
-				if st.learn_skill(id):
-					Game.combat_log.add("기본 스킬 습득: %s %d단계" % [sk["name"], st.skill_rank(id)], "", "info")
-				_refresh_panel())
-			b.disabled = cost < 0 or st.gen_exp < cost
-			row2.add_child(b)
-			v.add_child(row2)
-		v.add_child(_button("닫기 (C)", close_panel)), 1240)
+				_refresh_panel(), 230)
+			b.disabled = block != ""
+			if block != "" and not st.has_life_skill(sid):
+				b.tooltip_text = block
+			row.add_child(b)
+			v.add_child(row)
 
 
 ## Stats (left) and the numbers they make (right). + / − only plan points; "확정" spends them,
@@ -1923,7 +2021,7 @@ func open_board(source: Node3D) -> void:
 
 
 func _on_player_changed() -> void:
-	if _panel_kind in ["inventory", "loot", "storage", "character", "shop", "journal", "board", "craft"]:
+	if _panel_kind in ["inventory", "loot", "storage", "character", "skills", "shop", "journal", "board", "craft"]:
 		_refresh_panel()
 
 
