@@ -2,7 +2,7 @@
 
 힐링 판타지 RPG(가칭, Godot 프로젝트명 **Denial**)의 Godot 프로젝트입니다. P0(고정 탑다운 + 3D 픽셀화 렌더,
 데드셀풍 D 스타일) 위에 **P1 코어 플레이 루프**를 올렸습니다: 야외 지역 1곳에서 전투 → 시체 조사 → 중량 인벤토리 →
-캠핑카 운전·실내·창고·수면 → 사망/복귀 → 검은 고양이 동행·교감. 기획 기준은 [`docs/GDD.md`](docs/GDD.md) **v10.2**와
+캠핑카 운전·실내·창고·수면 → 사망/복귀 → 검은 고양이 동행·교감. 기획 기준은 [`docs/GDD.md`](docs/GDD.md) **v10.6**와
 [`docs/CAT_COMPANION_HANDOFF.md`](docs/CAT_COMPANION_HANDOFF.md)이며, 미정 사항을 임시로 정한 값은
 [`notes/IMPLEMENTATION_ASSUMPTIONS.md`](notes/IMPLEMENTATION_ASSUMPTIONS.md)에 모두 적었습니다(정식 규칙 아님).
 
@@ -198,7 +198,7 @@ captures/camper/             캠핑카 들이받기·고장·대장간 수리·�
 captures/story/              왕의 퀘스트: 퀘스트 기록·성 정문·알현실·왕과의 대화 (--tour=king), 드래곤의 둥지 가는 길 dragon_0* (--tour=dragonroad), 둥지 안·드래곤 설득 dragon_1* (--tour=dragon), 왕에게 보고·소원 의식·탈출 wish_* (--tour=wish)
 captures/p3/                P3-1 지역 이동(region_*), P3-2 고정 던전(dungeon_*), P3-3 랜덤 던전(rift_*), P3-4 채집·낚시(life_*, --tour=life), P3-5 요리·제작(craft_*, --tour=craft), 저장 슬롯(save_*, --tour=save), 준비된 세이브(preset_*, --tour=preset)
 notes/             VISUAL_DIRECTION.md, VISUAL_COMPARISON.md, IMPLEMENTATION_ASSUMPTIONS.md, DIALOGUE_EDITOR.md, DRIVING.md
-docs/              GDD.md(v10.2), CAT_COMPANION_HANDOFF.md, DIALOGUE_EDITOR_HANDOFF.md(v10.5), GRAPHICS_PROTOTYPE.md, CLAUDE_CODE_HANDOFF.md
+docs/              SESSION_HANDOFF.md(새 세션은 여기부터), GDD.md(v10.6), CAT_COMPANION_HANDOFF.md, DIALOGUE_EDITOR_HANDOFF.md(v10.5), GRAPHICS_PROTOTYPE.md, CLAUDE_CODE_HANDOFF.md
 ```
 
 `GRAPHICS_PROTOTYPE.md` 6장의 `actors/*.tscn`, `props/*.tscn`은 별도 씬 파일로 만들지 않고, 같은 역할을

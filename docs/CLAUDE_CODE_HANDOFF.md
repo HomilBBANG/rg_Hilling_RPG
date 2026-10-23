@@ -1,3 +1,5 @@
+> **지난 문서 (P0 당시 첫 요청).** P0~P3와 챕터 1은 이미 끝났다. 새 세션은 [`SESSION_HANDOFF.md`](SESSION_HANDOFF.md)부터 읽을 것.
+
 # Claude Code — 바로 붙여 넣을 첫 작업 요청
 
 > `GDD.md`와 `GRAPHICS_PROTOTYPE.md`를 Claude Code 작업 폴더에 함께 둔 뒤 아래 내용을 통째로 전달하세요.

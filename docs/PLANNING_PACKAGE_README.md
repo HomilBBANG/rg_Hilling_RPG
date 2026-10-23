@@ -4,7 +4,8 @@
 
 ## 문서
 
-- `GDD.md`: 최신 통합 GDD v10.2 (기존 v10.1 규칙 유지 + 안전 체크포인트·구출 연출·교감 추가)
+- `SESSION_HANDOFF.md`: 개발 세션 인수인계(2026-10-23) — 새 Claude Code 세션은 여기부터
+- `GDD.md`: 최신 통합 GDD **v10.6** (v10.2 + 운전 v10.3·대화 에디터 v10.5 핸드오프 + 이후 사용자 결정 — 변경 요약은 GDD 첫머리)
 - `CAT_COMPANION_HANDOFF.md`: 고양이 동행, 사망 후 복귀, 체크포인트, 간식 호감도 개발 요약
 - `GRAPHICS_PROTOTYPE.md`: 초기 P0 그래픽 검증 명세(기존 문서)
 - `CLAUDE_CODE_HANDOFF.md`: 초기 P0 그래픽 검증 개발 지시(기존 문서)
