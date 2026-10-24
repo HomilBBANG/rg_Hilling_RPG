@@ -2,7 +2,7 @@
 .godot/
 /android/
 *.translation
-export_presets.cfg
+/build/
 # Captures: keep committed PNG/GIF/MP4, ignore raw movie-maker output
 captures/*.avi
 *.blend1

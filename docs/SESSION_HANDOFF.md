@@ -82,6 +82,15 @@ echo "$t exit=$? errors=$(grep -c 'SCRIPT ERROR' $S/reg/$t.log)"; grep -c '✘' 
 - **이 컨테이너의 소프트웨어 렌더러에서는 구운 스프라이트(주인공·고양이 등)가 연한 실루엣(유령)으로만 찍힌다**(2026-10-23 확인, 이전 커밋도 같음 — 환경 문제. 깊이 쓰기가 안 되어 가려짐 실루엣 패스만 보임). 스프라이트 자체는 `--tour=sprites`가 내보내는 `sheets/*.png`로 확인한다. `--tour=facing` = 주인공 8방향 보행 캡처(등불 끔/켬).
 - 투어 코드는 `scripts/core/bootstrap.gd`의 `_tour_*` 함수들. 도움 함수: `_talk_through(picks, prefix)`, `_key`, `_p1_shot`, `_place_player`, `_wait_travel`, `_walk_to`, `_drive_to_gate()`.
 
+### PC(Windows) 빌드 뽑기
+
+```bash
+# 내보내기 템플릿(한 번): https://github.com/godotengine/godot/releases/download/4.7.2-stable/Godot_v4.7.2-stable_export_templates.tpz
+#   → templates/windows_release_x86_64.exe, windows_debug_x86_64.exe, version.txt 를 ~/.local/share/godot/export_templates/4.7.2.stable/ 에
+$GD --headless --path . --export-release "Windows Desktop" build/windows/Denial.exe   # export_presets.cfg (저장소에 포함), pck 내장, addons·captures·docs 제외
+```
+사용자 PC에서는 Godot 에디터 `프로젝트 > 내보내기 > Windows Desktop`으로 같은 프리셋을 쓴다. `build/`는 커밋하지 않는다.
+
 ### 대화 에디터·맵 에디터 자체 검사
 
 ```bash
