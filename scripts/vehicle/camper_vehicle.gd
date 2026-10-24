@@ -286,8 +286,12 @@ func sprite_direction() -> int:
 	return posmod(roundi((rotation.y - base_yaw) / step), CamperExterior.SPRITE_DIRECTIONS)
 
 
-## Model turned to the baked direction so sprite and shadow agree.
+## With a baked sprite the model is turned to the baked direction so sprite and shadow agree;
+## as a live 3D rig (the default now) it simply follows the body: any angle, smooth turning.
 func _sync_visual() -> void:
+	if camper.sprite == null:
+		camper.rotation.y = 0.0
+		return
 	var dir := sprite_direction()
 	var snapped := base_yaw + dir * TAU / CamperExterior.SPRITE_DIRECTIONS
 	camper.rotation.y = snapped - rotation.y

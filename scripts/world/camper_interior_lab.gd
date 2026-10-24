@@ -650,8 +650,7 @@ func _process(_delta: float) -> void:
 
 
 func sprite_targets() -> Array:
-	var g := Game.player_state.visual_gear()
-	var out := [[player, PrototypePlayer.sprite_bake_spec(g), "player|" + PlayerState.gear_key(g)]]
+	var out := []  # the hero stays a live 3D rig (see VisualLab.sprite_targets)
 	if cat:
 		out.append([cat, CatCompanion.sprite_bake_spec(), "cat"])
 	return out
