@@ -86,7 +86,7 @@ static func capture_state() -> Dictionary:
 		"region": Game.region, "fields": _pack(Game.fields), "camper": Game.camper.duplicate(true),
 		"discovered": Game.discovered.duplicate(true), "map_pins": Game.map_pins.duplicate(true), "maps_owned": Game.maps_owned.duplicate(), "shops": Game.shops.duplicate(true),
 		"flags": Game.narrative.flags.duplicate(true), "quests": Game.quests.entries.duplicate(true),
-		"storage": Game.storage.duplicate_items(),
+		"storage": Game.storage.duplicate_items(), "hut_storage": Game.hut_storage.duplicate_items(),
 		"item_instances": ItemDB.instances.duplicate(true), "item_next": ItemDB._next_instance,
 		"log_level": Game.combat_log.level,
 		"player": {
@@ -134,6 +134,7 @@ static func apply_state(saved: Dictionary) -> void:
 	Game.narrative.flags = s["flags"]
 	Game.quests.entries = s["quests"]
 	Game.storage.items.assign(s["storage"])
+	Game.hut_storage.items.assign(s.get("hut_storage", []))
 	ItemDB.instances = s["item_instances"]
 	ItemDB._next_instance = int(s["item_next"])
 	Game.combat_log.entries.clear()

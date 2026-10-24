@@ -47,12 +47,9 @@
   ],
   "sources": [
     {
-      "kind": "drop",
-      "region": "capital",
-      "pos": [
-        4,
-        40
-      ]
+      "kind": "npc",
+      "speaker": "king",
+      "note": "챕터 1 섬 전체 지도 — 왕이 드래곤 토벌을 맡길 때 한 번에 (지역 지도 5장이 함께 열림)"
     }
   ]
 }

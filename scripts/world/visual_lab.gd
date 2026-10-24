@@ -41,7 +41,13 @@ const CART_POS := Vector3(40.8, 0.0, -6.4)
 const PARCELS := [["parcel_1", Vector3(38.7, 0.0, -4.2)], ["parcel_2", Vector3(42.1, 0.0, -3.9)], ["parcel_3", Vector3(39.3, 0.0, -7.6)]]
 const PARCEL_QUEST := "quest.event.lost_parcels"
 const CRATE_POS := Vector3(-4.6, 0.0, 2.9)
-const WORKBENCH_POS := Vector3(-11.4, 0.0, 1.0)  # P3-5: camp workbench (complex crafting)  # inside the camper's turning circle: clear of its way out
+## Abandoned hut where a new character wakes (user request 2026-10-24): roofless, no loading, with
+## the camp workbench and a small storage box inside. The front (south) wall is cut low so the
+## camera sees in. Centre and size [Claude 임시].
+const HUT_POS := Vector3(2.4, 0.0, -4.6)
+const HUT_SIZE := Vector2(4.6, 3.8)
+const WORKBENCH_POS := Vector3(1.3, 0.0, -5.4)  # P3-5: camp workbench (complex crafting), inside the hut
+const HUT_CHEST_POS := Vector3(3.6, 0.0, -5.5)
 
 var region_id := RegionDB.START
 var region := {}
@@ -321,6 +327,64 @@ func _build_workbench(p: Vector3) -> void:
 	InteractPoint.facility(self, p + Vector3(0, 0, 0.9), "workbench", "작업대")
 
 
+## The abandoned hut: weathered plank walls on a low stone footing, a door gap in the low front
+## wall, one corner fallen in, floor boards, the workbench and the storage box.
+func _build_hut() -> void:
+	var c := HUT_POS
+	var hx := HUT_SIZE.x * 0.5
+	var hz := HUT_SIZE.y * 0.5
+	var plank := ProtoMesh.mat(Color(0.5, 0.4, 0.3))
+	var plank_d := ProtoMesh.mat(Color(0.4, 0.31, 0.23))
+	var post := ProtoMesh.mat(Color(0.3, 0.22, 0.15))
+	var footing := ProtoMesh.mat(Color(0.5, 0.49, 0.46))
+	var y0 := ground_height(c.x, c.z)
+	var root := Node3D.new()
+	root.position = Vector3(c.x, y0, c.z)
+	add_child(root)
+	# floor boards
+	for i in int(HUT_SIZE.y / 0.45):
+		var z := -hz + 0.22 + i * 0.45
+		ProtoMesh.box(root, Vector3(HUT_SIZE.x - 0.1, 0.06, 0.42), Vector3(0, 0.03, z), plank if i % 2 == 0 else plank_d)
+	# walls: back full height, sides full (east corner fallen in), front low with the door gap
+	var h := 2.0
+	var t := 0.2
+	ProtoMesh.box(root, Vector3(HUT_SIZE.x + t, 0.3, t), Vector3(0, 0.15, -hz), footing)
+	ProtoMesh.box(root, Vector3(HUT_SIZE.x + t, h - 0.3, t), Vector3(0, 0.3 + (h - 0.3) * 0.5, -hz), plank)
+	ProtoMesh.box(root, Vector3(t, 0.3, HUT_SIZE.y), Vector3(-hx, 0.15, 0), footing)
+	ProtoMesh.box(root, Vector3(t, h - 0.3, HUT_SIZE.y), Vector3(-hx, 0.3 + (h - 0.3) * 0.5, 0), plank_d)
+	ProtoMesh.box(root, Vector3(t, 0.3, HUT_SIZE.y), Vector3(hx, 0.15, 0), footing)
+	ProtoMesh.box(root, Vector3(t, 1.0, HUT_SIZE.y * 0.55), Vector3(hx, 0.8, -hz + HUT_SIZE.y * 0.275), plank_d)  # the rest fell in
+	ProtoMesh.box(root, Vector3(t, 0.5, HUT_SIZE.y * 0.45), Vector3(hx, 0.55, hz - HUT_SIZE.y * 0.225), plank_d)
+	ProtoMesh.box(root, Vector3(0.12, 1.3, 0.7), Vector3(hx + 0.35, 0.2, 0.6), plank, Vector3(0, 10, 70))  # fallen plank
+	var door_w := 1.3
+	var side_w := (HUT_SIZE.x - door_w) * 0.5
+	for s in [-1.0, 1.0]:
+		var cx: float = s * (door_w * 0.5 + side_w * 0.5)
+		ProtoMesh.box(root, Vector3(side_w, 0.3, t), Vector3(cx, 0.15, hz), footing)
+		ProtoMesh.box(root, Vector3(side_w, 0.5, t), Vector3(cx, 0.55, hz), plank)
+	for corner in [Vector3(-hx, 0, -hz), Vector3(hx, 0, -hz), Vector3(-hx, 0, hz), Vector3(hx, 0, hz),
+			Vector3(-door_w * 0.5, 0, hz), Vector3(door_w * 0.5, 0, hz)]:
+		var ph := h + 0.2 if corner.z < 0 or corner.x < -hx + 0.1 else 1.1
+		ProtoMesh.box(root, Vector3(0.18, ph, 0.18), corner + Vector3(0, ph * 0.5, 0), post)
+	# colliders (door gap open)
+	ProtoMesh.static_box_collider(self, Vector3(HUT_SIZE.x + t, 3, t), Vector3(c.x, y0 + 1.0, c.z - hz))
+	ProtoMesh.static_box_collider(self, Vector3(t, 3, HUT_SIZE.y), Vector3(c.x - hx, y0 + 1.0, c.z))
+	ProtoMesh.static_box_collider(self, Vector3(t, 3, HUT_SIZE.y), Vector3(c.x + hx, y0 + 1.0, c.z))
+	for s in [-1.0, 1.0]:
+		ProtoMesh.static_box_collider(self, Vector3(side_w, 3, t), Vector3(c.x + s * (door_w * 0.5 + side_w * 0.5), y0 + 1.0, c.z + hz))
+	_block(c.x, c.z, 3.6)
+	# storage box: a strapped wooden chest, E opens the hut's small storage
+	var chest := _on_ground(Node3D.new(), HUT_CHEST_POS.x, HUT_CHEST_POS.z)
+	var strap := ProtoMesh.mat(Color(0.3, 0.3, 0.34), 0.5)
+	ProtoMesh.box(chest, Vector3(0.9, 0.5, 0.6), Vector3(0, 0.25, 0), plank)
+	ProtoMesh.box(chest, Vector3(0.94, 0.1, 0.64), Vector3(0, 0.55, 0), plank_d)
+	for x in [-0.3, 0.3]:
+		ProtoMesh.box(chest, Vector3(0.06, 0.62, 0.66), Vector3(x, 0.3, 0), strap)
+	ProtoMesh.static_box_collider(self, Vector3(0.9, 2, 0.6), Vector3(HUT_CHEST_POS.x, y0 + 0.5, HUT_CHEST_POS.z))
+	var ip := InteractPoint.make(self, HUT_CHEST_POS + Vector3(0, 0, 0.8), "E 창고 상자 — 오두막 (%.0f kg까지)" % Game.HUT_STORAGE_KG, Callable(), 1.5)
+	ip.action = func(_pl: Node) -> void: Game.hud.open_storage(ip, "hut")
+
+
 func _build_camp_props() -> void:
 	_block(CAMPER_POS.x, CAMPER_POS.z, 4.2)
 	_block(CAMPER_POS.x - 2.0, CAMPER_POS.z, 2.0)
@@ -340,6 +404,7 @@ func _build_camp_props() -> void:
 	_on_ground(CampProps.potted_plant(_rng, true), door.x - 0.6, door.z + 0.35)
 	_on_ground(CampProps.potted_plant(_rng, false), door.x + 0.6, door.z + 0.3)
 	_on_ground(CampProps.potted_plant(_rng, true), door.x - 1.6, door.z + 0.4)
+	_build_hut()
 	# Campfire with log seats
 	var fire := _on_ground(CampProps.campfire(_rng), CAMPFIRE_POS.x, CAMPFIRE_POS.z)
 	InteractPoint.facility(self, CAMPFIRE_POS + Vector3(-1.1, 0, 0.9), "cooking", "모닥불")
@@ -407,7 +472,7 @@ func _build_farm() -> void:
 func _build_camp_framing() -> void:
 	# Diorama framing: a big shade tree, a blossom tree, a pine backdrop behind the camper
 	_place_tree(NatureProps.TreeKind.BROADLEAF, -12.2, 4.2, 1.45)
-	_place_tree(NatureProps.TreeKind.BLOSSOM, 2.2, -3.6, 1.15)
+	_place_tree(NatureProps.TreeKind.BLOSSOM, 7.0, -4.4, 1.15)  # beside the hut (it stood where the hut is now)
 	_place_tree(NatureProps.TreeKind.BLOSSOM, -16.5, -10.5, 1.0)
 	for spec in [[-9.5, -10.0, 1.2], [-6.0, -10.8, 1.35], [-2.4, -9.6, 1.1], [-12.5, -11.5, 1.0], [0.8, -11.2, 1.25]]:
 		_place_tree(NatureProps.TreeKind.PINE, spec[0], spec[1], spec[2])

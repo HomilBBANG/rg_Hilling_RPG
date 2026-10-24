@@ -44,6 +44,10 @@ var player_state := PlayerState.new()
 var combat_log := CombatLog.new()
 ## Camper storage: separate weight-limited container (GDD 8.3 [확정]); capacity [미정].
 var storage := Inventory.new()
+## The abandoned hut's storage box (user request 2026-10-24): a small temporary stash at the camp.
+## Deliberately small — the island is chapter 1 only and little of it comes along at the end.
+const HUT_STORAGE_KG := 25.0
+var hut_storage := Inventory.new()
 ## Story flags (GDD 2.3: the cat joins before the camper exists). F9 cycles the stages.
 var has_camper := true
 ## Camper fuel and durability (GDD 9.3 / 9.5 [확정]; the numbers are [미정] placeholders).

@@ -86,10 +86,23 @@ static func owned(region: String) -> bool:
 	return not Engine.is_editor_hint() and Game.maps_owned.has(region)  # the editor has no game state
 
 
-## Gives the region's map. Returns true the first time.
+## Chapter 1's regions share one map (user decision 2026-10-24): the king hands it over with the
+## dragon quest, and it reveals all of them at once. No shop or field copies any more.
+const CHAPTER1 := ["meadow", "highland", "capital", "ashen_pass", "cave"]
+
+
+## Gives the region's map — a chapter-1 region gives the whole island. Returns true the first time.
 static func give(region: String) -> bool:
 	if owned(region) or info(region).is_empty():
 		return false
+	if region in CHAPTER1:
+		for rid: String in CHAPTER1:
+			if not owned(rid) and not info(rid).is_empty():
+				Game.maps_owned.append(rid)
+		Game.combat_log.add("지도를 얻었다: 챕터 1 섬 전체 지도", "초원·고원·왕도·잿빛 산길·동굴 — M으로 열어 볼 수 있다", "info")
+		if Game.hud:
+			Game.hud.toast_quest("지도 획득 — 챕터 1 섬 전체 지도 (M)")
+		return true
 	Game.maps_owned.append(region)
 	Game.combat_log.add("지도를 얻었다: %s" % title(region), "M으로 열어 볼 수 있다", "info")
 	if Game.hud:

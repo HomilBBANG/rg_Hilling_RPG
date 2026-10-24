@@ -582,6 +582,10 @@ func _storage_can_take(w: float) -> bool:
 	return Game.storage.weight() + w <= Game.storage_capacity() + 0.0001
 
 
+func _hut_can_take(w: float) -> bool:
+	return Game.hut_storage.weight() + w <= Game.HUT_STORAGE_KG + 0.0001
+
+
 func _too_heavy_toast() -> void:
 	boot.hud.toast("너무 무겁다 — 한계 중량 %.0f kg을 넘어 더 들 수 없다" % Game.player_state.carry_limit())
 
@@ -1147,14 +1151,20 @@ func _change_gear(action: Callable, done_text: String) -> void:
 
 ## Camper storage (GDD 8.3 [확정]): separate weight-limited box, move items one by one or
 ## "move everything carried". No automatic storing on arrival.
-func open_storage(source: Node3D) -> void:
+## kind "camper" = the camper's storage, "hut" = the abandoned hut's small box.
+func open_storage(source: Node3D, kind := "camper") -> void:
 	if _panel_kind == "storage":
 		close_panel()
 		return
 	var bag := Game.player_state.inventory
-	var box := Game.storage
+	var hut := kind == "hut"
+	var box := Game.hut_storage if hut else Game.storage
+	var cap: float = Game.HUT_STORAGE_KG if hut else Game.storage_capacity()
+	var can_take: Callable = _hut_can_take if hut else _storage_can_take
 	_open("storage", source, 2.6, func(v: VBoxContainer) -> void:
-		v.add_child(_row_label("캠핑카 창고", 400, 28, Color(1.0, 0.9, 0.6)))
+		v.add_child(_row_label("오두막 창고 상자" if hut else "캠핑카 창고", 400, 28, Color(1.0, 0.9, 0.6)))
+		if hut:
+			v.add_child(_row_label("임시 거처 — 챕터가 끝나면 여기 둔 것은 가져가기 어렵다", 720, 18, Color(0.8, 0.76, 0.66)))
 		var cols := HBoxContainer.new()
 		cols.add_theme_constant_override("separation", 26)
 		v.add_child(cols)
@@ -1165,15 +1175,15 @@ func open_storage(source: Node3D) -> void:
 		left.add_child(_row_label("소지품 %.1f / %.0f kg (한계 %.0f)" % [bag.weight(), Game.player_state.carry_capacity(), Game.player_state.carry_limit()], 520, 20, Color(0.85, 0.88, 0.92)))
 		_items_list(left, bag, func(h: HBoxContainer, id: String, count: int) -> void:
 			h.add_child(_button("1 →", func() -> void:
-				if _move(bag, box, id, 1, _storage_can_take) == 0:
+				if _move(bag, box, id, 1, can_take) == 0:
 					boot.hud.toast("창고 용량이 부족하다")
 				_refresh_panel()))
 			if count > 1:
 				h.add_child(_button("모두 →", func() -> void:
-					if _move(bag, box, id, count, _storage_can_take) < count:
+					if _move(bag, box, id, count, can_take) < count:
 						boot.hud.toast("창고 용량이 부족해 일부만 옮겼다")
 					_refresh_panel())), "가방이 비어 있다")
-		right.add_child(_row_label("창고 %.1f / %.0f kg" % [box.weight(), Game.storage_capacity()], 520, 20, Color(0.85, 0.88, 0.92)))
+		right.add_child(_row_label("창고 %.1f / %.0f kg" % [box.weight(), cap], 520, 20, Color(0.85, 0.88, 0.92)))
 		_items_list(right, box, func(h: HBoxContainer, id: String, count: int) -> void:
 			h.add_child(_button("← 1", func() -> void:
 				if _move(box, bag, id, 1, _player_can_take) == 0:

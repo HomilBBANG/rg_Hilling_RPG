@@ -4010,31 +4010,23 @@ func _run_maps_tour() -> void:
 	await _frames(2)
 	print("[maps] minimap without the meadow map: active %s, terrain drawn %s" % [game_hud.minimap._active, MapDB.owned("meadow")])
 	await _p1_shot("maps_02_minimap_nomap", "minimap without a map", true)
-	# Rosa sells the meadow map (shop UI)
+	# One map for the whole island (user decision): no shop copies, nothing lying in the field
 	var rosa_stall: Vector3 = VisualLab.TRADE_STALLS[0][0]
 	_place_player(rosa_stall + Vector3(0, 0, 1.5), 0.0)
 	await _frames(3)
 	game_hud.open_shop("rosa", world._npc_for("rosa"))
 	await _frames(4)
-	var g0 := st.gold
-	await _ui_click(_ui_find("바람결 초원 지도", "Label").get_parent().get_child(3))
-	print("[maps] bought at Rosa: owned meadow %s, gold %d -> %d, bag has no map item %s" % [MapDB.owned("meadow"), g0, st.gold, st.inventory.count("map.meadow") == 0])
-	await _p1_shot("maps_03_shop", "Rosa's shop with maps", true)
+	print("[maps] Rosa sells no maps %s, map drops in the meadow %d %s" % ["✔" if MapDB.shop_maps("rosa").is_empty() else "✘",
+		get_tree().get_nodes_in_group("map_drop").size(), "✔" if get_tree().get_nodes_in_group("map_drop").is_empty() else "✘"])
+	await _p1_shot("maps_03_shop", "Rosa's shop (no maps)", true)
 	game_hud.close_panel()
-	# a highland map lies by the east road
-	var drops: Array = get_tree().get_nodes_in_group("map_drop")
-	print("[maps] drops lying in the meadow: %s" % [drops.map(func(d: Node) -> String: return str(d.get_meta("map_region")))])
-	var hd: InteractPoint = drops[0] if not drops.is_empty() else null
-	if hd:
-		_place_player(hd.global_position + Vector3(0.6, 0, 0.6), 0.0)
-		await _seconds(0.6)
-		await _p1_shot("maps_04_drop", "a map lying in the field", true)
-		hd.interact(world.player)
-		await _frames(3)
-		print("[maps] picked up -> owned highland %s, drop gone %s" % [MapDB.owned("highland"), get_tree().get_nodes_in_group("map_drop").is_empty()])
-	# the king's map (dialogue action)
+	# the king's map (dialogue action with the dragon quest) opens every chapter-1 region at once
 	var ctx := GameDialogueContext.new()
 	print("[maps] give_map action -> '%s'" % ctx._apply("give_map", {"region": "ashen_pass"}))
+	var all_owned := true
+	for rid: String in MapDB.CHAPTER1:
+		all_owned = all_owned and MapDB.owned(rid)
+	print("[maps] after the king's map: owned %s -> all chapter-1 regions %s" % [Game.maps_owned, "✔" if all_owned else "✘"])
 	await _seconds(1.0)
 	game_hud.toggle_map()
 	await _frames(4)
@@ -4072,8 +4064,10 @@ func _run_maps_tour() -> void:
 	var clouded := mv.world_regions().filter(func(r: String) -> bool: return not MapDB.owned(r))
 	print("[maps] 세계 지도 -> world view %s, regions %s (shape + name only), named (map owned) %s, under clouds %s -> %s" % [mv.world_view, mv.world_regions(),
 		owned_w, clouded, "방문 아님, 지도 기준 ✔" if owned_w.has("ashen_pass") and not Game.discovered.has("region:ashen_pass") else "✘"])
-	# visiting a region without its map reveals nothing
+	# visiting a region without its map reveals nothing (the king's map covers the capital now, so
+	# take that one away for this check and put it back after)
 	Game.discovered["region:capital"] = true
+	Game.maps_owned.erase("capital")
 	print("[maps] been to 왕도 but no map -> under clouds %s %s" % [not MapDB.owned("capital"), "✔" if not MapDB.owned("capital") else "✘"])
 	await _p1_shot("maps_09_world", "world map: shapes and names", true)
 	var hl := RegionDB.map_rect("highland")
@@ -4084,6 +4078,7 @@ func _run_maps_tour() -> void:
 	var cp := RegionDB.map_rect("capital")
 	mv._gui_input(_mouse_click_event(mv.world_to_screen(cp.get_center())))
 	print("[maps] click 왕도 (no map) -> still world view %s" % mv.world_view)
+	Game.maps_owned.append("capital")
 	await _ui_click(_ui_find("현재 지도", "Button"))
 	print("[maps] 현재 지도 -> page '%s', world view %s" % [mv.page, mv.world_view])
 	game_hud.toggle_map()
