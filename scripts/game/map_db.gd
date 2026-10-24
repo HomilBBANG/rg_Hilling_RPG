@@ -271,7 +271,21 @@ static var _img := {}
 static func terrain_image(rid: String) -> Image:
 	if _img.has(rid):
 		return _img[rid]
-	var reg: Dictionary = RegionDB.all()[rid]
+	var img := terrain_image_of(RegionDB.all()[rid])
+	_img[rid] = img
+	return img
+
+
+## Drop every cached picture (the map editor saved a region).
+static func clear_caches() -> void:
+	_img.clear()
+	_tex.clear()
+	_world.clear()
+
+
+## The picture of a region dictionary (expanded dungeon or outdoor layout), uncached — the map
+## editor redraws it while the layout is being edited.
+static func terrain_image_of(reg: Dictionary) -> Image:
 	var img: Image
 	if reg.get("kind", "") == "dungeon":
 		var cl := float(reg.get("cell", 2.0))
@@ -322,7 +336,6 @@ static func terrain_image(rid: String) -> Image:
 				elif pd < 1.9 and not in_town:
 					col = col.lerp(INK, 0.55)  # road edge
 				img.set_pixel(x, z, col)
-	_img[rid] = img
 	return img
 
 
@@ -414,7 +427,10 @@ static func world_picture() -> Dictionary:
 
 ## The area a region's picture covers, in region metres (fixed dungeons: their grid).
 static func region_rect(rid: String) -> Rect2:
-	var reg: Dictionary = RegionDB.all().get(rid, {})
+	return region_rect_of(RegionDB.all().get(rid, {}))
+
+
+static func region_rect_of(reg: Dictionary) -> Rect2:
 	if reg.get("kind", "") == "dungeon":
 		var cl := float(reg.get("cell", 2.0))
 		var sz := Vector2(int(reg.get("_cols", 1)), int(reg.get("_rows", 1))) * cl

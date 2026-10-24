@@ -27,7 +27,7 @@ window/stretch/mode="canvas_items"
 
 [editor_plugins]
 
-enabled=PackedStringArray("res://addons/dialogue_editor/plugin.cfg")
+enabled=PackedStringArray("res://addons/dialogue_editor/plugin.cfg", "res://addons/map_editor/plugin.cfg")
 
 [rendering]
 

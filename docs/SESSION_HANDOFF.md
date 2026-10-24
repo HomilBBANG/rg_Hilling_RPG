@@ -36,8 +36,8 @@ git pull origin claude/gallant-edison-84bkyp
 2. **GDD의 [확정] 항목은 사용자가 정하기 전에는 바꾸지 않는다.** [미정]을 임시로 정했거나 사용자가 기획을 바꾸면 `notes/IMPLEMENTATION_ASSUMPTIONS.md`에 기록한다. 사용자 결정은 "사용자 결정/요청", Claude가 정한 건 "[Claude 임시]"로 구분한다.
 3. **검증은 정직하게.** 이 작업 환경은 GPU가 없어 xvfb + 소프트웨어 렌더러로 확인한다. 실제 화면 밝기·성능·조작감은 사용자가 직접 확인해야 한다고 밝힌다.
 4. **변경은 최소로.** 요청 범위 밖의 리팩터링·기능 추가 금지.
-5. **`project.godot`은 커밋하지 않는다**(에디터가 실행할 때마다 바꿈). 커밋 전에 `git checkout project.godot` 또는 `git status`로 확인.
-6. **데이터 파일을 고쳤으면 알린다.** `data/dialogues/*.json`·`data/cutscenes/*.json`·`data/monsters.json`·`data/maps/*.json` 등은 사용자가 에디터에서도 고치므로, 내가 고친 파일 목록과 "pull 전에 같은 파일을 고쳤다면 충돌 날 수 있음"을 보고에 적는다.
+5. **`project.godot`은 커밋하지 않는다**(에디터가 실행할 때마다 바꿈). 커밋 전에 `git checkout project.godot` 또는 `git status`로 확인. 예외: 플러그인을 켜는 `[editor_plugins] enabled` 줄은 커밋(2026-10-24 맵 에디터 추가 때 한 번).
+6. **데이터 파일을 고쳤으면 알린다.** `data/dialogues/*.json`·`data/cutscenes/*.json`·`data/monsters.json`·`data/maps/*.json`·`data/regions/*.json`(맵 에디터) 등은 사용자가 에디터에서도 고치므로, 내가 고친 파일 목록과 "pull 전에 같은 파일을 고쳤다면 충돌 날 수 있음"을 보고에 적는다.
 7. **커밋 전에 headless 에디터 검사**: `Godot --headless --editor --quit --path .` (스크립트 오류·임포트 확인).
 8. 커밋 메시지 끝에 저장소 규칙의 공동 작성자 줄을 붙인다. **커밋·문서에 모델 ID를 쓰지 않는다.**
 9. 작업이 끝나면 **커밋하고 푸시**한다(작업 트리를 깨끗하게 두기).
@@ -82,11 +82,11 @@ echo "$t exit=$? errors=$(grep -c 'SCRIPT ERROR' $S/reg/$t.log)"; grep -c '✘' 
 - **이 컨테이너의 소프트웨어 렌더러에서는 구운 스프라이트(주인공·고양이 등)가 연한 실루엣(유령)으로만 찍힌다**(2026-10-23 확인, 이전 커밋도 같음 — 환경 문제. 깊이 쓰기가 안 되어 가려짐 실루엣 패스만 보임). 스프라이트 자체는 `--tour=sprites`가 내보내는 `sheets/*.png`로 확인한다. `--tour=facing` = 주인공 8방향 보행 캡처(등불 끔/켬).
 - 투어 코드는 `scripts/core/bootstrap.gd`의 `_tour_*` 함수들. 도움 함수: `_talk_through(picks, prefix)`, `_key`, `_p1_shot`, `_place_player`, `_wait_travel`, `_walk_to`, `_drive_to_gate()`.
 
-### 대화 에디터 자체 검사
+### 대화 에디터·맵 에디터 자체 검사
 
 ```bash
 DIALOGUE_EDITOR_SELFTEST=$S/editor xvfb-run -a $GD --editor --path . --audio-driver Dummy
-# 로그에 "[editor] done: 0 failed checks"
+# 로그에 "[editor] done: 0 failed checks"  (대화·컷씬·몬스터 AI·퀘스트 탭 + Map 화면의 지도 표시물·지역 배치 탭, 66개 항목)
 ```
 
 ---
@@ -109,11 +109,12 @@ scripts/visuals/   카메라·픽셀 렌더·낮밤·스타일 머티리얼
 shaders/           terrain/foliage/rock/grass/outline/grade, water_stylized.gdshader(물·바다)
 data/              regions/ monsters.json ai/ dialogues/ cutscenes/ quests/ maps/ story.json speakers.json
                    camper_upgrades.json recipes.json life.json
-addons/dialogue_editor/  Godot 에디터 플러그인 — 탭: 대화 · 컷씬 · 몬스터 AI · 지도 · 퀘스트
+addons/dialogue_editor/  Godot 에디터 플러그인(Dialogue 화면) — 탭: 대화 · 컷씬 · 몬스터 AI · 퀘스트
+addons/map_editor/       맵 에디터 플러그인(Map 화면) — 탭: 지역 배치(region_editor_panel.gd) · 지도 표시물(map_editor_panel.gd)
 assets/portraits/  대화 초상화(사용자 제공 그림, <화자ID>_<표정>.png)
 docs/              GDD.md(v10.6) 와 기획 핸드오프들(이 문서 포함)
 notes/             IMPLEMENTATION_ASSUMPTIONS.md(임시값·사용자 결정 기록), DRIVING.md, DIALOGUE_EDITOR.md,
-                   VISUAL_DIRECTION.md, SPRITE_PIPELINE.md, PLAYER_MODEL.md
+                   MAP_EDITOR.md, VISUAL_DIRECTION.md, SPRITE_PIPELINE.md, PLAYER_MODEL.md
 tools/             초상화 배경 제거 등 보조 스크립트
 ```
 
@@ -193,13 +194,13 @@ EXP 수동 레벨업·능력치(확정 버튼·호버 설명)·기본 스킬 · 
 
 | 하고 싶은 것 | 볼 곳 |
 |---|---|
-| 지역에 몬스터·장소 추가 | `data/regions/<지역>.json` (+ `visual_lab.gd`가 읽음) |
+| 지역에 몬스터·장소 추가, 시작 위치·길·숲·도시 배치 | 에디터 `Map` 화면 `지역 배치` 탭(`addons/map_editor/region_editor_panel.gd`) → `data/regions/<지역>.json` (`region_db.gd`, `visual_lab.gd`가 읽음). 코드에 박힌 자리(오두막·캠프)는 `visual_lab.gd` |
 | 몬스터 수치·전리품·AI | `data/monsters.json`, `data/ai/*.json`, 에디터 `몬스터 AI` 탭 |
 | 대사·선택지 | `data/dialogues/*.json`, 에디터 `대화` 탭. 대화 액션은 `dialogue_data.gd`의 허용 목록 + `game_dialogue_context.gd` |
 | 컷씬 | `data/cutscenes/*.json`, 에디터 `컷씬` 탭. 단계 종류는 `cutscene_data.gd` / `cutscene_runner.gd` |
 | 이야기 장소·인물 배치 | `data/story.json` (wish_ceremony, escape_guards, 새 게임 컷씬 순서) |
 | 퀘스트 | `data/quests/*.json`, 에디터 `퀘스트` 탭(`quest_editor_panel.gd`), 검증·저장 규칙은 `quest_db.gd`, 진행은 `quest_manager.gd` |
-| 지도 표시물·얻는 곳 | `data/maps/*.json`, 에디터 `지도` 탭, `map_db.gd` |
+| 지도 표시물·얻는 곳 | `data/maps/*.json`, 에디터 `Map` 화면 `지도 표시물` 탭, `map_db.gd` |
 | 화자·초상화 | `data/speakers.json`, `assets/portraits/` |
 | 아이템 | `scripts/game/item_db.gd` |
 | 키 바인딩 | `scripts/core/game.gd` `ACTIONS` |

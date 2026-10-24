@@ -120,6 +120,19 @@ func _check_dialogue_playtest() -> void:
 			hud.toast("퀘스트를 받을 수 없다: " + why)
 		game_hud.toggle_journal()
 		return
+	if d.has("region_id"):  # the Map editor's 지역 배치 tab: stand at that region's new-character start
+		var rid := str(d["region_id"])
+		if not RegionDB.all().has(rid):
+			hud.toast("지역 파일을 찾을 수 없다: " + rid)
+			return
+		hud.toast("맵 에디터에서 실행: " + RegionDB.region_name(rid))
+		if rid != Game.region:
+			var ds: Dictionary = RegionDB.all()[rid].get("default_spawn", {})
+			if ds.has("pos"):
+				Game.spawn_override = {"kind": "walk_in", "pos": RegionDB.v3(ds["pos"]), "yaw": float(ds.get("yaw", 0.0))}
+			Game.region = rid
+			Game.request_world(Game.WORLD_EXTERIOR)
+		return
 	var id := str(d.get("dialogue_id", ""))
 	hud.toast("대화 에디터에서 실행: " + id)
 	if not game_hud.start_dialogue(id):

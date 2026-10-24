@@ -25,6 +25,37 @@ static func all() -> Dictionary:
 	return _cache
 
 
+static func reload() -> void:
+	_cache.clear()
+
+
+static func path_for(region_id: String) -> String:
+	return DIR.path_join(region_id + ".json")
+
+
+## The editor's view of a file: a fixed dungeon expanded like the game sees it (markers in
+## world metres), anything else as is.
+static func expanded(d: Dictionary) -> Dictionary:
+	return _expand_dungeon(d) if d.get("kind", "") == "dungeon" else d
+
+
+## Writes a region file (map editor). Keys keep their order; "_" keys made by expansion are dropped.
+static func save(d: Dictionary) -> Error:
+	var out := {}
+	for k in d:
+		if not str(k).begins_with("_") or str(k) == "_legend":
+			out[k] = d[k]
+	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(DIR))
+	var f := FileAccess.open(path_for(str(d["region_id"])), FileAccess.WRITE)
+	if f == null:
+		return FileAccess.get_open_error()
+	f.store_string(JSON.stringify(DialogueData.intified(out), "  ", false) + "\n")
+	f.close()
+	reload()
+	MapDB.clear_caches()
+	return OK
+
+
 static func is_dungeon(region_id: String) -> bool:
 	return all().get(region_id, {}).get("kind", "") in ["dungeon", "random_dungeon"]
 

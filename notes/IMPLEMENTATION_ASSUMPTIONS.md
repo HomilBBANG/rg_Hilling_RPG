@@ -751,9 +751,21 @@ GDD 17은 저장/불러오기(저장 지점, 자동 저장, 사망 시 저장 �
 
 | 항목 | 정한 내용 | 위치 |
 |---|---|---|
-| 오두막 자리 [Claude 임시] | 캠프 북동쪽 (2.4, −4.6), 4.6 × 3.8 m. 새 캐릭터는 그 안(2.4, −4.0)에서 남쪽을 보고 깨어남(`default_spawn`). 같은 지역 안의 구조물이라 로딩 없음 | `visual_lab.gd` `HUT_POS`, `data/regions/meadow.json` |
+| 오두막 자리 [Claude 임시] | 캠프 북동쪽 (2.4, −4.6), 4.6 × 3.8 m. 같은 지역 안의 구조물이라 로딩 없음 | `visual_lab.gd` `HUT_POS` |
+| 시작 위치 (사용자 요청 2026-10-24: 오두막 근처 들판) | 새 캐릭터는 오두막 **앞 들판 (2.8, −0.9)**에서 북쪽(오두막 쪽)을 보고 깨어남(`default_spawn`, 오프닝 컷씬의 두 걸음 이동도 들판 안). 이후 조정은 맵 에디터 `지역 배치` 탭에서 | `data/regions/meadow.json` |
 | 생김새 | 돌 기초 위 바랜 널빤지 벽, 지붕 없음. 앞(남)벽은 0.8 m로 낮춰 카메라가 안을 봄(가운데 1.3 m 문 틈), 동쪽 벽은 반쯤 무너지고 널빤지 하나가 기대어 있음. 벽마다 충돌체(문 틈은 열림) | `_build_hut()` |
 | 작업대 | 캠프의 작업대를 오두막 안(1.3, −5.4)으로 옮김(같은 `workbench` 시설 — 캠핑카 작업실과 같은 레시피). 제작 가능 범위는 따로 막지 않음 | `WORKBENCH_POS` |
 | 창고 상자 | 25 kg 한도의 별도 창고(`Game.hut_storage`, 저장됨). 창은 캠핑카 창고와 같은 창에 "임시 거처 — 챕터가 끝나면 두고 간다" 안내 | `game.gd`, `game_hud.gd` `open_storage(source, "hut")`, `save_manager.gd` |
 | 지도 한 장 | `MapDB.CHAPTER1` = 초원·고원·왕도·잿빛 산길·동굴. 이 중 하나를 주면 전부 열림 — 왕의 알현 대화 `지도 주기(ashen_pass)`가 그 한 번. 지도 파일 5장은 그대로(에디터 지도 탭·표시물), 얻는 방법은 모두 "왕"으로 바꿈 → 로사 판매·필드 드롭 사라짐 | `map_db.gd` `give()`, `data/maps/*.json` |
 
+
+## 맵 에디터 (사용자 요청 2026-10-24)
+
+| 항목 | 정한 내용 | 위치 |
+|---|---|---|
+| 별도 에디터 | 대화 에디터와 분리된 `Map` 메인 화면(플러그인 `addons/map_editor/`). 탭: **지역 배치**(새로 만듦) · **지도 표시물**(대화 에디터의 지도 탭을 파일째 옮김, 내용 동일). `project.godot`의 `enabled`에 플러그인 추가(이 줄만 커밋) | `addons/map_editor/plugin.gd` |
+| 지역 배치 범위 [Claude 임시] | `data/regions/*.json`의 모든 배치 목록과 지형 모양을 그림 위 클릭·끌기로 편집. 필드 편집기는 일반형(숫자·불·문자열·[x,z]·그 밖은 JSON)이라 새 키를 코드에 추가해도 그대로 보임. `scatter`·`features`·도시 내부는 JSON 글자 칸 | `region_editor_panel.gd` |
+| 시작 위치 편집 | 빨간 화살표(끌기) + x/z/방향 ° 스핀. 지우면 게임은 `DEFAULT_SPAWN`(캠프 근처) | 같은 파일, `visual_lab.gd` |
+| 저장 규칙 | `RegionDB.save()`: `_`로 시작하는 키 제거(`_legend` 제외), 들여쓰기 2칸, 정수화(`DialogueData.intified`), 저장 후 `RegionDB`·`MapDB` 캐시 비움 | `region_db.gd` |
+| 게임에서 실행 | `user://dialogue_playtest.json {"region_id"}` → 부트스트랩이 그 지역·시작 위치로 이동(진행 단계 C, 저장 안 함) | `bootstrap.gd` `_check_dialogue_playtest()` |
+| 검증의 예외 | 랜덤 던전(변덕의 미궁)으로 가는 출구는 도착 지점 검사를 건너뜀(층마다 `start`를 만듦) | `RegionEditorPanel.check()` |

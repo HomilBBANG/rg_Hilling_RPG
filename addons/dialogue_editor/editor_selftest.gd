@@ -190,8 +190,10 @@ static func run(panel: DialogueEditorPanel, shot: Callable) -> void:
 	panel.refresh_list()
 	fails += await _cutscene_checks(panel, shot)
 	fails += await _monster_ai_checks(panel, shot)
-	fails += await _map_checks(panel, shot)
 	fails += await _quest_checks(panel, shot)
+	fails += await _map_checks(panel, shot)
+	fails += await _region_checks(panel, shot)
+	EditorInterface.set_main_screen_editor("Dialogue")
 	print("[editor] done: %d failed checks" % fails)
 
 
@@ -388,13 +390,17 @@ static func _monster_ai_checks(dpanel: DialogueEditorPanel, shot: Callable) -> i
 	return fails
 
 
-## The 지도 tab: open the meadow map, add / edit / move / undo a mark, add a field drop placed with a
-## canvas click, save → reload identical, the game-side MapDB sees it, then restore the file.
-static func _map_checks(dpanel: DialogueEditorPanel, shot: Callable) -> int:
+## The Map editor's 지도 표시물 tab: open the meadow map, add / edit / move / undo a mark, add a field
+## drop placed with a canvas click, save → reload identical, the game-side MapDB sees it, then restore
+## the file.
+static func _map_checks(_dpanel: DialogueEditorPanel, shot: Callable) -> int:
 	var fails := 0
-	var mp := dpanel.map_panel
+	if MapEditorPlugin.instance == null:
+		return 0 if _check(false, "Map editor plugin is enabled") else 1
+	var mp: MapEditorPanel = MapEditorPlugin.instance.map_panel
 	var before := FileAccess.get_file_as_string(MapDB.path_for("meadow"))
-	dpanel._mode_tabs.current_tab = 3
+	EditorInterface.set_main_screen_editor("Map")
+	MapEditorPlugin.instance.tabs.current_tab = 1
 	mp.open_map("meadow")
 	await _frames(mp, 6)
 	fails += 0 if _check(mp.is_visible_in_tree() and mp.region == "meadow" and mp.validate().is_empty(),
@@ -443,7 +449,81 @@ static func _map_checks(dpanel: DialogueEditorPanel, shot: Callable) -> int:
 	mp.dirty = false
 	mp.open_map("meadow")
 	fails += 0 if _check(FileAccess.get_file_as_string(MapDB.path_for("meadow")) == before, "meadow map file restored") else 1
-	dpanel._mode_tabs.current_tab = 0
+	return fails
+
+
+## The Map editor's 지역 배치 tab: open the meadow, move the new-character start (drag on the picture +
+## the number fields), place a monster with a click, edit / move / undo / redo it, catch a bad monster
+## kind and an exit to a missing arrival point, add a road point, save → reload identical and the
+## game-side RegionDB sees it, then restore the file.
+static func _region_checks(_dpanel: DialogueEditorPanel, shot: Callable) -> int:
+	var fails := 0
+	if MapEditorPlugin.instance == null:
+		return 1
+	var rp: RegionEditorPanel = MapEditorPlugin.instance.region_panel
+	var before := FileAccess.get_file_as_string(RegionDB.path_for("meadow"))
+	EditorInterface.set_main_screen_editor("Map")
+	MapEditorPlugin.instance.tabs.current_tab = 0
+	rp.dirty = false
+	rp.open_region("meadow")
+	await _frames(rp, 12)
+	var open_errs := _errors(rp.validate())
+	fails += 0 if _check(rp.is_visible_in_tree() and rp.region_id == "meadow" and open_errs.is_empty() and rp.doc.has("default_spawn"),
+		"지역 배치 tab opens the meadow (%d monsters, %d exits, errors: %s)" % [rp.doc["monsters"].size(), rp.doc["exits"].size(),
+		", ".join(open_errs.map(func(e: Dictionary) -> String: return str(e["message"])))]) else 1
+	await shot.call("editor_50_region_meadow")
+	var spawn0: Array = rp.doc["default_spawn"]["pos"].duplicate()
+	rp.canvas_click(rp.to_canvas(rp.sel_pos({"list": "spawn"})))
+	fails += 0 if _check(rp.sel.get("list", "") == "spawn", "clicking the red arrow selects the new-character start") else 1
+	rp.set_sel_pos({"list": "spawn"}, Vector2(6.0, 2.0))
+	var moved: Array = rp.doc["default_spawn"]["pos"]
+	rp.undo()
+	var undone: Array = rp.doc["default_spawn"]["pos"]
+	rp.redo()
+	fails += 0 if _check(moved == [6.0, 2.0] and undone == spawn0 and rp.doc["default_spawn"]["pos"] == [6.0, 2.0],
+		"move the start to (6, 2) → undo → redo (was %s)" % [spawn0]) else 1
+	var n0: int = rp.doc["monsters"].size()
+	rp.start_place("monsters")
+	rp.canvas_click(rp.to_canvas(Vector2(20, -10)))
+	var m: Dictionary = rp.doc["monsters"][n0] if rp.doc["monsters"].size() > n0 else {}
+	fails += 0 if _check(rp.doc["monsters"].size() == n0 + 1 and rp.sel.get("index", -1) == n0 and m.get("pos", []) == [20.0, -10.0] and MonsterDB.all().has(str(m.get("kind", ""))),
+		"place a monster with a click at (20, -10) -> %s %s" % [m.get("id", ""), m.get("kind", "")]) else 1
+	m["kind"] = "no_such_monster"
+	rp._commit()
+	var errs := _errors(rp.validate())
+	m["kind"] = "meadow_slime"
+	rp._commit()
+	fails += 0 if _check(errs.size() == 1 and _errors(rp.validate()).is_empty(), "unknown monster kind caught (%d: %s), fixed" % [errs.size(), errs[0]["message"] if not errs.is_empty() else "-"]) else 1
+	var ex: Dictionary = rp.doc["exits"][0]
+	var entry0 := str(ex["to_entry"])
+	ex["to_entry"] = "nowhere"
+	rp._commit()
+	var errs2 := _errors(rp.validate())
+	ex["to_entry"] = entry0
+	rp._commit()
+	fails += 0 if _check(errs2.size() == 1 and _errors(rp.validate()).is_empty(), "exit to a missing arrival point caught (%d: %s), fixed" % [errs2.size(), errs2[0]["message"] if not errs2.is_empty() else "-"]) else 1
+	var paths: Array = rp.doc["terrain"]["paths"]
+	var np0: int = (paths[0] as Array).size()
+	rp.sel = {"list": "path", "index": 0, "point": np0 - 1}
+	rp.add_at("point", Vector2(-30, 25))
+	fails += 0 if _check((paths[0] as Array).size() == np0 + 1 and rp.sel.get("point", -1) == np0, "add a road point at the end of road 1") else 1
+	await _frames(rp, 3)
+	await shot.call("editor_51_region_edited")
+	var snap := JSON.stringify(rp.doc)
+	var ok := rp.save()
+	rp.open_region("highland")
+	rp.open_region("meadow")
+	fails += 0 if _check(ok and JSON.stringify(rp.doc) == snap, "save → reload: start, monster, exits and roads identical") else 1
+	var game_side: Dictionary = RegionDB.all()["meadow"]
+	fails += 0 if _check(game_side["default_spawn"]["pos"] == [6.0, 2.0] and game_side["monsters"].size() == n0 + 1, "game-side RegionDB sees the moved start and the new monster") else 1
+	var f := FileAccess.open(RegionDB.path_for("meadow"), FileAccess.WRITE)
+	f.store_string(before)
+	f.close()
+	RegionDB.reload()
+	MapDB.clear_caches()
+	rp.dirty = false
+	rp.open_region("meadow")
+	fails += 0 if _check(FileAccess.get_file_as_string(RegionDB.path_for("meadow")) == before and rp.doc["default_spawn"]["pos"] == spawn0, "meadow region file restored") else 1
 	return fails
 
 
@@ -459,7 +539,7 @@ static func _errors(issues: Array) -> Array:
 static func _quest_checks(dpanel: DialogueEditorPanel, shot: Callable) -> int:
 	var fails := 0
 	var qp := dpanel.quest_panel
-	dpanel._mode_tabs.current_tab = 4
+	dpanel._mode_tabs.current_tab = 3
 	qp.open_quest("quest.rosa.jelly")
 	await _frames(qp, 6)
 	fails += 0 if _check(qp.is_visible_in_tree() and qp.quest_id == "quest.rosa.jelly" and _errors(qp.validate()).is_empty(),
