@@ -277,7 +277,7 @@ func _build_rooms() -> void:
 		var l := OmniLight3D.new()
 		l.position = Vector3(cx, 2.3, -0.2)
 		l.light_color = Color(1.0, 0.72, 0.45)
-		l.light_energy = 0.6
+		l.light_energy = 0.35
 		l.omni_range = 5.5
 		add_child(l)
 		_build_purpose(i, str(rooms[i].get("purpose", "")), Vector3(cx, 0, 0))
@@ -504,10 +504,11 @@ func _build_lights() -> void:
 		var l := OmniLight3D.new()
 		l.position = Vector3(lx, 2.35, -0.3)
 		l.light_color = Color(1.0, 0.72, 0.45)  # soft orange lamps (user request)
-		l.light_energy = 0.6
+		l.light_energy = 0.35
 		l.omni_range = 5.5
-		l.shadow_enabled = true
-		l.shadow_bias = 0.06
+		# No lamp shadows: two low omni lights threw blotchy furniture shadows across the floor
+		# that read as floating cloud shadows in the morning sun (user report).
+		l.shadow_enabled = false
 		add_child(l)
 		# No visible ceiling fixture: with the ceiling cut away it would float over the room.
 	# Under-cabinet LED strip
@@ -577,7 +578,7 @@ func _process(_delta: float) -> void:
 		_ghost.position = _ghost_pos()
 		_ghost.rotation.y = _ghost_yaw
 	if _fill_light:
-		_fill_light.light_energy = lerpf(0.0, 0.45, Game.daylight()) + Game.morning() * 0.35
+		_fill_light.light_energy = lerpf(0.0, 0.3, Game.daylight()) + Game.morning() * 0.25
 	for sm in _sun_patches:
 		sm.albedo_color = Color(1.0, 0.8, 0.45) * (0.22 * Game.morning())
 
