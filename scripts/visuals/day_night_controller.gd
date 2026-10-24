@@ -95,7 +95,7 @@ func apply(d: float, tw: float) -> void:
 			# soft, warm (user request: 은은한 주황색) — a little brighter and warmer in the morning sun
 			var mo := Game.morning()
 			environment.ambient_light_color = Color(0.5, 0.4, 0.3).lerp(Color(0.68, 0.58, 0.46), d).lerp(Color(0.78, 0.66, 0.5), mo * 0.5)
-			environment.ambient_light_energy = lerpf(0.18, 0.24, d) + mo * 0.04
+			environment.ambient_light_energy = lerpf(0.12, 0.16, d) + mo * 0.03  # low: the key light draws the shading
 			environment.glow_intensity = 0.15
 			environment.glow_hdr_threshold = 1.6
 			environment.background_color = Color(0.02, 0.02, 0.03)

@@ -101,12 +101,14 @@ func _update_outline_quad() -> void:
 
 
 ## Depth step (m) that draws a line and how dark the line is (per world: indoors tighter / darker).
-func set_outline_params(depth_threshold: float, darkness: float) -> void:
+func set_outline_params(depth_threshold: float, darkness: float, tint_amount := -1.0) -> void:
 	if _outline_quad == null:
 		return
 	var m := _outline_quad.material_override as ShaderMaterial
 	m.set_shader_parameter("depth_threshold", depth_threshold)
 	m.set_shader_parameter("outline_darkness", darkness)
+	if tint_amount >= 0.0:
+		m.set_shader_parameter("outline_tint_amount", tint_amount)
 
 
 func outline_supported() -> bool:

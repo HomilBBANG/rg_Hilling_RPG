@@ -71,7 +71,7 @@ func _build_shell() -> void:
 	var plank_a := ProtoMesh.mat(Color(0.62, 0.45, 0.3), 1.0)
 	var plank_b := ProtoMesh.mat(Color(0.56, 0.4, 0.26), 1.0)
 	var seam := ProtoMesh.mat(Color(0.4, 0.28, 0.18), 1.0)  # thin, one texel at the usual zoom
-	var wall := ProtoMesh.mat(Color(0.88, 0.84, 0.76))
+	var wall := ProtoMesh.mat(Color(0.72, 0.66, 0.56))  # darker plaster: the walls kept blowing out
 	var wall_trim := ProtoMesh.mat(Color(0.45, 0.33, 0.24))
 	# Floor planks
 	var n := int(ROOM_Z * 2.0 / 0.4)
@@ -517,6 +517,15 @@ func _build_lights() -> void:
 	# Under-cabinet LED strip
 	ProtoMesh.box(self, Vector3(2.4, 0.03, 0.05), Vector3(-1.05, 1.73, -1.85), lamp_mat)
 	# Cool daylight fill through the windows (energy follows the clock)
+	# Key light for shading (user request: 명암 진하게): a warm directional light from the camera
+	# side, high and a little to the left, so every box gets a lit top / face and a darker side
+	# under the cel shading. No shadows (lamp shadows read as cloud blotches before).
+	var key := DirectionalLight3D.new()
+	key.light_color = Color(1.0, 0.88, 0.7)
+	key.light_energy = 0.55
+	key.rotation = Vector3(deg_to_rad(-72.0), deg_to_rad(-30.0), 0.0)  # steep: tops lit, walls and sides in shade
+	key.shadow_enabled = false
+	add_child(key)
 	_fill_light = OmniLight3D.new()
 	_fill_light.position = Vector3(0.5, 1.8, -1.2)
 	_fill_light.light_color = Color(1.0, 0.86, 0.68)
@@ -569,7 +578,7 @@ func _spawn_actors() -> void:
 	add_child(camera)
 	# Furniture stands close to walls and floor: a small depth step and a darker line make the
 	# objects read (user request: 실내 오브젝트 외곽선 진하게)
-	camera.set_outline_params(0.06, 0.62)
+	camera.set_outline_params(0.06, 0.82, 0.35)  # user: 더 진하게
 
 
 func _cat_spots() -> Array[Vector3]:
