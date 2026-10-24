@@ -506,7 +506,7 @@ func pick_up_decor(i: int) -> void:
 
 
 func _build_lights() -> void:
-	var lamp_mat := ProtoMesh.mat(Color(1, 0.95, 0.8), 0.3, Color(1.0, 0.85, 0.6), 1.4)
+	var lamp_mat := ProtoMesh.mat(Color(1, 0.95, 0.8), 0.3, Color(1.0, 0.85, 0.6), 0.9)
 	for lx in [-2.4, 1.6]:
 		var l := OmniLight3D.new()
 		l.position = Vector3(lx, 2.35, -0.3)
@@ -519,16 +519,9 @@ func _build_lights() -> void:
 		l.shadow_enabled = false
 		add_child(l)
 		# No visible ceiling fixture: with the ceiling cut away it would float over the room.
-	# Under-cabinet LED strip: the brightest thing in the room, a pool of light over the counter
-	# (reference: a lit work surface in an otherwise dim interior)
+	# Under-cabinet LED strip: just a thin glowing bar. (It briefly had its own light so the counter
+	# sat in a pool of light like the reference; the user found that one bright spot odd — removed.)
 	ProtoMesh.box(self, Vector3(2.4, 0.03, 0.05), Vector3(-1.05, 1.73, -1.85), lamp_mat)
-	var strip := OmniLight3D.new()
-	strip.position = Vector3(-1.05, 1.62, -1.45)
-	strip.light_color = Color(1.0, 0.92, 0.78)
-	strip.light_energy = 0.55
-	strip.omni_range = 2.8
-	strip.omni_attenuation = 1.4
-	add_child(strip)
 	# Cool daylight fill through the windows (energy follows the clock)
 	# Key light for shading (user request: 명암 진하게): a warm directional light from the camera
 	# side, high and a little to the left, so every box gets a lit top / face and a darker side
