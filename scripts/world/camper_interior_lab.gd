@@ -502,29 +502,42 @@ func pick_up_decor(i: int) -> void:
 
 
 func _build_lights() -> void:
-	var lamp_mat := ProtoMesh.mat(Color(1, 0.95, 0.8), 0.3, Color(1.0, 0.85, 0.6), 2.5)
+	var lamp_mat := ProtoMesh.mat(Color(1, 0.95, 0.8), 0.3, Color(1.0, 0.85, 0.6), 1.4)
 	for lx in [-2.4, 1.6]:
 		var l := OmniLight3D.new()
 		l.position = Vector3(lx, 2.35, -0.3)
 		l.light_color = Color(1.0, 0.72, 0.45)  # soft orange lamps (user request)
-		l.light_energy = 0.35
-		l.omni_range = 5.5
+		l.light_energy = 0.28
+		l.omni_range = 4.5
 		# No lamp shadows: two low omni lights threw blotchy furniture shadows across the floor
 		# that read as floating cloud shadows in the morning sun (user report).
 		l.shadow_enabled = false
 		add_child(l)
 		# No visible ceiling fixture: with the ceiling cut away it would float over the room.
-	# Under-cabinet LED strip
+	# Under-cabinet LED strip: the brightest thing in the room, a pool of light over the counter
+	# (reference: a lit work surface in an otherwise dim interior)
 	ProtoMesh.box(self, Vector3(2.4, 0.03, 0.05), Vector3(-1.05, 1.73, -1.85), lamp_mat)
+	var strip := OmniLight3D.new()
+	strip.position = Vector3(-1.05, 1.62, -1.45)
+	strip.light_color = Color(1.0, 0.92, 0.78)
+	strip.light_energy = 0.55
+	strip.omni_range = 2.8
+	strip.omni_attenuation = 1.4
+	add_child(strip)
 	# Cool daylight fill through the windows (energy follows the clock)
 	# Key light for shading (user request: 명암 진하게): a warm directional light from the camera
 	# side, high and a little to the left, so every box gets a lit top / face and a darker side
 	# under the cel shading. No shadows (lamp shadows read as cloud blotches before).
 	var key := DirectionalLight3D.new()
 	key.light_color = Color(1.0, 0.88, 0.7)
-	key.light_energy = 0.55
+	key.light_energy = 0.26
 	key.rotation = Vector3(deg_to_rad(-72.0), deg_to_rad(-30.0), 0.0)  # steep: tops lit, walls and sides in shade
-	key.shadow_enabled = false
+	# One steep light with shadows: short, consistent contact shadows under every object (depth
+	# like the reference) — unlike the two low lamps whose crossing shadows looked like blotches.
+	key.shadow_enabled = true
+	key.directional_shadow_mode = DirectionalLight3D.SHADOW_ORTHOGONAL
+	key.directional_shadow_max_distance = 40.0
+	key.shadow_bias = 0.03
 	add_child(key)
 	_fill_light = OmniLight3D.new()
 	_fill_light.position = Vector3(0.5, 1.8, -1.2)
@@ -593,7 +606,7 @@ func _process(_delta: float) -> void:
 		_ghost.position = _ghost_pos()
 		_ghost.rotation.y = _ghost_yaw
 	if _fill_light:
-		_fill_light.light_energy = lerpf(0.0, 0.3, Game.daylight()) + Game.morning() * 0.25
+		_fill_light.light_energy = lerpf(0.0, 0.18, Game.daylight()) + Game.morning() * 0.18
 	for sm in _sun_patches:
 		sm.albedo_color = Color(1.0, 0.8, 0.45) * (0.22 * Game.morning())
 

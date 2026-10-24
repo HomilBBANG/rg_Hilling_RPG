@@ -94,10 +94,10 @@ func apply(d: float, tw: float) -> void:
 		if interior:
 			# soft, warm (user request: 은은한 주황색) — a little brighter and warmer in the morning sun
 			var mo := Game.morning()
-			environment.ambient_light_color = Color(0.5, 0.4, 0.3).lerp(Color(0.68, 0.58, 0.46), d).lerp(Color(0.78, 0.66, 0.5), mo * 0.5)
-			environment.ambient_light_energy = lerpf(0.12, 0.16, d) + mo * 0.03  # low: the key light draws the shading
-			environment.glow_intensity = 0.15
-			environment.glow_hdr_threshold = 1.6
+			# Dim, cool ambient (reference: deep shade between pools of warm light); the key light
+			# and the lamps carry the room, so the shadow sides stay dark.
+			environment.ambient_light_color = Color(0.34, 0.36, 0.48).lerp(Color(0.46, 0.44, 0.48), d).lerp(Color(0.7, 0.6, 0.48), mo * 0.5)
+			environment.ambient_light_energy = lerpf(0.08, 0.1, d) + mo * 0.03
 			environment.background_color = Color(0.02, 0.02, 0.03)
 		elif palette == "deadcells":
 			environment.ambient_light_color = DC_AMBIENT_NIGHT.lerp(DC_AMBIENT_DAY, d)
@@ -124,8 +124,11 @@ func apply(d: float, tw: float) -> void:
 		environment.glow_intensity = 0.45 if dc else 0.25
 		environment.glow_hdr_threshold = 1.05 if dc else 1.5
 		environment.glow_bloom = 0.0
-		environment.adjustment_saturation = 1.04 if style_grade else 1.0
-		environment.adjustment_contrast = 1.06 if style_grade else 1.0
+		environment.adjustment_saturation = (1.1 if interior else 1.04) if style_grade else 1.0
+		environment.adjustment_contrast = (1.14 if interior else 1.06) if style_grade else 1.0
+		if interior:  # lamp strips bloom a little
+			environment.glow_intensity = 0.3
+			environment.glow_hdr_threshold = 1.15
 	if sun:
 		var dc := palette == "deadcells"
 		var col := (DC_MOON if dc else MOON).lerp(DC_SUN_DAY if dc else SUN_DAY, d)
