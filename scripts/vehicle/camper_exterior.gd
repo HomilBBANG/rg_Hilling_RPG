@@ -12,8 +12,8 @@ const TAILLIGHT_LOCAL := Vector3(-3.63, 1.05, 0.92)
 const WHEEL_X := [2.5, -2.0]
 
 ## Baked sprite directions (P1 driving): 16 yaws in a 4 x 4 atlas, starting at the parking yaw.
-const SPRITE_DIRECTIONS := 16
-const SPRITE_COLS := 4
+const SPRITE_DIRECTIONS := 32  # 11.25° steps (was 16): straight roads look straight
+const SPRITE_COLS := 8
 
 var lights: PrototypeCamperLights
 var paint: ShaderMaterial

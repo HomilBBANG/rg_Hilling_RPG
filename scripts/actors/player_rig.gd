@@ -13,7 +13,7 @@ const ATTACK_TIME := 0.32
 ## drink / eat / cast: common use motions per consumable kind (GDD 6.4) and for spells.
 ## run: Shift running - arms pumping, sword held upright.
 const ANIMS := [["idle", 2], ["walk", 8], ["attack", 5], ["drink", 2], ["eat", 2], ["cast", 2], ["run", 6]]
-const DIRECTIONS := 8
+const DIRECTIONS := 16  # 16 facings (was 8): turning steps half as coarse
 ## Wrist tilt of the sword at rest (blade forward-down).
 const SWORD_REST_TILT := 1.05
 

@@ -677,15 +677,17 @@ func _spawn_actors() -> void:
 
 
 ## Objects drawn as pre-rendered pixel sprites: [node, bake spec, name] (same name = same sheet).
-## Actors that get a baked pixel sprite. The hero and the camper are NOT among them any more
-## (user request 2026-10-24): they stay live 3D rigs so they move and turn smoothly — the pixel
-## look comes from the low-res render, the toon materials and the outline pass, not from a sheet.
+## Actors that get a baked pixel sprite (hero and camper included again — user request 2026-10-24,
+## second round: the dotted look; the sheets now have 16 / 32 directions so turning steps less).
 func sprite_targets() -> Array:
-	var out := []
+	var g := Game.player_state.visual_gear()
+	var out := [[player, PrototypePlayer.sprite_bake_spec(g), "player|" + PlayerState.gear_key(g)]]
 	for m in monsters:
 		if is_instance_valid(m) and not m is DragonBoss:  # the dragon stays a 3D model
 			var tg := m.sprite_target()
 			out.append([m, tg[0], tg[1]])
+	if camper_here():
+		out.append([camper, CamperExterior.sprite_bake_spec(CAMPER_YAW_DEG), "camper|" + CamperUpgrades.look_key()])
 	if cat:
 		out.append([cat, CatCompanion.sprite_bake_spec(), "cat"])
 	for n in npcs:
