@@ -70,7 +70,7 @@ func _build_shell() -> void:
 	# white streaks on the floor); the seams are drawn as dark shade-coloured strips instead.
 	var plank_a := ProtoMesh.mat(Color(0.62, 0.45, 0.3), 1.0)
 	var plank_b := ProtoMesh.mat(Color(0.56, 0.4, 0.26), 1.0)
-	var seam := ProtoMesh.mat(Color(0.33, 0.22, 0.14), 1.0)
+	var seam := ProtoMesh.mat(Color(0.4, 0.28, 0.18), 1.0)  # thin, one texel at the usual zoom
 	var wall := ProtoMesh.mat(Color(0.88, 0.84, 0.76))
 	var wall_trim := ProtoMesh.mat(Color(0.45, 0.33, 0.24))
 	# Floor planks
@@ -79,7 +79,7 @@ func _build_shell() -> void:
 		var z := -ROOM_Z + 0.2 + i * 0.4
 		ProtoMesh.box(self, Vector3(ROOM_X * 2.0, 0.1, 0.39), Vector3(0, -0.05, z), plank_a if i % 2 == 0 else plank_b)
 		if i > 0:
-			ProtoMesh.box(self, Vector3(ROOM_X * 2.0, 0.104, 0.035), Vector3(0, -0.05, z - 0.2), seam)
+			ProtoMesh.box(self, Vector3(ROOM_X * 2.0, 0.104, 0.018), Vector3(0, -0.05, z - 0.2), seam)
 	# Back (north) wall full height, end walls full height, front (camera-side) wall cut down.
 	ProtoMesh.box(self, Vector3(ROOM_X * 2.0 + 0.3, WALL_H, 0.15), Vector3(0, WALL_H * 0.5, -ROOM_Z - 0.075), wall)
 	ProtoMesh.box(self, Vector3(0.15, WALL_H, ROOM_Z * 2.0), Vector3(-ROOM_X - 0.075, WALL_H * 0.5, 0), wall)
@@ -173,7 +173,9 @@ func _build_furniture() -> void:
 	ProtoMesh.static_box_collider(self, Vector3(0.8, 2, 0.5), Vector3(-3.9, 0.5, -0.4))
 
 	# Kitchen along the back wall: counter, sink, 2-burner stove, upper cabinets, fridge
-	var k := Vector3(-0.2, 0, -1.85)
+	# Counter between the left and middle back windows, fridge between the middle and right ones,
+	# so nothing covers a window (user request).
+	var k := Vector3(-1.05, 0, -1.85)
 	ProtoMesh.box(self, Vector3(2.6, 0.86, 0.6), k + Vector3(0, 0.43, 0), cabinet)
 	ProtoMesh.box(self, Vector3(2.66, 0.06, 0.66), k + Vector3(0, 0.89, 0.02), counter)
 	for i in 4:
@@ -184,9 +186,10 @@ func _build_furniture() -> void:
 		ProtoMesh.cylinder(self, 0.14, 0.03, k + Vector3(bx, 0.935, 0.02), dark, Vector3.ZERO, 8)
 	ProtoMesh.cylinder(self, 0.12, 0.14, k + Vector3(0.45, 1.02, 0.02), red, Vector3.ZERO, 8)  # pot
 	ProtoMesh.box(self, Vector3(2.6, 0.5, 0.35), k + Vector3(0, 2.0, -0.12), cabinet)
-	ProtoMesh.box(self, Vector3(0.65, 1.75, 0.62), Vector3(1.55, 0.875, -1.85), counter)
-	ProtoMesh.box(self, Vector3(0.04, 0.4, 0.04), Vector3(1.32, 1.2, -1.53), metal)
-	ProtoMesh.static_box_collider(self, Vector3(3.3, 2, 0.65), Vector3(0.1, 0.5, -1.85))
+	ProtoMesh.box(self, Vector3(0.65, 1.75, 0.62), Vector3(1.85, 0.875, -1.85), counter)
+	ProtoMesh.box(self, Vector3(0.04, 0.4, 0.04), Vector3(1.62, 1.2, -1.53), metal)
+	ProtoMesh.static_box_collider(self, Vector3(2.7, 2, 0.65), k + Vector3(0, 0.5, 0))
+	ProtoMesh.static_box_collider(self, Vector3(0.7, 2, 0.65), Vector3(1.85, 0.5, -1.85))
 
 	# Dinette: small table + two benches (center-left, near camera side)
 	var t := Vector3(-0.6, 0, 0.9)
@@ -252,7 +255,7 @@ func _build_rooms() -> void:
 	var rooms := CamperUpgrades.rooms()
 	var plank_a := ProtoMesh.mat(Color(0.6, 0.44, 0.32), 1.0)
 	var plank_b := ProtoMesh.mat(Color(0.54, 0.38, 0.27), 1.0)
-	var seam := ProtoMesh.mat(Color(0.33, 0.22, 0.14), 1.0)
+	var seam := ProtoMesh.mat(Color(0.4, 0.28, 0.18), 1.0)
 	var wall := ProtoMesh.mat(Color(0.86, 0.82, 0.9))
 	var trim := ProtoMesh.mat(Color(0.42, 0.34, 0.5))
 	for i in rooms.size():
@@ -262,7 +265,7 @@ func _build_rooms() -> void:
 		for j in n:
 			ProtoMesh.box(self, Vector3(MODULE_W, 0.1, 0.39), Vector3(cx, -0.05, -ROOM_Z + 0.2 + j * 0.4), plank_a if j % 2 == 0 else plank_b)
 			if j > 0:
-				ProtoMesh.box(self, Vector3(MODULE_W, 0.104, 0.035), Vector3(cx, -0.05, -ROOM_Z + j * 0.4), seam)
+				ProtoMesh.box(self, Vector3(MODULE_W, 0.104, 0.018), Vector3(cx, -0.05, -ROOM_Z + j * 0.4), seam)
 		ProtoMesh.box(self, Vector3(MODULE_W, WALL_H, 0.15), Vector3(cx, WALL_H * 0.5, -ROOM_Z - 0.075), wall)
 		ProtoMesh.box(self, Vector3(MODULE_W, 0.45, 0.15), Vector3(cx, 0.225, ROOM_Z + 0.075), wall)
 		ProtoMesh.box(self, Vector3(MODULE_W, 0.08, 0.18), Vector3(cx, 0.45, ROOM_Z + 0.075), trim)
@@ -512,7 +515,7 @@ func _build_lights() -> void:
 		add_child(l)
 		# No visible ceiling fixture: with the ceiling cut away it would float over the room.
 	# Under-cabinet LED strip
-	ProtoMesh.box(self, Vector3(2.4, 0.03, 0.05), Vector3(-0.2, 1.73, -1.85), lamp_mat)
+	ProtoMesh.box(self, Vector3(2.4, 0.03, 0.05), Vector3(-1.05, 1.73, -1.85), lamp_mat)
 	# Cool daylight fill through the windows (energy follows the clock)
 	_fill_light = OmniLight3D.new()
 	_fill_light.position = Vector3(0.5, 1.8, -1.2)
@@ -564,6 +567,9 @@ func _spawn_actors() -> void:
 	camera.name = "Camera"
 	camera.target = player
 	add_child(camera)
+	# Furniture stands close to walls and floor: a small depth step and a darker line make the
+	# objects read (user request: 실내 오브젝트 외곽선 진하게)
+	camera.set_outline_params(0.06, 0.62)
 
 
 func _cat_spots() -> Array[Vector3]:
