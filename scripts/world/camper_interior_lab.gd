@@ -27,6 +27,7 @@ var cat: CatCompanion
 var day_night: DayNightController
 var _fill_light: OmniLight3D
 var _sun_patches: Array[StandardMaterial3D] = []
+var _sun_beams: Array[StandardMaterial3D] = []
 var _lamps: Array[OmniLight3D] = []
 var _key_light: DirectionalLight3D
 const LAMP_COLOR := Color(1.0, 0.72, 0.45)
@@ -556,6 +557,29 @@ func _build_lights() -> void:
 		var patch := ProtoMesh.box(self, Vector3(1.3, 0.01, 2.0), Vector3(wx + 0.35, 0.02, -ROOM_Z + 1.15), sm, Vector3(0, -12.0, 0))
 		patch.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		_sun_patches.append(sm)
+		# the shaft itself: a slanted sheet from the window down to the patch, fading toward the floor
+		var bm := StandardMaterial3D.new()
+		bm.albedo_color = Color(0, 0, 0)
+		bm.vertex_color_use_as_albedo = true
+		bm.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
+		bm.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+		bm.cull_mode = BaseMaterial3D.CULL_DISABLED
+		bm.roughness = 1.0
+		var st := SurfaceTool.new()
+		st.begin(Mesh.PRIMITIVE_TRIANGLES)
+		var top_l := Vector3(wx - 0.5, 1.9, -ROOM_Z + 0.03)
+		var top_r := Vector3(wx + 0.5, 1.9, -ROOM_Z + 0.03)
+		var bot_l := Vector3(wx - 0.3, 0.03, -ROOM_Z + 2.1)
+		var bot_r := Vector3(wx + 1.0, 0.03, -ROOM_Z + 2.1)
+		for v: Array in [[top_l, 1.0], [top_r, 1.0], [bot_r, 0.0], [top_l, 1.0], [bot_r, 0.0], [bot_l, 0.0]]:
+			st.set_color(Color(v[1], v[1], v[1]))
+			st.add_vertex(v[0])
+		var beam := MeshInstance3D.new()
+		beam.mesh = st.commit()
+		beam.material_override = bm
+		beam.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		add_child(beam)
+		_sun_beams.append(bm)
 
 
 func _spawn_actors() -> void:
@@ -610,8 +634,11 @@ func _process(_delta: float) -> void:
 	if _fill_light:
 		_fill_light.light_energy = lerpf(0.0, 0.18, Game.daylight()) + Game.morning() * 0.18
 	var mo := Game.morning()
+	var sun_k := 0.22 * mo + 0.07 * Game.daylight()  # sun through the windows all day, strongest in the morning
 	for sm in _sun_patches:
-		sm.albedo_color = Color(1.0, 0.92, 0.7) * (0.22 * mo)
+		sm.albedo_color = Color(1.0, 0.92, 0.7) * sun_k
+	for bm in _sun_beams:
+		bm.albedo_color = Color(1.0, 0.93, 0.72) * (sun_k * 1.3)
 	for l in _lamps:
 		l.light_color = LAMP_COLOR.lerp(SUN_COLOR, mo)
 		l.light_energy = lerpf(0.28, 0.16, mo)  # lamps fade while the sun does the work

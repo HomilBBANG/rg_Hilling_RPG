@@ -157,6 +157,12 @@ func set_grade_profile(name: String) -> void:
 		_grade_material.set_shader_parameter(k, p[k])
 
 
+## Sunlight shafts over the picture (0 = none), see pixel_grade.gdshader.
+func set_sun_rays(v: float) -> void:
+	if _grade_material:
+		_grade_material.set_shader_parameter("sun_rays", v)
+
+
 func set_grade_strength(v: float) -> void:
 	grade_strength = v
 	apply_settings()

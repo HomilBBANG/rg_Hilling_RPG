@@ -19,6 +19,11 @@ uniform float levels : hint_range(2.0, 32.0, 1.0) = 10.0;
 uniform float dither_strength : hint_range(0.0, 1.0) = 0.35;
 // Screen pixels per render texel when the texture is already upscaled (SCALING_3D pipeline).
 uniform float block_size = 1.0;
+// Sunlight shafts (pixel-art reference): soft diagonal bands of warm light falling from the
+// upper left, strongest at the top and fading down the screen. Strength set per frame from the
+// daylight (0 indoors / underground / at night).
+uniform float sun_rays : hint_range(0.0, 1.0) = 0.0;
+uniform vec3 ray_color : source_color = vec3(1.0, 0.95, 0.72);
 
 float bayer4(ivec2 p) {
 	int m[16] = int[](0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5);
@@ -46,6 +51,23 @@ void fragment() {
 	vec2 v = UV - 0.5;
 	graded *= 1.0 - vignette * smoothstep(0.25, 0.75, dot(v, v) * 2.2);
 	c = mix(c, graded, grade_strength);
+	if (sun_rays > 0.001) {
+		vec2 p = vec2(UV.x * 1.7778, UV.y);  // 16:9 screen, square units
+		vec2 dir = normalize(vec2(0.62, 1.0));   // down and to the right
+		vec2 perp = vec2(dir.y, -dir.x);
+		float s = dot(p, perp) + TIME * 0.006;   // slow drift
+		float t = dot(p, dir);
+		float b1 = 0.5 + 0.5 * sin(s * 21.0);
+		float b2 = 0.5 + 0.5 * sin(s * 8.3 + 1.7);
+		float b3 = 0.5 + 0.5 * sin(s * 3.1 + 0.4);
+		float bands = pow(b1, 3.0) * 0.45 + pow(b2, 2.0) * 0.35 + b3 * 0.2;
+		float fade = 1.0 - smoothstep(0.25, 1.35, t);        // bright up top, gone near the bottom
+		float side = 1.0 - smoothstep(0.9, 1.9, p.x);        // comes in from the left
+		float rays = bands * fade * (0.45 + 0.55 * side) * sun_rays;
+		// quantised to render texels like everything else: three levels, no smooth gradients
+		rays = floor(rays * 3.0 + 0.5) / 3.0;
+		c += ray_color * rays * 0.5;
+	}
 
 	if (dither_enabled) {
 		float t = (bayer4(cell) - 0.5) * dither_strength;

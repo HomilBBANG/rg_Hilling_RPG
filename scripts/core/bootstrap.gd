@@ -798,6 +798,9 @@ func _run_night_outline_check() -> void:
 # ---------------------------------------------------------------- sprite baking
 
 func _process(delta: float) -> void:
+	# Sun shafts: outdoors by day only (interior has its own window beams, dungeons none)
+	var outdoors: bool = world is VisualLab and not world.is_dungeon()
+	render.set_sun_rays((0.55 * Game.daylight() + 0.25 * Game.morning()) if outdoors else 0.0)
 	if Game.slot > 0 and not get_tree().paused:
 		_autosave_t += delta
 		if _autosave_t >= AUTOSAVE_SECONDS:
