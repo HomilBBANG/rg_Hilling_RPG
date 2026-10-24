@@ -1383,9 +1383,10 @@ func _run_interior_tour() -> void:
 	Game.lantern_on = false
 	Game.request_world(Game.WORLD_INTERIOR)
 	await wait_for_sprites()
-	for sdef: Array in [["morning", 8.5 * 60.0], ["noon", 13.0 * 60.0], ["night", 21.5 * 60.0]]:
+	for sdef: Array in [["morning", 8.5 * 60.0], ["noon", 13.0 * 60.0], ["night", 21.5 * 60.0], ["noon_south", 13.0 * 60.0]]:
 		Game.minute_of_day = sdef[1]
-		_place_player(Vector3(-2.2, 0, -0.4), -PI * 0.3)
+		# "noon_south": the hero (and the camera) down by the front wall — furniture shadows must stay
+		_place_player(Vector3(-2.2, 0, 1.6) if sdef[0] == "noon_south" else Vector3(-2.2, 0, -0.4), -PI * 0.3)
 		hud.set_capture_mode(true, "")
 		await _frames(30)
 		await _shot("interior_%s.png" % sdef[0])

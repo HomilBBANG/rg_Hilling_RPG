@@ -27,6 +27,10 @@ var cat: CatCompanion
 var day_night: DayNightController
 var _fill_light: OmniLight3D
 var _sun_patches: Array[StandardMaterial3D] = []
+var _lamps: Array[OmniLight3D] = []
+var _key_light: DirectionalLight3D
+const LAMP_COLOR := Color(1.0, 0.72, 0.45)
+const SUN_COLOR := Color(1.0, 0.96, 0.86)  # morning: daylight, not orange lamps (user request)
 var _room_spots: Array[Vector3] = []   # extra cat spots from rooms / decor
 var _placing := ""                     # decor item being placed ("" = not placing)
 var _ghost: Node3D
@@ -506,7 +510,8 @@ func _build_lights() -> void:
 	for lx in [-2.4, 1.6]:
 		var l := OmniLight3D.new()
 		l.position = Vector3(lx, 2.35, -0.3)
-		l.light_color = Color(1.0, 0.72, 0.45)  # soft orange lamps (user request)
+		l.light_color = Color(1.0, 0.72, 0.45)  # soft orange lamps (user request); sunlight tone in the morning
+		_lamps.append(l)
 		l.light_energy = 0.28
 		l.omni_range = 4.5
 		# No lamp shadows: two low omni lights threw blotchy furniture shadows across the floor
@@ -529,6 +534,7 @@ func _build_lights() -> void:
 	# side, high and a little to the left, so every box gets a lit top / face and a darker side
 	# under the cel shading. No shadows (lamp shadows read as cloud blotches before).
 	var key := DirectionalLight3D.new()
+	_key_light = key
 	key.light_color = Color(1.0, 0.88, 0.7)
 	key.light_energy = 0.26
 	key.rotation = Vector3(deg_to_rad(-72.0), deg_to_rad(-30.0), 0.0)  # steep: tops lit, walls and sides in shade
@@ -536,7 +542,10 @@ func _build_lights() -> void:
 	# like the reference) — unlike the two low lamps whose crossing shadows looked like blotches.
 	key.shadow_enabled = true
 	key.directional_shadow_mode = DirectionalLight3D.SHADOW_ORTHOGONAL
-	key.directional_shadow_max_distance = 40.0
+	# The orthographic camera sits far from the room (ortho_distance); the shadow range is measured
+	# from the camera, so 40 m dropped every shadow once the hero (and camera) moved south and the
+	# furniture by the back wall fell beyond it (user report). Cover the camera distance + room.
+	key.directional_shadow_max_distance = 400.0
 	key.shadow_bias = 0.03
 	add_child(key)
 	_fill_light = OmniLight3D.new()
@@ -607,8 +616,17 @@ func _process(_delta: float) -> void:
 		_ghost.rotation.y = _ghost_yaw
 	if _fill_light:
 		_fill_light.light_energy = lerpf(0.0, 0.18, Game.daylight()) + Game.morning() * 0.18
+	var mo := Game.morning()
 	for sm in _sun_patches:
-		sm.albedo_color = Color(1.0, 0.8, 0.45) * (0.22 * Game.morning())
+		sm.albedo_color = Color(1.0, 0.92, 0.7) * (0.22 * mo)
+	for l in _lamps:
+		l.light_color = LAMP_COLOR.lerp(SUN_COLOR, mo)
+		l.light_energy = lerpf(0.28, 0.16, mo)  # lamps fade while the sun does the work
+	if _key_light:
+		_key_light.light_color = Color(1.0, 0.88, 0.7).lerp(SUN_COLOR, mo)
+		_key_light.light_energy = lerpf(0.26, 0.42, mo)
+	if _fill_light:
+		_fill_light.light_color = Color(1.0, 0.86, 0.68).lerp(SUN_COLOR, mo)
 
 
 func sprite_targets() -> Array:

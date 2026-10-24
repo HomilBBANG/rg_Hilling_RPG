@@ -96,7 +96,7 @@ func apply(d: float, tw: float) -> void:
 			var mo := Game.morning()
 			# Dim, cool ambient (reference: deep shade between pools of warm light); the key light
 			# and the lamps carry the room, so the shadow sides stay dark.
-			environment.ambient_light_color = Color(0.34, 0.36, 0.48).lerp(Color(0.46, 0.44, 0.48), d).lerp(Color(0.7, 0.6, 0.48), mo * 0.5)
+			environment.ambient_light_color = Color(0.34, 0.36, 0.48).lerp(Color(0.46, 0.44, 0.48), d).lerp(Color(0.76, 0.74, 0.66), mo * 0.6)
 			environment.ambient_light_energy = lerpf(0.08, 0.1, d) + mo * 0.03
 			environment.background_color = Color(0.02, 0.02, 0.03)
 		elif palette == "deadcells":
@@ -142,4 +142,4 @@ func apply(d: float, tw: float) -> void:
 	var mo := Game.morning()
 	for m in window_materials:
 		m.emission_energy_multiplier = lerpf(0.05, 1.1, d) + mo * 0.7
-		m.emission = Color(0.25, 0.3, 0.5).lerp(Color(0.85, 0.9, 0.95), d).lerp(Color(1.0, 0.82, 0.55), mo)
+		m.emission = Color(0.25, 0.3, 0.5).lerp(Color(0.85, 0.9, 0.95), d).lerp(Color(1.0, 0.95, 0.8), mo)
