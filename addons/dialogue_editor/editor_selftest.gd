@@ -676,6 +676,26 @@ static func _quest_checks(dpanel: DialogueEditorPanel, shot: Callable) -> int:
 	fails += 0 if _check(q.get("accept", "") == "auto" and q.get("trigger", {}).get("region", "") == "meadow" and int(QuestDB.rewards_for(QUEST_ID, "reward").get("life_exp", 0)) == 12 \
 			and QuestDB.objective(QUEST_ID, "obj_4").get("type", "") == "flag" and QuestDB.reward_text(QuestDB.rewards_for(QUEST_ID)).contains("빵"),
 		"game-side QuestDB: auto trigger in meadow, outcome rewards, objective obj_4 = flag, reward text '%s'" % QuestDB.reward_text(QuestDB.rewards_for(QUEST_ID))) else 1
+	# objective rename follows into the dialogues that advance it (king audience: main_1)
+	var king_path := DialogueData.path_for("dialogue.story.king_audience")
+	var king_before := FileAccess.get_file_as_string(king_path)
+	var aud_before := FileAccess.get_file_as_string(QuestDB.path_for("quest.main.audience"))
+	qp.open_quest("quest.main.audience")
+	var n_ren := qp.rename_objective(0, "main_1_renamed")
+	var king_doc: Dictionary = DialogueData.read_json(king_path)
+	var act: Dictionary = DialogueData.node_by_id(king_doc, "act_met")
+	fails += 0 if _check(n_ren == 1 and str(act.get("args", {}).get("objective", "")) == "main_1_renamed" and qp.doc["objectives"][0]["id"] == "main_1_renamed",
+		"rename objective main_1 → main_1_renamed: %d dialogue reference(s) rewritten (act_met now '%s')" % [n_ren, act.get("args", {}).get("objective", "")]) else 1
+	qp.rename_objective(0, "main_1")
+	var king_after: Dictionary = DialogueData.read_json(king_path)
+	fails += 0 if _check(str(DialogueData.node_by_id(king_after, "act_met").get("args", {}).get("objective", "")) == "main_1", "rename back → reference back to main_1") else 1
+	var fk := FileAccess.open(king_path, FileAccess.WRITE)
+	fk.store_string(king_before)
+	fk.close()
+	qp.dirty = false
+	qp.open_quest(QUEST_ID)
+	fails += 0 if _check(FileAccess.get_file_as_string(king_path) == king_before and FileAccess.get_file_as_string(QuestDB.path_for("quest.main.audience")) == aud_before,
+		"king dialogue and audience quest files restored") else 1
 	# delete
 	qp.delete_quest(QUEST_ID)
 	fails += 0 if _check(not FileAccess.file_exists(QuestDB.path_for(QUEST_ID)) and qp.quest_id != QUEST_ID and not QuestDB.all().has(QUEST_ID), "delete → file gone, another quest open") else 1

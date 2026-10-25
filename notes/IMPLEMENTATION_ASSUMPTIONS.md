@@ -795,3 +795,11 @@ GDD 17은 저장/불러오기(저장 지점, 자동 저장, 사망 시 저장 �
 | 수정 | 시트가 붙는 순간 부모 `CamperVehicle._sync_visual()` 호출 — 걸어서 지역에 들어올 때·알현실에서 돌아올 때·불러오기 때 모두 해당 | 같은 곳 |
 | 검사 | `--tour=parkflip`: 왕도에 주차 → 걸어서 도착 → 알현실 → 돌아옴 → 운전석, 세 시점에서 차체 각도의 프레임 = 보이는 프레임 | `bootstrap.gd` `_run_parkflip_tour()` |
 | 퀘스트 목표 이름 바꿈 (사용자 편집 2026-10-25) | `quest.main.audience`의 목표 ID `audience` → `main_1`로 바뀌어 왕 대화의 '퀘스트 목표 진행'이 빈 목표를 가리키게 됨(알현 퀘스트가 완료되지 않음) → 대화·투어·프리셋의 참조를 `main_1`로 맞춤. 에디터에서 목표 ID를 바꿀 때 참조를 같이 바꾸는 기능은 아직 없음 | `dialogue.story.king_audience.json`, `bootstrap.gd`, `save_presets.gd` |
+
+## 이동 속도·캠핑카 방향·목표 ID 바꾸기 (사용자 요청 2026-10-25)
+
+| 항목 | 정한 내용 | 위치 |
+|---|---|---|
+| 화면 기준 균일 속도 | 카메라가 40° 기울어져 세로(Z) 움직임이 화면에서 sin40° = 0.64배로 눌려 보여, 위아래로 걸을 때가 좌우보다 36% 느려 보였음(대각선은 그 사이). `SCREEN_UNIFORM_MOVE = 1.0`: 주인공은 입력의 Z 성분을 1/0.64배로, 캠핑카는 진행 방향에 따라 속도를 같은 비율로 올려 **화면에서 어느 방향이든 같은 속도**. 월드 단위로는 남북 이동이 1.56배 빨라짐(이동 시간·추격에 영향). 0.0이면 예전 월드 기준. 투어 `facing`이 8방향 화면 속도 편차를 잼(36% → 5%) | `topdown_camera.gd` `screen_uniform()` / `heading_speed_factor()`, `prototype_player.gd`, `camper_vehicle.gd` |
+| 캠핑카 정면 4방향 | 스프라이트 32방향의 기준 각이 주차 각 −6°라 0·90·180·270°가 없었음 → 기준 0°로 바꿔 11.25° 배수에 정확히 동·북·서·남이 있음(캠프 주차 −6°는 가장 가까운 프레임으로 스냅, 모델도 같이 돌아 그림자 일치). `parkflip` 투어가 네 각도 모두 정확한 프레임인지 확인 | `visual_lab.gd` `_build_vehicle()`/`sprite_targets()` |
+| 목표 ID 바꾸면 참조도 | 퀘스트 탭에서 목표 ID를 고치면 그 퀘스트의 '퀘스트 목표 진행' 대화 액션이 가리키는 ID를 같이 바꿔 파일을 저장하고 상태 줄에 개수 표시(`QuestDB.rename_objective_refs`). 코드(`bootstrap.gd`·`save_presets.gd`)의 참조는 못 바꿈 | `quest_editor_panel.gd` `rename_objective()` |

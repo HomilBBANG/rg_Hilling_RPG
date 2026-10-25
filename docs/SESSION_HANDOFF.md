@@ -95,7 +95,7 @@ $GD --headless --path . --export-release "Windows Desktop" build/windows/Denial.
 
 ```bash
 DIALOGUE_EDITOR_SELFTEST=$S/editor xvfb-run -a $GD --editor --path . --audio-driver Dummy
-# 로그에 "[editor] done: 0 failed checks"  (대화·컷씬·몬스터 AI·퀘스트 탭 + Map 화면의 지도 표시물·지역 배치 탭, 70개 항목)
+# 로그에 "[editor] done: 0 failed checks"  (대화·컷씬·몬스터 AI·퀘스트 탭 + Map 화면의 지도 표시물·지역 배치 탭, 73개 항목)
 ```
 
 ---

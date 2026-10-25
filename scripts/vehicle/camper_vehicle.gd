@@ -150,7 +150,7 @@ func _drive_heading(delta: float) -> void:
 		if speed < -0.05:
 			speed = move_toward(speed, 0.0, heading_brake * delta)  # reversing: brake first
 		elif power > 0.0:
-			speed = move_toward(speed, heading_max_speed * power, heading_accel * delta)
+			speed = move_toward(speed, heading_max_speed * power * TopdownCamera.heading_speed_factor(rotation.y, self), heading_accel * delta)
 		else:
 			speed = move_toward(speed, 0.0, heading_coast * delta)
 	elif back:
@@ -160,7 +160,7 @@ func _drive_heading(delta: float) -> void:
 		else:
 			_stopped_t += delta
 			if _stopped_t >= heading_reverse_delay and power > 0.0:
-				speed = move_toward(speed, -heading_reverse_speed * minf(power, 1.0), heading_reverse_accel * delta)
+				speed = move_toward(speed, -heading_reverse_speed * minf(power, 1.0) * TopdownCamera.heading_speed_factor(rotation.y, self), heading_reverse_accel * delta)
 	else:
 		speed = move_toward(speed, 0.0, heading_coast * delta)
 		_stopped_t = 0.0
@@ -224,7 +224,7 @@ func _drive_arcade(delta: float) -> void:
 		speed = move_toward(speed, 0.0, coast_decel * delta)
 	# Facing well away from the target (U-turn, sharp corner): ease off while turning.
 	var align := cos(absf(angle_difference(rotation.y, target)))
-	var target_speed := max_speed * dir.limit_length(1.0).length() * power
+	var target_speed := max_speed * dir.limit_length(1.0).length() * power * TopdownCamera.heading_speed_factor(rotation.y, self)
 	if align < 0.7:
 		target_speed *= lerpf(sharp_turn_slowdown, 1.0, clampf(align / 0.7, 0.0, 1.0))
 	if speed < target_speed:

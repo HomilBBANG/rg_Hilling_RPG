@@ -206,6 +206,27 @@ static func references(quest_id: String) -> Array:
 	return out
 
 
+## Point every dialogue action '퀘스트 목표 진행' for quest_id at a renamed objective. Returns the
+## number of nodes changed (their files are rewritten).
+static func rename_objective_refs(quest_id: String, old_id: String, new_id: String) -> int:
+	var n := 0
+	for p in DialogueData.list_files(DialogueData.DIALOGUE_DIR):
+		var d: Variant = DialogueData.read_json(p)
+		if not d is Dictionary:
+			continue
+		var changed := false
+		for node: Dictionary in d.get("nodes", []):
+			if node.get("type", "") == "action" and node.get("action", "") == "quest_advance":
+				var args: Dictionary = node.get("args", {})
+				if str(args.get("quest_id", "")) == quest_id and str(args.get("objective", "")) == old_id:
+					args["objective"] = new_id
+					changed = true
+					n += 1
+		if changed:
+			DialogueData.save_dialogue(d, p)
+	return n
+
+
 ## Flags that something sets: code flags + set_flag actions / steps in the data files.
 static func known_flags() -> PackedStringArray:
 	var out := PackedStringArray(CODE_FLAGS)

@@ -1427,6 +1427,25 @@ func _run_facing_tour() -> void:
 			await _frames(14)
 			await _shot("facing_%d_%s_walk.png" % [i, "on" if lantern else "off"])
 			p.scripted_move = Vector2.ZERO
+	# on-screen walking speed must be the same in every direction (the 40° camera squashes Z)
+	var cam: TopdownCamera = world.camera
+	var px := {}
+	for i in 8:
+		var yaw := i * TAU / 8.0
+		_place_player(Vector3(42.0, 0, -2.0), yaw)
+		p.scripted_move = Vector2(sin(yaw), cos(yaw)) * -1.0
+		await _frames(3)
+		var a := p.global_position
+		var t0 := Time.get_ticks_msec()
+		await _frames(20)
+		# the camera follows the player, so project the world displacement through its basis
+		var d := cam.global_transform.basis.inverse() * (p.global_position - a)
+		px[i] = Vector2(d.x, d.y).length() / maxf(Time.get_ticks_msec() - t0, 1.0) * 1000.0
+		p.scripted_move = Vector2.ZERO
+	var lo: float = px.values().min()
+	var hi: float = px.values().max()
+	print("[facing] on-screen speed (view units/s) by direction (N, NE, E, …): %s — min %.0f max %.0f, spread %.0f%% %s" % [
+		px.values().map(func(v: float) -> String: return "%.0f" % v), lo, hi, (hi - lo) / hi * 100.0, "✔" if (hi - lo) / hi < 0.12 else "✘"])
 	get_tree().quit()
 
 
@@ -3476,6 +3495,18 @@ func _run_parkflip_tour() -> void:
 	world.enter_vehicle()
 	await _frames(3)
 	report.call("in the driver seat")
+	# straight views exist: facing east / north / west / south lands exactly on a baked frame
+	for q in 4:
+		world.vehicle.rotation.y = q * PI * 0.5
+		world.vehicle.call("_sync_visual")
+		var frame: int = world.vehicle.camper.sprite_dir
+		var model_turn: float = rad_to_deg(world.vehicle.camper.rotation.y)
+		print("[parkflip] yaw %d° -> frame %d (of %d), model turned %.2f° %s" % [q * 90, frame, CamperExterior.SPRITE_DIRECTIONS, model_turn,
+			"✔" if frame == q * CamperExterior.SPRITE_DIRECTIONS / 4 and absf(model_turn) < 0.01 else "✘"])
+	world.vehicle.rotation.y = PI * 0.5
+	world.vehicle.call("_sync_visual")
+	await _frames(2)
+	await _p1_shot("parkflip_03_north", "camper facing north (90°)", true)
 	get_tree().quit()
 
 

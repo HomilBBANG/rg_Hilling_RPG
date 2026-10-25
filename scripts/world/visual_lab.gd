@@ -292,7 +292,7 @@ func _build_camp() -> void:
 func _build_vehicle() -> void:
 	vehicle = CamperVehicle.new()
 	vehicle.name = "CamperVehicle"
-	vehicle.base_yaw = deg_to_rad(CAMPER_YAW_DEG)
+	vehicle.base_yaw = 0.0  # sprite frames at multiples of 11.25° from world east: 0/90/180/270 included
 	vehicle.height_func = Callable(self, "ground_height")
 	vehicle.walk_bounds = Rect2(terrain.bounds_min + Vector2(6, 6), terrain.bounds_max - terrain.bounds_min - Vector2(12, 12))
 	var park: Dictionary = Game.camper
@@ -752,7 +752,7 @@ func sprite_targets() -> Array:
 			var tg := m.sprite_target()
 			out.append([m, tg[0], tg[1]])
 	if camper_here():
-		out.append([camper, CamperExterior.sprite_bake_spec(CAMPER_YAW_DEG), "camper|" + CamperUpgrades.look_key()])
+		out.append([camper, CamperExterior.sprite_bake_spec(0.0), "camper|" + CamperUpgrades.look_key()])
 	if cat:
 		out.append([cat, CatCompanion.sprite_bake_spec(), "cat"])
 	for n in npcs:

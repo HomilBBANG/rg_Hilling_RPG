@@ -202,6 +202,7 @@ func _physics_process(delta: float) -> void:
 	var dir := Vector3(input.x, 0.0, input.y)
 	if dir.length() > 1.0:
 		dir = dir.normalized()
+	dir = TopdownCamera.screen_uniform(dir, self)  # same on-screen speed in every direction
 	# Walking costs no SP; running drains it (GDD 4.2 [확정]). Out of SP: walk until 25 % back.
 	if _winded and st.sp >= st.max_sp() * 0.25:
 		_winded = false

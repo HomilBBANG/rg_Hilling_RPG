@@ -519,6 +519,26 @@ func set_objective_field(index: int, key: String, value: Variant) -> void:
 	_commit(false)
 
 
+## Rename an objective and point every dialogue action '퀘스트 목표 진행' that used the old id at
+## the new one (files rewritten at once). Returns how many references were updated.
+func rename_objective(index: int, new_id: String) -> int:
+	var objs: Array = doc["objectives"]
+	if index < 0 or index >= objs.size():
+		return 0
+	var old_id := str(objs[index].get("id", ""))
+	if new_id == old_id:
+		return 0
+	set_objective_field(index, "id", new_id)
+	if old_id == "" or new_id == "":
+		return 0
+	var n := QuestDB.rename_objective_refs(quest_id, old_id, new_id)
+	if n > 0:
+		_set_status("목표 ID '%s' → '%s': 대화 %d곳의 '퀘스트 목표 진행'도 같이 바꿈" % [old_id, new_id, n])
+		saved.emit("")  # other tabs re-read the dialogues
+		refresh_refs()
+	return n
+
+
 ## Changing the type keeps id / text and swaps the type-specific fields.
 func set_objective_type(index: int, type: String) -> void:
 	var objs: Array = doc["objectives"]
@@ -887,7 +907,7 @@ func _objectives_section() -> void:
 		var r1 := HBoxContainer.new()
 		v.add_child(r1)
 		_label(r1, "ID (대화 액션 '퀘스트 목표 진행'이 가리킴)")
-		_line(r1, str(o.get("id", "")), func(s: String) -> void: set_objective_field(idx, "id", s.strip_edges()))
+		_line(r1, str(o.get("id", "")), func(s: String) -> void: rename_objective(idx, s.strip_edges()))
 		var r2 := HBoxContainer.new()
 		v.add_child(r2)
 		_label(r2, "종류")
@@ -1015,6 +1035,13 @@ func _outcomes_section() -> void:
 	if oc.is_empty():
 		_label(_inspector, "없음 — 결과를 비우면 위의 기본 보상을 준다. 예: 짐을 돌려주고 사례를 받거나 거절하는 두 갈래.", true)
 	_btn(_inspector, "+ 결과", func() -> void: add_outcome())
+
+
+## Re-read where this quest is used (after files outside this tab changed).
+func refresh_refs() -> void:
+	if quest_id != "":
+		refs = QuestDB.references(quest_id)
+		validate(false)
 
 
 # ---------------------------------------------------------------- validation / status

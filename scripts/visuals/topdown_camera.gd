@@ -32,6 +32,12 @@ const STYLES: Array[Dictionary] = [
 @export var ortho_distance := 40.0
 @export var perspective_fov := 25.0
 
+## Screen-uniform movement: the tilted camera squashes world Z on screen (by sin(pitch), 0.64 at
+## 40°), so walking north looked much slower than walking east. 1.0 = the player's and camper's
+## speed is scaled so the sprite crosses the screen at the same rate in every direction;
+## 0.0 = plain world speed.
+const SCREEN_UNIFORM_MOVE := 1.0
+
 var target: Node3D
 var render: PixelRenderController
 var snap_enabled := true
@@ -46,6 +52,32 @@ var _has_focus := false
 var _outline_quad: MeshInstance3D
 var _shake_t := 0.0
 var _shake_texels := 0.0
+
+
+## How much world Z is shortened on screen by the current camera (1 = not at all).
+static func ground_foreshortening(node: Node) -> float:
+	var cam := node.get_viewport().get_camera_3d() if node and node.is_inside_tree() else null
+	if cam is TopdownCamera:
+		return maxf(sin(deg_to_rad(cam.pitch_degrees)), 0.2)
+	return 1.0
+
+
+## A ground direction (x, z) scaled so its on-screen speed matches an east-west move of the same
+## input length (SCREEN_UNIFORM_MOVE blends between world-uniform and screen-uniform).
+static func screen_uniform(dir: Vector3, node: Node) -> Vector3:
+	var k := ground_foreshortening(node)
+	var zf := lerpf(1.0, 1.0 / k, SCREEN_UNIFORM_MOVE)
+	return Vector3(dir.x, dir.y, dir.z * zf)
+
+
+## Speed multiplier for something moving along heading yaw (forward = (cos, 0, -sin)) so its
+## on-screen speed is the same whichever way it points.
+static func heading_speed_factor(yaw: float, node: Node) -> float:
+	var k := ground_foreshortening(node)
+	var c := cos(yaw)
+	var s := sin(yaw)
+	var on_screen := sqrt(c * c + s * s * k * k)
+	return lerpf(1.0, 1.0 / maxf(on_screen, 0.2), SCREEN_UNIFORM_MOVE)
 
 
 func _ready() -> void:

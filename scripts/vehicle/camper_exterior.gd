@@ -37,7 +37,8 @@ func _ready() -> void:
 	lights.build(self)
 
 
-## Bake request: 16 yaws (cell i = base_yaw + i * 22.5 deg), lamps off / on emission variants.
+## Bake request: SPRITE_DIRECTIONS yaws (cell i = base_yaw + i * 11.25 deg; base 0 so the straight
+## 0 / 90 / 180 / 270 views exist), lamps off / on emission variants.
 static func sprite_bake_spec(base_yaw_deg: float) -> Dictionary:
 	return {
 		"builder": func(c: int, r: int) -> Node3D:
