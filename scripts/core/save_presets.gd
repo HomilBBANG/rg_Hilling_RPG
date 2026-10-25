@@ -73,7 +73,7 @@ static func _chapter1() -> Dictionary:
 	n.mark_event("story.dragon_persuaded")
 	n.mark_event("story.camper_wish")
 	q.accept("quest.main.audience")
-	q.advance("quest.main.audience", "audience")
+	q.advance("quest.main.audience", "main_1")
 	q.complete("quest.main.audience")
 	q.accept("quest.main.dragon")
 	q.complete("quest.main.dragon")  # objectives are flags (above)

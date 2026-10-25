@@ -77,7 +77,7 @@ echo "$t exit=$? errors=$(grep -c 'SCRIPT ERROR' $S/reg/$t.log)"; grep -c '✘' 
 
 - 동시에 **3개까지만** 병렬(`xargs -P3`). `save`·`preset`은 저장 파일을 쓰므로 **혼자 순서대로**.
 - `pkill -f "tour=..."`는 쓰지 말 것 — 명령 줄이 같은 셸까지 죽인다(exit 144). 필요하면 PID로 끈다.
-- 투어 목록: `shots styles rawframes walk_d hd sprites night_outline walk p1 p2 gear items shop quest region dungeon rift life craft save run dialogue cutscene world camper king dragonroad dragon wish upgrades drive drivegta preset collide monsterai water beasts catmeet expressions statui invui skillui minimap maps wind catfollow p1input facing interior`
+- 투어 목록: `shots styles rawframes walk_d hd sprites night_outline walk p1 p2 gear items shop quest region dungeon rift life craft save run dialogue cutscene world camper king dragonroad dragon wish upgrades drive drivegta preset collide monsterai water beasts catmeet expressions statui invui skillui minimap maps wind catfollow p1input facing interior parkflip`
 - 바꾼 부분과 관련된 투어 + `p1 p2 region dialogue cutscene save preset` 정도는 늘 돌린다. 마지막 전체 회귀(2026-10-23): 전부 exit=0, 오류 0.
 - **이 컨테이너의 소프트웨어 렌더러에서는 구운 스프라이트(주인공·고양이 등)가 연한 실루엣(유령)으로만 찍힌다**(2026-10-23 확인, 이전 커밋도 같음 — 환경 문제. 깊이 쓰기가 안 되어 가려짐 실루엣 패스만 보임). 스프라이트 자체는 `--tour=sprites`가 내보내는 `sheets/*.png`로 확인한다. `--tour=facing` = 주인공 8방향 보행 캡처(등불 끔/켬).
 - 투어 코드는 `scripts/core/bootstrap.gd`의 `_tour_*` 함수들. 도움 함수: `_talk_through(picks, prefix)`, `_key`, `_p1_shot`, `_place_player`, `_wait_travel`, `_walk_to`, `_drive_to_gate()`.

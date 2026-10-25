@@ -560,6 +560,8 @@ func _parse_args() -> void:
 		_run_camper_tour()
 	elif tour == "king":
 		_run_king_tour()
+	elif tour == "parkflip":
+		_run_parkflip_tour()
 	elif tour == "dragonroad":
 		_run_dragon_road_tour()
 	elif tour == "dragon":
@@ -3264,7 +3266,7 @@ func _run_wish_tour() -> void:
 	Game.narrative.set_flag("story.new_game_seen")
 	Game.set_story_stage(1)  # with the cat, no camper yet
 	Game.quests.accept("quest.main.audience")
-	Game.quests.advance("quest.main.audience", "audience")
+	Game.quests.advance("quest.main.audience", "main_1")
 	Game.quests.complete("quest.main.audience")
 	Game.quests.accept("quest.main.dragon")
 	for f in ["story.pass_reached", "story.nest_found", "story.dragon_left"]:
@@ -3431,6 +3433,50 @@ func _drive_to_gate() -> bool:
 			t += get_physics_process_delta_time()
 	v.scripted = {}
 	return Game.region != "capital" or _busy
+
+
+## Bug check: a camper parked in the capital, hall visit on foot, back out — the parked sprite
+## must show the parked heading (it used to show frame 0, mirrored, until the next drive).
+func _run_parkflip_tour() -> void:
+	Game.clock_running = false
+	Game.minute_of_day = 11.0 * 60.0
+	await wait_for_sprites()
+	Game.set_story_stage(2)
+	Game.camper = {"region": "capital", "pos": Vector3(7, 0, 44), "yaw": 0.0}
+	travel("capital", "south_road", false)
+	await _wait_travel()
+	await wait_for_sprites()
+	await _frames(3)
+	var report := func(when: String) -> void:
+		if world is VisualLab and world.camper_here() and world.vehicle.camper.sprite:
+			var want: int = world.vehicle.sprite_direction()
+			var have: int = world.vehicle.camper.sprite_dir
+			print("[parkflip] %s: body yaw %.0f° -> frame %d, shown %d, model turn %.0f° %s" % [when, rad_to_deg(world.vehicle.rotation.y), want, have,
+				rad_to_deg(world.vehicle.camper.rotation.y), "✔" if want == have else "✘"])
+		else:
+			print("[parkflip] %s: no parked camper sprite here (%s) ✘" % [when, Game.region])
+	report.call("arrived on foot")
+	_place_player(Vector3(7, 0, 50), 0.0)
+	await _seconds(0.5)
+	await _p1_shot("parkflip_01_arrived", "parked camper on arrival", true)
+	_place_player(Vector3(0, 0, -34.6), 0.0)
+	await _seconds(1.2)
+	await _wait_travel()
+	print("[parkflip] castle door -> %s" % Game.region)
+	_place_player(Vector3(0, 0, 9.2), PI)
+	await _seconds(1.2)
+	await _wait_travel()
+	await wait_for_sprites()
+	await _frames(3)
+	print("[parkflip] hall exit -> %s" % Game.region)
+	report.call("back from the hall")
+	_place_player(Vector3(7, 0, 50), 0.0)
+	await _seconds(0.5)
+	await _p1_shot("parkflip_02_back", "parked camper after the hall", true)
+	world.enter_vehicle()
+	await _frames(3)
+	report.call("in the driver seat")
+	get_tree().quit()
 
 
 ## Camper upgrades (GDD 9): the three capital vendors and their panels, buying in order (and what

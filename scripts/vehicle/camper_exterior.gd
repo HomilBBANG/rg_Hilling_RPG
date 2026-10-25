@@ -83,6 +83,11 @@ func use_sprite_sheet(sheet: SpriteSheet) -> void:
 	if sprite and sprite.sheet != sheet:
 		sprite.set_sheet(sheet)
 		set_sprite_dir(sprite_dir)
+	# The sheet arrives after the vehicle was parked at its yaw: pick the frame for that yaw now
+	# (a parked camper otherwise showed frame 0 — mirrored — until the next drive resynced it).
+	var v := get_parent()
+	if v is CamperVehicle:
+		v._sync_visual()
 	for mi in find_children("*", "MeshInstance3D", true, false):
 		if mi == sprite:
 			continue

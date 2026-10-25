@@ -189,7 +189,7 @@
       "action": "quest_advance",
       "args": {
         "quest_id": "quest.main.audience",
-        "objective": "audience",
+        "objective": "main_1",
         "amount": 1
       }
     },
