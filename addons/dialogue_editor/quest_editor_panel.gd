@@ -747,7 +747,7 @@ func _trigger_section() -> void:
 		_set_status("아래 지역 그림을 클릭해 시작 자리를 정하세요")
 		if _canvas:
 			_canvas.queue_redraw()
-			_scroll.call_deferred("ensure_control_visible", _canvas), "클릭한 자리가 시작 위치가 됨 — 그림이 보이도록 아래로 내려감")
+			_reveal_canvas(), "클릭한 자리가 시작 위치가 됨 — 그림이 보이도록 아래로 내려감")
 	_canvas = Control.new()
 	_canvas.custom_minimum_size = Vector2(360, 420)
 	_canvas.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -760,6 +760,17 @@ func _trigger_section() -> void:
 	_zoom.toolbar(_inspector, _canvas)
 	_inspector.add_child(_canvas)
 	_label(_inspector, "그림을 클릭하면 빨간 동그라미(시작 자리)가 거기로 갑니다. 동그라미를 끌어서 옮길 수도 있어요. 흰 점 = 출구, 노란 원 = 마을, 하늘색 ▲ = 쉼터.", true)
+
+
+## Scroll the inspector so the whole trigger picture (toolbar + canvas) is on screen.
+func _reveal_canvas() -> void:
+	if _canvas == null or _scroll == null:
+		return
+	await get_tree().process_frame
+	await get_tree().process_frame
+	if _canvas == null or not is_instance_valid(_canvas):
+		return
+	_scroll.scroll_vertical = maxi(int(_canvas.position.y) - 48, 0)
 
 
 func _fit() -> void:

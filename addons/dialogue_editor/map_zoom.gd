@@ -47,6 +47,7 @@ func to_region(c: Vector2) -> Vector2:
 func zoom_by(factor: float, canvas: Control, at := Vector2(-1, -1)) -> void:
 	if at.x < 0.0:
 		at = canvas.size * 0.5
+	fit(canvas)  # the canvas may have been laid out since the last draw
 	var before := to_region(at)
 	zoom = clampf(zoom * factor, 0.5, 16.0)
 	fit(canvas)

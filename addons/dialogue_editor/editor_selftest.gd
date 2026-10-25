@@ -635,8 +635,8 @@ static func _quest_checks(dpanel: DialogueEditorPanel, shot: Callable) -> int:
 	var tp2: Array = qp.doc["trigger"]["pos"]
 	fails += 0 if _check(qp._zoom.scale > scale0 * 2.5 and absf(float(tp2[0]) - 41.3) < 0.15 and absf(float(tp2[1]) + 6.2) < 0.15,
 		"trigger picture zoomed ×3 (%.2f → %.2f px/m), fine placement at (41.3, -6.2) -> (%s, %s)" % [scale0, qp._zoom.scale, tp2[0], tp2[1]]) else 1
-	qp._scroll.ensure_control_visible(qp._canvas)
-	await _frames(qp, 3)
+	qp._reveal_canvas()
+	await _frames(qp, 4)
 	await shot.call("editor_43_quest_trigger_zoom")
 	qp.place = true
 	qp.canvas_click(qp.to_canvas(Vector2(40, -5)))
