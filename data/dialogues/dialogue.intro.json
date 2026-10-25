@@ -1,0 +1,67 @@
+{
+  "version": 1,
+  "dialogue_id": "dialogue.intro",
+  "metadata": {
+    "title": "게임 시",
+    "tags": [],
+    "notes": ""
+  },
+  "start_node_id": "start",
+  "nodes": [
+    {
+      "id": "start",
+      "type": "start"
+    },
+    {
+      "id": "line_01",
+      "type": "line",
+      "speaker_id": "player",
+      "text": "이런 씨발, 지금 내가 게임에 있는 거야?"
+    },
+    {
+      "id": "end",
+      "type": "end"
+    },
+    {
+      "id": "line_02",
+      "type": "line",
+      "speaker_id": "player",
+      "text": "음, 나쁘지 않군."
+    }
+  ],
+  "connections": [
+    {
+      "from": "start",
+      "port": "next",
+      "to": "line_01"
+    },
+    {
+      "from": "line_01",
+      "port": "next",
+      "to": "line_02"
+    },
+    {
+      "from": "line_02",
+      "port": "next",
+      "to": "end"
+    }
+  ],
+  "editor_positions": {
+    "start": [
+      -160,
+      80
+    ],
+    "line_01": [
+      200,
+      80
+    ],
+    "end": [
+      560,
+      80
+    ],
+    "line_02": [
+      200,
+      180
+    ]
+  }
+}

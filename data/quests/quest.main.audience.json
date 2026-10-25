@@ -1,29 +1,46 @@
 {
   "version": 1,
   "quest_id": "quest.main.audience",
-  "title": "왕을 만나라",
-  "desc": "(임시 문안) 낯선 들판에서 깨어났다. 사람들 말로는 북쪽 왕도의 왕이 이국에서 온 여행자를 찾고 있다고 한다. 교역소에서 북쪽 길을 따라 왕도로 가서, 성 안의 왕을 만나자.",
+  "title": "왕을 알현하기",
+  "desc": "낯선 들판에서 깨어났다.\nTRPG 안이라면 이곳은 왕도다. 현실로 돌아가기 위해서는 왕의 부탁을 완료하면 될 것이다.",
   "giver": "",
   "source": "story",
-  "accept": "direct",
+  "accept": "auto",
   "repeatable": false,
   "time_limit_hours": 0,
+  "trigger": {
+    "type": "reach",
+    "region": "meadow",
+    "pos": [
+      0,
+      0
+    ],
+    "radius": 6
+  },
   "objectives": [
     {
-      "id": "audience",
+      "id": "main_1",
       "type": "count",
       "count": 1,
-      "text": "왕도 성의 알현실에서 왕과 이야기하기"
+      "text": "왕을 찾기"
     }
   ],
   "consume_items": false,
   "rewards": {
-    "gen_exp": 10,
+    "gen_exp": 100,
     "life_exp": 0,
-    "gold": 50,
-    "items": {
-      "bread": 3,
-      "heal_potion": 2
+    "gold": 0,
+    "items": {}
+  },
+  "outcomes": {
+    "outcome_1": {
+      "label": "새 결과",
+      "rewards": {
+        "gen_exp": 100,
+        "life_exp": 0,
+        "gold": 0,
+        "items": {}
+      }
     }
   }
 }

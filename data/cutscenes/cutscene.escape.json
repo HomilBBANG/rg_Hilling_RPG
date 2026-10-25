@@ -1,7 +1,7 @@
 {
   "version": 1,
   "cutscene_id": "cutscene.escape",
-  "title": "(임시 문안) 남문 탈출 — 섬 전체가 적이 되다",
+  "title": "탈출 — 섬 전체가 적이 되다",
   "notes": "사용자 이야기: 수배된 주인공이 캠핑카로 왕도 남문을 빠져나가면 재생(bootstrap._escape_ending). 이후 왕도로는 돌아갈 수 없고, 섬의 모든 NPC가 무기를 들고 쫓아온다. 목적지는 드래곤이 떠난 둥지의 포탈(cutscene.portal = 챕터 1 끝). 화면은 검게 끝나고, 이어지는 지역 이동 화면 뒤에 초원에서 밝아진다.",
   "skippable": true,
   "steps": [
@@ -23,24 +23,52 @@
     {
       "type": "line",
       "speaker_id": "player",
-      "expression": "scared",
-      "text": "…이 섬에 내 편은 하나도 안 남았어. (임시 대사)"
-    },
-    {
-      "type": "line",
-      "speaker_id": "cat",
-      "expression": "curious",
-      "text": "냐아. (임시 대사)"
+      "expression": "surprised",
+      "text": "캠핑카가 그 위로 떨어질 줄은 몰랐지!"
     },
     {
       "type": "line",
       "speaker_id": "player",
       "expression": "thinking",
-      "text": "드래곤이 떠난 둥지… 그 자리에 뭔가가 열렸다고 했지. 바다 건너로 가는 길이라면 — 거기뿐이야. (임시 대사)"
+      "text": "아무튼 이 섬에 더 있을 수는 없겠어."
+    },
+    {
+      "type": "line",
+      "speaker_id": "cat",
+      "expression": "curious",
+      "text": "먀옹~"
+    },
+    {
+      "type": "line",
+      "speaker_id": "player",
+      "expression": "happy",
+      "text": "네 25g의 뇌로 이 상황을 이해할 수는 없겠지."
+    },
+    {
+      "type": "line",
+      "speaker_id": "player",
+      "expression": "surprised",
+      "text": "아!"
     },
     {
       "type": "narration",
-      "text": "잿빛 산길 끝, 드래곤의 둥지까지.\n멈추면 붙잡힌다 — 달려라.",
+      "text": "대니얼은 떠올렸다.",
+      "seconds": 0
+    },
+    {
+      "type": "narration",
+      "text": "용이 떠난 후 그 자리에 나타난 의문의 포탈을...",
+      "seconds": 0
+    },
+    {
+      "type": "line",
+      "speaker_id": "player",
+      "expression": "happy",
+      "text": "그 포탈에 가보면 되겠군!\n과연 어디로 연결되어 있을 지 두근거리는 걸!"
+    },
+    {
+      "type": "narration",
+      "text": "잿빛 산길 끝, 드래곤의 둥지까지.\n멈추면 붙잡힌다 — 달려라. 대니얼.",
       "seconds": 0
     }
   ]

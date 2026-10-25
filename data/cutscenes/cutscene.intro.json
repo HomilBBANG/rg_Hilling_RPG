@@ -1,23 +1,111 @@
 {
   "version": 1,
   "cutscene_id": "cutscene.intro",
-  "title": "(임시 문안) 인트로 — 현실에서 TRPG 세계로",
+  "title": "인트로 — 현실에서 TRPG 세계로",
   "notes": "GDD 2.1 [확정] 도입부 흐름(어린 시절 TRPG 친구 넷 → 멀어짐 → 회사가 무너져 실직 → 옛 TRPG를 다시 펼침 → 그 세계로)을 따른 임시 문장. 삽화는 assets/cutscenes/intro_01~04.png 자리표시.",
   "skippable": true,
   "steps": [
-    {"type": "image", "path": "res://assets/cutscenes/intro_01.png", "seconds": 0.0},
-    {"type": "fade", "to": "clear", "seconds": 1.5},
-    {"type": "narration", "text": "어릴 적, 우리 넷은 토요일마다 작은 방에 모여 주사위를 굴렸다.", "seconds": 0},
-    {"type": "narration", "text": "종이 위의 지도, 연필로 그린 용.\n그리고 누구보다 크게 웃던 내 단짝.", "seconds": 0},
-    {"type": "image", "path": "res://assets/cutscenes/intro_02.png", "seconds": 0.8},
-    {"type": "narration", "text": "어른이 되면서 하나둘 연락이 끊겼다.\n다들 바빴고, 나도 그랬다.", "seconds": 0},
-    {"type": "image", "path": "res://assets/cutscenes/intro_03.png", "seconds": 0.8},
-    {"type": "narration", "text": "그렇게 버텨 온 회사가 어느 날 문을 닫았다.", "seconds": 0},
-    {"type": "image", "path": "res://assets/cutscenes/intro_04.png", "seconds": 0.8},
-    {"type": "narration", "text": "짐을 정리하다 상자 바닥에서 낡은 룰북을 찾았다.", "seconds": 0},
-    {"type": "line", "speaker_id": "player", "expression": "", "text": "…이게 아직 있었네."},
-    {"type": "narration", "text": "첫 장을 넘기는 순간, 방 안이 하얗게 번졌다.", "seconds": 0},
-    {"type": "fade", "to": "black", "seconds": 1.5},
-    {"type": "image", "path": "", "seconds": 0.0}
+    {
+      "type": "image",
+      "path": "res://assets/cutscenes/intro_01.png",
+      "seconds": 0
+    },
+    {
+      "type": "fade",
+      "to": "clear",
+      "seconds": 1.5
+    },
+    {
+      "type": "narration",
+      "text": "어릴 적, 우리 넷은 토요일마다 작은 방에 모여 주사위를 굴렸다.",
+      "seconds": 0
+    },
+    {
+      "type": "narration",
+      "text": "종이 위의 지도, 연필로 그린 용.\n그리고 누구보다 크게 웃던 내 단짝.",
+      "seconds": 0
+    },
+    {
+      "type": "image",
+      "path": "res://assets/cutscenes/intro_02.png",
+      "seconds": 0.8
+    },
+    {
+      "type": "narration",
+      "text": "어른이 되면서 하나둘 연락이 끊겼다.\n다들 바빴고, 나도 그랬다.",
+      "seconds": 0
+    },
+    {
+      "type": "image",
+      "path": "res://assets/cutscenes/intro_03.png",
+      "seconds": 0.8
+    },
+    {
+      "type": "narration",
+      "text": "AI의 발전으로 인해 경제가 어려워 지고 많은 인력이 대체되었다.\n내 사정도 별반 다르지는 않아다.",
+      "seconds": 0
+    },
+    {
+      "type": "image",
+      "path": "res://assets/cutscenes/",
+      "seconds": 0.6
+    },
+    {
+      "type": "narration",
+      "text": "그렇게 어느 날 권고사직을 당했다.",
+      "seconds": 0
+    },
+    {
+      "type": "image",
+      "path": "res://assets/cutscenes/",
+      "seconds": 0.6
+    },
+    {
+      "type": "narration",
+      "text": "새로운 회사에 수 없이 지원했지만 결과는 항상 좋지 않았다.",
+      "seconds": 0
+    },
+    {
+      "type": "image",
+      "path": "res://assets/cutscenes/intro_04.png",
+      "seconds": 0.8
+    },
+    {
+      "type": "narration",
+      "text": "몸도 마음도 지쳐갈 무렵, 뭐라도 하기 위해 집안 물건들을 정리하다 상자 바닥에서 낡은 룰북을 발견했다.",
+      "seconds": 0
+    },
+    {
+      "type": "line",
+      "speaker_id": "player",
+      "expression": "sad",
+      "text": "…이걸 여태 가지고 있었네.\n어릴 땐 먹고 살 걱정 같은 건 없었지."
+    },
+    {
+      "type": "narration",
+      "text": "옛 추억을 더듬으며 첫 장을 넘기는 순간, 방 안이 하얗게 번졌다.",
+      "seconds": 0
+    },
+    {
+      "type": "image",
+      "path": "res://assets/cutscenes/",
+      "seconds": 0.6
+    },
+    {
+      "type": "line",
+      "speaker_id": "player",
+      "expression": "surprised",
+      "text": "와악!!"
+    },
+    {
+      "type": "fade",
+      "to": "black",
+      "seconds": 1.5
+    },
+    {
+      "type": "image",
+      "path": "",
+      "seconds": 0
+    }
   ]
 }
