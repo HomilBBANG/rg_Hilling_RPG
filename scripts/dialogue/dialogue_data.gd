@@ -33,7 +33,7 @@ const TYPE_NAMES := {"start": "시작", "line": "대사", "choice": "선택지",
 ## Only these commands exist; each maps to an existing game API (NarrativeState / QuestManager).
 ## Arg types: text, bool, int, quest, objective, outcome, event.
 const ACTIONS := {
-	"set_flag": {"label": "플래그 설정", "args": [{"name": "key", "type": "text", "label": "플래그 키"},
+	"set_flag": {"label": "플래그 설정", "args": [{"name": "key", "type": "flag", "label": "플래그 (켤 이름표)"},
 		{"name": "value", "type": "bool", "label": "값 (켜기)", "default": true}]},
 	"quest_accept": {"label": "퀘스트 수락", "args": [{"name": "quest_id", "type": "quest", "label": "퀘스트"}]},
 	"quest_advance": {"label": "퀘스트 목표 진행", "args": [{"name": "quest_id", "type": "quest", "label": "퀘스트"},
@@ -55,7 +55,7 @@ const QUEST_STATES := ["none", "active", "ready", "completed", "failed"]
 const QUEST_STATE_NAMES := {"none": "받지 않음", "active": "진행 중", "ready": "목표 달성(보고 전)",
 	"completed": "완료", "failed": "실패"}
 const CONDITIONS := {
-	"flag": {"label": "플래그가 켜져 있다", "fields": [{"name": "key", "type": "text", "label": "플래그 키"}]},
+	"flag": {"label": "플래그가 켜져 있다", "fields": [{"name": "key", "type": "flag", "label": "플래그 (이름표)"}]},
 	"quest": {"label": "퀘스트 상태", "fields": [{"name": "quest_id", "type": "quest", "label": "퀘스트"},
 		{"name": "state", "type": "quest_state", "label": "상태", "default": "active"}]},
 	"item": {"label": "아이템 보유 (이상)", "fields": [{"name": "item", "type": "item", "label": "아이템"},
@@ -484,7 +484,7 @@ static func _validate_node(n: Dictionary, cat: Dictionary, err: Callable, warn: 
 			for spec: Dictionary in ACTIONS[a]["args"]:
 				var v = args.get(spec["name"], spec.get("default", null))
 				match spec["type"]:
-					"text", "event":
+					"text", "event", "flag":
 						if str(v if v != null else "").strip_edges() == "":
 							err.call(id, "%s: '%s' 값이 비어 있다" % [ACTIONS[a]["label"], spec["label"]])
 					"quest":

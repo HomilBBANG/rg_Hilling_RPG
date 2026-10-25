@@ -95,7 +95,7 @@ $GD --headless --path . --export-release "Windows Desktop" build/windows/Denial.
 
 ```bash
 DIALOGUE_EDITOR_SELFTEST=$S/editor xvfb-run -a $GD --editor --path . --audio-driver Dummy
-# 로그에 "[editor] done: 0 failed checks"  (대화·컷씬·몬스터 AI·퀘스트 탭 + Map 화면의 지도 표시물·지역 배치 탭, 66개 항목)
+# 로그에 "[editor] done: 0 failed checks"  (대화·컷씬·몬스터 AI·퀘스트 탭 + Map 화면의 지도 표시물·지역 배치 탭, 70개 항목)
 ```
 
 ---
@@ -108,7 +108,7 @@ scripts/core/      bootstrap.gd(게임 흐름·지역 이동·저장 시점·자
 scripts/world/     visual_lab.gd(지역 씬 조립: 지형·물·바다·NPC·몬스터·이야기 장소), terrain_field.gd, escape_sequence.gd 등
 scripts/actors/    prototype_player.gd, slime_monster.gd(몬스터 기본), beast_monster.gd(초원 짐승), dragon_boss.gd,
                    cat_companion.gd, npc.gd, *_rig.gd(절차적 3D 모델 → 8/16방향 픽셀 스프라이트로 굽기)
-scripts/game/      player_state.gd(능력치·HP·중독), inventory.gd, item_db.gd, combat.gd, dice.gd, monster_ai.gd(AI 그래프),
+scripts/game/      flag_catalog.gd(플래그 출처 모음 — 에디터 플래그 고르기·플래그 목록), player_state.gd(능력치·HP·중독), inventory.gd, item_db.gd, combat.gd, dice.gd, monster_ai.gd(AI 그래프),
                    quest_manager.gd, quest_db.gd, map_db.gd(지도 소유), shop_db.gd, recipe_db.gd, life_db.gd,
                    camper_upgrades.gd, narrative_state.gd(진행 단계 A/B/C·이야기 플래그)
 scripts/dialogue/  dialogue_data/runner/context, cutscene_data/runner (에디터와 게임이 같이 씀)

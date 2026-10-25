@@ -125,6 +125,8 @@ func _build_ui() -> void:
 	_btn(bar, "■ 정지", preview_stop)
 	_play_button = _btn(bar, "▶ 게임에서 실행", _play_in_game, "저장한 뒤 실제 게임을 켜서 이 컷씬을 재생")
 	_btn(bar, "▶ 새 게임 순서 실행", func() -> void: play_requested.emit("story.new_game"), "새 게임 때 나오는 컷씬들을 순서대로 게임에서 재생")
+	bar.add_child(VSeparator.new())
+	EditorWidgets.help_button(bar, "cutscene")
 	_status = Label.new()
 	_status.clip_text = true
 	_status.add_theme_color_override("font_color", Color(0.72, 0.78, 0.86))
@@ -893,6 +895,10 @@ func _spin(v: float, lo: float, hi: float, stp: float, on_change: Callable) -> S
 func _field_widget(f: Dictionary, s: Dictionary) -> Control:
 	var key: String = f["name"]
 	var val: Variant = s.get(key, f.get("default", ""))
+	if key == "key" and str(s.get("type", "")) == "set_flag":
+		return EditorWidgets.flag_picker(str(val), func(v: String) -> void:
+			s[key] = v
+			_edited(key), "flag")
 	match f["type"]:
 		"text":
 			var te := TextEdit.new()

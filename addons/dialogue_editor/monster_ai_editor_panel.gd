@@ -97,6 +97,7 @@ func _build_ui() -> void:
 	bar.add_child(VSeparator.new())
 	_btn(bar, "정렬", arrange, "시작에서부터 단계별로 자동 배치")
 	_btn(bar, "검증", func() -> void: validate(true), "연결 없는 출력·고리·닿지 않는 노드 검사")
+	EditorWidgets.help_button(bar, "monster_ai")
 	_status = Label.new()
 	_status.clip_text = true
 	_status.size_flags_horizontal = Control.SIZE_EXPAND_FILL

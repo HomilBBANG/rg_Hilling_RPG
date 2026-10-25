@@ -776,3 +776,13 @@ GDD 17은 저장/불러오기(저장 지점, 자동 저장, 사망 시 저장 �
 |---|---|---|
 | 그림 | 기본·놀람(`surprised`)·화남(`angry`)·기쁨(`happy`)·슬픔(`sad`)·겁(`scared`) 6장. 원본 `art_src/portraits/king*_source.webp` → `prepare_portrait.py`로 배경 제거 | `assets/portraits/king*.png`, `data/speakers.json` `king.expressions` |
 | 어느 대사에 어떤 표정 [Claude 임시] | 알현: 위기 설명·"그대 말고는 없다"·둥지 위치 재안내 = 슬픔, 소원 승낙·의식 선언·"잘 쓰고 있는가" = 기쁨, 귀환 "돌아왔는가…!"·"캠핑…카?" = 놀람, 나머지 = 기본. 소원 의식 선포 = 기쁨. 화남·겁 그림은 아직 쓰는 대사가 없음(탈출 장면은 왕이 말하지 않음) — 에디터 대사 노드의 `표정`에서 고를 수 있음 | `dialogue.story.king_audience.json`, `cutscene.camper_wish.json` |
+
+## 에디터 쉬운 사용 보강 (사용자 요청 2026-10-25: "초등학생도 쓸 수 있게")
+
+| 항목 | 정한 내용 | 위치 |
+|---|---|---|
+| 플래그 출처 | `FlagCatalog.all()`: 게임 코드 플래그(뜻 표 `CODE_FLAG_DESC`), 대화 액션/조건/선택지 조건/종료 이벤트, 컷씬 단계, 퀘스트 목표, 지역 이야기 장소를 훑어 플래그마다 켜는 곳·쓰는 곳. 1초 캐시 | `scripts/game/flag_catalog.gd` |
+| 플래그 칸 | 대화(조건·액션·종료 이벤트·이벤트 조건)·컷씬(플래그 설정)·퀘스트(플래그 목표)·지역(이야기 장소)의 플래그 입력을 모두 `EditorWidgets.flag_picker`로 통일: 목록 + 새 이름 + 아래 설명. 스키마의 필드 종류 `text` → `flag` (검증은 동일) | `editor_widgets.gd`, `dialogue_data.gd` |
+| 미리보기 '왜?' | 끝 이벤트마다 지나온 조건 노드의 결과를 나열, 버튼이 테스트 상태를 바꿔 재생(플래그 줄 추가/제거, 퀘스트 상태, 소지품 수, 골드). 연결 없는 출력·가려진 선택지는 고치는 법을 글로 | `dialogue_editor_panel.gd` `_explain_end` |
+| 그림 확대 | `MapZoom`(＋ － 전체 보기, 휠, 오른쪽 끌기, 마우스 좌표)을 퀘스트 시작 자리·지도 표시물·지역 배치가 공유. 퀘스트 그림은 420 px 높이, 동그라미 끌기, 출구·마을·쉼터 이름 | `map_zoom.gd` |
+| 도움말 | 탭마다 `❓ 도움말`(번호 단계 글) + 도구 줄 아래 한 줄 안내. 글은 `EditorHelp.TEXTS` | `editor_help.gd` |
