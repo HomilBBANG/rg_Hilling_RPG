@@ -769,3 +769,10 @@ GDD 17은 저장/불러오기(저장 지점, 자동 저장, 사망 시 저장 �
 | 저장 규칙 | `RegionDB.save()`: `_`로 시작하는 키 제거(`_legend` 제외), 들여쓰기 2칸, 정수화(`DialogueData.intified`), 저장 후 `RegionDB`·`MapDB` 캐시 비움 | `region_db.gd` |
 | 게임에서 실행 | `user://dialogue_playtest.json {"region_id"}` → 부트스트랩이 그 지역·시작 위치로 이동(진행 단계 C, 저장 안 함) | `bootstrap.gd` `_check_dialogue_playtest()` |
 | 검증의 예외 | 랜덤 던전(변덕의 미궁)으로 가는 출구는 도착 지점 검사를 건너뜀(층마다 `start`를 만듦) | `RegionEditorPanel.check()` |
+
+## 왕 초상화·표정 (사용자 제공 그림 2026-10-25)
+
+| 항목 | 정한 내용 | 위치 |
+|---|---|---|
+| 그림 | 기본·화남(`angry`)·기쁨(`happy`)·슬픔(`sad`)·겁(`scared`) 5장. 원본 `art_src/portraits/king*_source.webp` → `prepare_portrait.py`로 배경 제거 | `assets/portraits/king*.png`, `data/speakers.json` `king.expressions` |
+| 어느 대사에 어떤 표정 [Claude 임시] | 알현: 위기 설명·"그대 말고는 없다"·둥지 위치 재안내 = 슬픔, 귀환 환영·소원 승낙·의식 선언·"잘 쓰고 있는가" = 기쁨, "캠핑카?"·나머지 = 기본. 소원 의식 선포 = 기쁨. 화남·겁 그림은 아직 쓰는 대사가 없음(탈출 장면은 왕이 말하지 않음) — 에디터 대사 노드의 `표정`에서 고를 수 있음 | `dialogue.story.king_audience.json`, `cutscene.camper_wish.json` |

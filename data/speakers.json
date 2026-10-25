@@ -6,7 +6,7 @@
     "player": {"name": "주인공", "expressions": {"surprised": "놀람", "thinking": "생각·고민", "angry": "화남", "happy": "기대·기쁨", "sad": "실망·슬픔", "scared": "겁에 질림"}},
     "rosa": {"name": "로사", "talk": "dialogue.npc.rosa.main"},
     "bron": {"name": "브론", "talk": "dialogue.npc.bron.main"},
-    "king": {"name": "왕", "talk": "dialogue.story.king_audience"},
+    "king": {"name": "왕", "talk": "dialogue.story.king_audience", "expressions": {"angry": "화남", "happy": "기쁨", "sad": "슬픔·실망", "scared": "겁에 질림"}},
     "dragon": {"name": "드래곤"},
     "mage": {"name": "궁정 마법사 엘라"},
     "guard": {"name": "경비병"},
