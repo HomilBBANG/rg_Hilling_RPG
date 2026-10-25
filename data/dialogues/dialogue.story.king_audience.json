@@ -29,7 +29,7 @@
       "type": "line",
       "speaker_id": "king",
       "text": "돌아왔는가…! 북쪽 하늘의 연기가 걷혔다는 보고가 들어왔다.\n정말로 드래곤을 물리쳤단 말인가! (임시 대사)",
-      "expression": "happy"
+      "expression": "surprised"
     },
     {
       "id": "r2",
@@ -73,7 +73,8 @@
       "id": "r4",
       "type": "line",
       "speaker_id": "king",
-      "text": "캠핑…카? 처음 듣는 물건이로구나. (임시 대사)"
+      "text": "캠핑…카? 처음 듣는 물건이로구나. (임시 대사)",
+      "expression": "surprised"
     },
     {
       "id": "r5",
