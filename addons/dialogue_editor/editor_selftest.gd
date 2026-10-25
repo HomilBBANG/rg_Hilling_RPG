@@ -67,6 +67,37 @@ static func run(panel: DialogueEditorPanel, shot: Callable) -> void:
 	fails += 0 if _check(" ".join(path1).contains("고마워요"), "preview (quest none) → accept: %s" % " | ".join(path1)) else 1
 	var logged := PackedStringArray(panel._prev_ctx.log)
 	fails += 0 if _check(" ".join(logged).contains("퀘스트 수락"), "sandbox action log: %s" % ", ".join(logged)) else 1
+	# 3b. the end explanation lists the conditions passed, and its button flips the test state
+	var flip: Button = null
+	var cond_rows := 0
+	for row in panel._prev_choices.get_children():
+		if row is HBoxContainer:
+			cond_rows += 1
+			for c in row.get_children():
+				if c is Button and flip == null:
+					flip = c
+	fails += 0 if _check(cond_rows >= 1 and flip != null and flip.text.contains("바꿔 다시 보기"), "preview end explains %d condition(s) with a flip button" % cond_rows) else 1
+	if flip:
+		flip.pressed.emit()
+		await _frames(panel, 2)
+		var ev := panel.preview_event()
+		fails += 0 if _check(ev.get("type", "") == "line" and str(ev.get("text", "")).contains("젤리"), "flip → sandbox quest ready → reward branch opens: %s" % str(ev.get("text", "")).split("\n")[0]) else 1
+	# 3c. the flag catalog knows code flags and dialogue-set flags
+	var fc := FlagCatalog.all()
+	var bron: Dictionary = fc.get("bron.trust", {})
+	fails += 0 if _check(fc.has("story.wanted") and fc["story.wanted"]["set_by"].has("게임 코드") and not bron.is_empty()
+		and " ".join(bron.get("set_by", PackedStringArray())).contains("대화") and " ".join(bron.get("used_by", PackedStringArray())).contains("대화"),
+		"flag catalog: %d flags; story.wanted ← 게임 코드, bron.trust ← %s" % [fc.size(), ", ".join(bron.get("set_by", PackedStringArray()))]) else 1
+	var dlg := EditorWidgets.show_flag_list(panel)
+	await _frames(panel, 3)
+	await shot.call("editor_06_flag_list")
+	dlg.hide()
+	dlg.queue_free()
+	var help := EditorHelp.show(panel, "dialogue")
+	await _frames(panel, 3)
+	await shot.call("editor_07_help")
+	help.hide()
+	help.queue_free()
 	# 4. same dialogue, sandbox state 'ready' -> reward branch
 	panel.set_sandbox_quest("quest.rosa.jelly", "ready")
 	panel.preview_start()
@@ -596,6 +627,19 @@ static func _quest_checks(dpanel: DialogueEditorPanel, shot: Callable) -> int:
 	var tp: Array = qp.doc["trigger"]["pos"]
 	fails += 0 if _check(absf(float(tp[0]) - 40.0) < 0.3 and absf(float(tp[1]) + 5.0) < 0.3 and qp.doc["trigger"]["region"] == "meadow",
 		"trigger placed with a canvas click at (40, -5) -> (%s, %s)" % [tp[0], tp[1]]) else 1
+	var scale0: float = qp._zoom.scale
+	qp.zoom_in(3.0)
+	await _frames(qp, 2)
+	qp.place = true
+	qp.canvas_click(qp.to_canvas(Vector2(41.3, -6.2)))
+	var tp2: Array = qp.doc["trigger"]["pos"]
+	fails += 0 if _check(qp._zoom.scale > scale0 * 2.5 and absf(float(tp2[0]) - 41.3) < 0.15 and absf(float(tp2[1]) + 6.2) < 0.15,
+		"trigger picture zoomed ×3 (%.2f → %.2f px/m), fine placement at (41.3, -6.2) -> (%s, %s)" % [scale0, qp._zoom.scale, tp2[0], tp2[1]]) else 1
+	qp._reveal_canvas()
+	await _frames(qp, 4)
+	await shot.call("editor_43_quest_trigger_zoom")
+	qp.place = true
+	qp.canvas_click(qp.to_canvas(Vector2(40, -5)))
 	# rewards and an outcome branch
 	qp.set_reward("", "gold", 25)
 	var it := qp.add_reward_item("")

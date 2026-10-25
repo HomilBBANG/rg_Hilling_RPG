@@ -50,10 +50,8 @@ var _redo: Array[String] = []
 var _snap := ""
 var _scale := 1.0
 var _origin := Vector2.ZERO
-var _zoom := 1.0
-var _pan := Vector2.ZERO
+var _mz := MapZoom.new()
 var _drag := false
-var _panning := false
 var _tex: ImageTexture
 var _tex_dirty := true
 var _tex_t := 0.0
@@ -176,6 +174,10 @@ func _build_ui() -> void:
 	_btn(bar, "검증", func() -> void: validate(true))
 	_play_btn = _btn(bar, "게임에서 실행", func() -> void: play_requested.emit(region_id), "게임을 띄워 이 지역의 시작 위치에서 시작 (먼저 저장)")
 	_play_btn.visible = can_play_in_game
+	bar.add_child(VSeparator.new())
+	_btn(bar, "플래그 목록", func() -> void: EditorWidgets.show_flag_list(self), "모든 플래그와 켜는 곳·쓰는 곳")
+	EditorWidgets.help_button(bar, "region")
+	EditorWidgets.quick_guide(root, "① 왼쪽에서 지역 고르기 → ② 아래 '놓기' 버튼을 누르고 그림 클릭 → ③ 클릭해 고르고 끌어서 옮기기 (빨간 화살표 = 새 캐릭터 시작 자리) → ④ 오른쪽에서 숫자·이름 고치기 → ⑤ 검증 → ⑥ 저장")
 	var bar2 := HFlowContainer.new()
 	root.add_child(bar2)
 	var pl := Label.new()
@@ -212,17 +214,24 @@ func _build_ui() -> void:
 	var vs := VSplitContainer.new()
 	vs.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	right_split.add_child(vs)
+	var cbox := VBoxContainer.new()
+	cbox.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	vs.add_child(cbox)
 	_canvas = Control.new()
 	_canvas.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	_canvas.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_canvas.custom_minimum_size = Vector2(520, 420)
+	_canvas.custom_minimum_size = Vector2(520, 400)
 	_canvas.clip_contents = true
 	_canvas.mouse_filter = Control.MOUSE_FILTER_STOP
 	_canvas.focus_mode = Control.FOCUS_CLICK
 	_canvas.draw.connect(_draw_canvas)
 	_canvas.gui_input.connect(_canvas_input)
 	_canvas.resized.connect(_fit)
-	vs.add_child(_canvas)
+	_mz.toolbar(cbox, _canvas)
+	_mz.changed.connect(func() -> void:
+		_scale = _mz.scale
+		_origin = _mz.origin)
+	cbox.add_child(_canvas)
 	_issue_list = ItemList.new()
 	_issue_list.custom_minimum_size.y = 110
 	vs.add_child(_issue_list)
@@ -316,8 +325,7 @@ func open_region(rid: String) -> bool:
 	_undo.clear()
 	_redo.clear()
 	_snap = JSON.stringify(doc)
-	_zoom = 1.0
-	_pan = Vector2.ZERO
+	_mz.reset()
 	_tex = null
 	_tex_dirty = true
 	_tex_t = 1.0
@@ -650,10 +658,9 @@ func _bounds() -> Rect2:
 func _fit() -> void:
 	if _canvas == null or _canvas.size.x < 10.0 or doc.is_empty():
 		return
-	var r := _bounds()
-	var pad := 20.0
-	_scale = minf((_canvas.size.x - pad * 2) / r.size.x, (_canvas.size.y - pad * 2) / r.size.y) * _zoom
-	_origin = (_canvas.size - r.size * _scale) * 0.5 - r.position * _scale + _pan
+	_mz.fit(_canvas, _bounds())
+	_scale = _mz.scale
+	_origin = _mz.origin
 	_canvas.queue_redraw()
 
 
@@ -723,6 +730,9 @@ func canvas_click(c: Vector2) -> void:
 
 
 func _canvas_input(ev: InputEvent) -> void:
+	if _mz.handle(ev, _canvas):
+		_canvas.accept_event()
+		return
 	if ev is InputEventMouseButton:
 		var mb := ev as InputEventMouseButton
 		if mb.button_index == MOUSE_BUTTON_LEFT:
@@ -734,23 +744,10 @@ func _canvas_input(ev: InputEvent) -> void:
 					_commit(true, sel.get("list", "") in ["shape", "path", "cities"])
 				_drag = false
 			_canvas.accept_event()
-		elif mb.button_index in [MOUSE_BUTTON_RIGHT, MOUSE_BUTTON_MIDDLE]:
-			_panning = mb.pressed
-			_canvas.accept_event()
-		elif mb.pressed and mb.button_index in [MOUSE_BUTTON_WHEEL_UP, MOUSE_BUTTON_WHEEL_DOWN]:
-			var before := to_region(mb.position)
-			_zoom = clampf(_zoom * (1.25 if mb.button_index == MOUSE_BUTTON_WHEEL_UP else 0.8), 0.5, 12.0)
-			_fit()
-			_pan += (to_canvas(before) - mb.position) * -1.0
-			_fit()
-			_canvas.accept_event()
 	elif ev is InputEventMouseMotion:
 		var mm := ev as InputEventMouseMotion
 		if _drag and not sel.is_empty():
 			set_sel_pos(sel, to_region(mm.position), false)
-		elif _panning:
-			_pan += mm.relative
-			_fit()
 
 
 func _draw_canvas() -> void:
@@ -1069,14 +1066,7 @@ func _generic_fields(o: Dictionary, opts: Dictionary) -> void:
 				eopts.append([en, en])
 			_opt(row, eopts, str(val), func(s: String) -> void: _set_field(o, key, s))
 		elif key == "flag":
-			var fl := _line(row, str(val), func(s: String) -> void: _set_field(o, key, s.strip_edges()))
-			var fopts := [["", "아는 플래그…"]]
-			for f: String in QuestDB.known_flags():
-				fopts.append([f, f])
-			_opt(row, fopts, "", func(s: String) -> void:
-				if s != "":
-					fl.text = s
-					_set_field(o, key, s))
+			row.add_child(EditorWidgets.flag_picker(str(val), func(s: String) -> void: _set_field(o, key, s), "flag"))
 		elif key == "yaw" and opts.get("yaw_deg", false):
 			_label(row, "(도, 0 = 북쪽)")
 			_spin(row, rad_to_deg(float(val)), -180, 180, 5, func(v: float) -> void: _set_field(o, key, snappedf(deg_to_rad(v), 0.0001)))

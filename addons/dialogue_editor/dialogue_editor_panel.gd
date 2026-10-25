@@ -144,6 +144,10 @@ func _build_ui() -> void:
 	_btn(bar, "▶ 미리보기", func() -> void: preview_start(), "에디터 안에서 실제 실행기로 진행 (테스트 상태만 사용)")
 	_btn(bar, "▶ 선택 노드부터", func() -> void: preview_start(_selected), "선택한 노드에서 미리보기 시작")
 	_play_button = _btn(bar, "▶ 게임에서 실행", _play_in_game, "저장한 뒤 실제 게임을 켜서 이 대화를 재생")
+	bar.add_child(VSeparator.new())
+	_btn(bar, "플래그 목록", func() -> void: EditorWidgets.show_flag_list(self), "모든 플래그와 켜는 곳·쓰는 곳")
+	EditorWidgets.help_button(bar, "dialogue")
+	EditorWidgets.quick_guide(root, "① 왼쪽에서 대화 고르기 → ② 가운데서 상자를 선으로 잇기 (클릭하면 오른쪽에서 고침) → ③ ▶ 미리보기 → ④ 검증 → ⑤ 저장")
 	_status = Label.new()
 	_status.clip_text = true
 	_status.add_theme_color_override("font_color", Color(0.72, 0.78, 0.86))
@@ -1116,13 +1120,10 @@ func _show_inspector() -> void:
 			eb.pressed.connect(func() -> void: edit_cutscene(cid))
 			_inspector.add_child(eb)
 		"end":
-			_field_label("완료 기록할 이벤트 ID (선택, 다시 재생해도 한 번만 기록)")
-			var le := LineEdit.new()
-			le.text = str(n.get("complete_event", ""))
-			le.text_changed.connect(func(v: String) -> void:
-				n["complete_event"] = v.strip_edges()
-				_node_edited("event"))
-			_inspector.add_child(le)
+			_field_label("완료 기록할 이벤트 (선택 — 여기까지 오면 '이 일은 끝났다'를 한 번만 기록. 비워도 됨)")
+			_inspector.add_child(EditorWidgets.flag_picker(str(n.get("complete_event", "")), func(v: String) -> void:
+				n["complete_event"] = v
+				_node_edited("event"), "event"))
 	var mine := PackedStringArray()
 	for it in issues:
 		if it["node"] == _selected:
@@ -1160,7 +1161,7 @@ func _show_meta() -> void:
 		doc["metadata"]["title"] = v
 		_commit("title"))
 	_inspector.add_child(tl)
-	_field_label("태그 (쉼표로 구분: npc, quest, 지역 등)")
+	_field_label("태그 — 왼쪽 목록에서 찾기 쉽게 붙이는 꼬리표, 게임에는 영향 없음 (쉼표로 구분: npc, quest, 지역 이름 등)")
 	var tg := LineEdit.new()
 	tg.text = ", ".join(PackedStringArray(doc["metadata"]["tags"]))
 	tg.text_changed.connect(func(v: String) -> void:
@@ -1438,6 +1439,14 @@ func _value_widget(spec: Dictionary, target: Dictionary, quest_id: String) -> Co
 			return _options_widget(opts6, str(val), func(v: String) -> void:
 				target[key] = v
 				_node_edited(key))
+		"flag":
+			return EditorWidgets.flag_picker(str(val), func(v: String) -> void:
+				target[key] = v
+				_node_edited(key), "flag")
+		"event":
+			return EditorWidgets.flag_picker(str(val), func(v: String) -> void:
+				target[key] = v
+				_node_edited(key), "event")
 		"item":
 			var opts5 := []
 			var items: Array = ItemDB.ITEMS.keys()
@@ -1593,6 +1602,7 @@ func _prev_show(ev: Dictionary) -> void:
 			_prev_next.disabled = false
 		"end":
 			_prev_text.text = "— 대화 종료 —" if ev.get("error", "") == "" else "⛔ 중단: " + str(ev["error"])
+			_explain_end(ev)
 	_prev_state.text = "경로: " + " → ".join(PackedStringArray(_prev_runner.trace)) if _prev_runner else ""
 	_prev_log.clear()
 	if _prev_ctx:
@@ -1602,6 +1612,100 @@ func _prev_show(ev: Dictionary) -> void:
 	if _views.has(_current_node):
 		var g: GraphNode = _views[_current_node]["node"]
 		_graph.scroll_offset = g.position_offset * _graph.zoom - _graph.size * 0.5 + g.size * _graph.zoom * 0.5
+
+
+## Why the preview ended here, in plain words: unlinked outputs, and every condition it passed
+## with its answer — with a button that flips the test state so that branch opens next time.
+func _explain_end(ev: Dictionary) -> void:
+	if _prev_runner == null:
+		return
+	var lines_seen := 0
+	var conds := []
+	for id in _prev_runner.trace:
+		var n := DialogueData.node_by_id(doc, str(id))
+		if n.get("type", "") == "line":
+			lines_seen += 1
+		elif n.get("type", "") == "condition":
+			conds.append(n)
+	var err := str(ev.get("error", ""))
+	var msg := ""
+	if err.begins_with("연결 없는 출력"):
+		msg = "노드 '%s'의 출력 점이 아무 데도 이어지지 않았어요. 그림판에서 그 점을 다음 상자로 끌어 이으세요." % ev.get("node", "")
+	elif err.begins_with("보이는 선택지가 없다"):
+		msg = "선택지 '%s'의 보기가 모두 조건에 가려졌어요. 아래 조건을 맞추거나 조건 없는 보기를 하나 두세요." % ev.get("node", "")
+	elif err != "":
+		msg = err
+	elif lines_seen == 0:
+		msg = "대사가 하나도 나오지 않고 끝났어요. 아래 조건들의 답 때문이에요 — 버튼으로 테스트 상태를 바꿔 다시 볼 수 있어요."
+	if msg != "":
+		var l := Label.new()
+		l.text = "왜? " + msg
+		l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		l.add_theme_color_override("font_color", Color(1.0, 0.85, 0.5))
+		_prev_choices.add_child(l)
+	for n: Dictionary in conds:
+		var check: Dictionary = n.get("check", {})
+		var ok := DialogueData.eval_condition(check, _prev_ctx)
+		var row := HBoxContainer.new()
+		_prev_choices.add_child(row)
+		var cl := Label.new()
+		cl.text = "조건 '%s' (%s): %s" % [n.get("id", ""), _check_text(check), "예" if ok else "아니오"]
+		cl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		cl.clip_text = true
+		cl.tooltip_text = cl.text
+		cl.add_theme_color_override("font_color", Color(0.6, 0.9, 0.6) if ok else Color(1.0, 0.6, 0.55))
+		row.add_child(cl)
+		var b := Button.new()
+		b.text = "'예'로 바꿔 다시 보기" if not ok else "'아니오'로 바꿔 다시 보기"
+		b.tooltip_text = "오른쪽 테스트 상태를 이 조건에 맞게 고치고 처음부터 다시 미리보기"
+		var c := check
+		var want := not ok
+		b.pressed.connect(func() -> void:
+			_force_condition(c, want)
+			preview_start())
+		row.add_child(b)
+
+
+func _check_text(check: Dictionary) -> String:
+	match str(check.get("kind", "")):
+		"flag":
+			return "플래그 %s 켜짐" % check.get("key", "")
+		"quest":
+			return "퀘스트 %s = %s" % [check.get("quest_id", ""), DialogueData.QUEST_STATE_NAMES.get(str(check.get("state", "")), check.get("state", ""))]
+		"item":
+			return "%s %d개 이상" % [ItemDB.ITEMS.get(str(check.get("item", "")), {}).get("name", check.get("item", "")), int(check.get("count", 1))]
+		"gold":
+			return "골드 %d 이상" % int(check.get("amount", 0))
+		"event":
+			return "이벤트 %s 완료" % check.get("event_id", "")
+	return str(check.get("kind", ""))
+
+
+## Edit the sandbox widgets so a condition answers `want`.
+func _force_condition(check: Dictionary, want: bool) -> void:
+	match str(check.get("kind", "")):
+		"flag", "event":
+			var key := str(check.get("key", "")) if check.get("kind", "") == "flag" else "event." + str(check.get("event_id", ""))
+			var lines := []
+			for l in _sb_flags.text.split("\n", false):
+				if l.strip_edges() != "" and l.strip_edges() != key:
+					lines.append(l.strip_edges())
+			if want:
+				lines.append(key)
+			_sb_flags.text = "\n".join(PackedStringArray(lines))
+		"quest":
+			set_sandbox_quest(str(check.get("quest_id", "")), str(check.get("state", "active")) if want else "none")
+		"item":
+			var item := str(check.get("item", ""))
+			var parts := []
+			for part in _sb_items.text.split(",", false):
+				if part.split("=")[0].strip_edges() != item and part.strip_edges() != "":
+					parts.append(part.strip_edges())
+			if want:
+				parts.append("%s=%d" % [item, int(check.get("count", 1))])
+			_sb_items.text = ", ".join(PackedStringArray(parts))
+		"gold":
+			_sb_gold.value = int(check.get("amount", 0)) if want else maxi(int(check.get("amount", 0)) - 1, 0)
 
 
 # ---------------------------------------------------------------- status / dialogs

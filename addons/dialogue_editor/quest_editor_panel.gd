@@ -40,8 +40,8 @@ var _new_title: LineEdit
 var _confirm: ConfirmationDialog
 var _confirm_cb: Callable
 var _canvas: Control
-var _scale := 1.0
-var _origin := Vector2.ZERO
+var _zoom := MapZoom.new()
+var _drag := false
 
 
 func _ready() -> void:
@@ -172,6 +172,10 @@ func _build_ui() -> void:
 	_play_btn = _btn(bar, "게임에서 실행", func() -> void: play_requested.emit(quest_id),
 		"게임을 띄우고 이 퀘스트를 받은 상태로 시작 (저장하지 않은 변경은 먼저 저장)")
 	_play_btn.visible = can_play_in_game
+	bar.add_child(VSeparator.new())
+	_btn(bar, "플래그 목록", func() -> void: EditorWidgets.show_flag_list(self), "모든 플래그와 켜는 곳·쓰는 곳")
+	EditorWidgets.help_button(bar, "quest")
+	EditorWidgets.quick_guide(root, "① 왼쪽에서 퀘스트 고르기 → ② 오른쪽에서 제목·종류·목표·보상 적기 (현장 사건은 지역 그림을 클릭해 시작 자리) → ③ 검증 → ④ 저장")
 	_status = Label.new()
 	_status.clip_text = true
 	root.add_child(_status)
@@ -742,9 +746,10 @@ func _trigger_section() -> void:
 		place = true
 		_set_status("아래 지역 그림을 클릭해 시작 자리를 정하세요")
 		if _canvas:
-			_canvas.queue_redraw(), "클릭한 자리가 시작 위치가 됨")
+			_canvas.queue_redraw()
+			_reveal_canvas(), "클릭한 자리가 시작 위치가 됨 — 그림이 보이도록 아래로 내려감")
 	_canvas = Control.new()
-	_canvas.custom_minimum_size = Vector2(300, 260)
+	_canvas.custom_minimum_size = Vector2(360, 420)
 	_canvas.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_canvas.clip_contents = true
 	_canvas.mouse_filter = Control.MOUSE_FILTER_STOP
@@ -752,24 +757,42 @@ func _trigger_section() -> void:
 	_canvas.gui_input.connect(_canvas_input)
 	var cv := _canvas
 	_canvas.resized.connect(cv.queue_redraw)
+	_zoom.toolbar(_inspector, _canvas)
 	_inspector.add_child(_canvas)
+	_label(_inspector, "그림을 클릭하면 빨간 동그라미(시작 자리)가 거기로 갑니다. 동그라미를 끌어서 옮길 수도 있어요. 흰 점 = 출구, 노란 원 = 마을, 하늘색 ▲ = 쉼터.", true)
+
+
+## Scroll the inspector so the whole trigger picture (toolbar + canvas) is on screen.
+func _reveal_canvas() -> void:
+	if _canvas == null or _scroll == null:
+		return
+	await get_tree().process_frame
+	await get_tree().process_frame
+	if _canvas == null or not is_instance_valid(_canvas):
+		return
+	_scroll.scroll_vertical = maxi(int(_canvas.position.y) - 48, 0)
 
 
 func _fit() -> void:
 	var r := MapDB.region_rect(str(doc["trigger"].get("region", "")))
 	if r.size.x <= 0.0 or r.size.y <= 0.0:
 		r = Rect2(-100, -100, 200, 200)
-	var pad := 16.0
-	_scale = minf((_canvas.size.x - pad * 2) / r.size.x, (_canvas.size.y - pad * 2) / r.size.y)
-	_origin = (_canvas.size - r.size * _scale) * 0.5 - r.position * _scale
+	_zoom.pad = 16.0
+	_zoom.fit(_canvas, r)
 
 
 func to_canvas(p: Vector2) -> Vector2:
-	return _origin + p * _scale
+	return _zoom.to_canvas(p)
 
 
 func to_region(c: Vector2) -> Vector2:
-	return (c - _origin) / _scale
+	return _zoom.to_region(c)
+
+
+## ＋ / － buttons and the wheel (also used by the selftest).
+func zoom_in(factor := 1.5) -> void:
+	if _canvas:
+		_zoom.zoom_by(factor, _canvas)
 
 
 ## A click on the trigger picture (also used by the selftest).
@@ -784,11 +807,24 @@ func canvas_click(c: Vector2) -> void:
 
 
 func _canvas_input(ev: InputEvent) -> void:
-	if ev is InputEventMouseButton and ev.button_index == MOUSE_BUTTON_LEFT and ev.pressed:
-		if not place:
-			place = true  # a click without pressing the button first also places
-		canvas_click(ev.position)
+	if _zoom.handle(ev, _canvas):
 		_canvas.accept_event()
+		return
+	if ev is InputEventMouseButton and ev.button_index == MOUSE_BUTTON_LEFT:
+		if ev.pressed:
+			if not place:
+				place = true  # a click without pressing the button first also places
+			canvas_click(ev.position)
+			_drag = true
+		else:
+			if _drag:
+				_commit(true)
+			_drag = false
+		_canvas.accept_event()
+	elif ev is InputEventMouseMotion and _drag and doc.has("trigger"):
+		var p := to_region(ev.position)
+		doc["trigger"]["pos"] = [snappedf(p.x, 0.1), snappedf(p.y, 0.1)]
+		_canvas.queue_redraw()
 
 
 func _draw_canvas() -> void:
@@ -799,7 +835,7 @@ func _draw_canvas() -> void:
 	_canvas.draw_rect(Rect2(Vector2.ZERO, _canvas.size), Color(0.12, 0.13, 0.15))
 	var rid := str(doc["trigger"].get("region", ""))
 	var r := MapDB.region_rect(rid)
-	var area := Rect2(to_canvas(r.position), r.size * _scale)
+	var area := Rect2(to_canvas(r.position), r.size * _zoom.scale)
 	if MapDB.mappable(rid):
 		_canvas.draw_texture_rect(MapDB.terrain_texture(rid), area, false)
 	else:
@@ -809,10 +845,17 @@ func _draw_canvas() -> void:
 	for ex: Dictionary in reg.get("exits", []):
 		var c := to_canvas(TerrainField._v2(ex["pos"], Vector2.ZERO))
 		_canvas.draw_circle(c, 3.0, Color(1, 1, 1, 0.5))
+		_canvas.draw_string(f, c + Vector2(5, -3), str(ex.get("name", "")), HORIZONTAL_ALIGNMENT_LEFT, -1, 11, Color(1, 1, 1, 0.6))
 	for ct: Dictionary in reg.get("cities", []):
-		_canvas.draw_arc(to_canvas(TerrainField._v2(ct["center"], Vector2.ZERO)), 7.0, 0, TAU, 20, Color(0.95, 0.82, 0.45, 0.7), 2.0)
+		var cc := to_canvas(TerrainField._v2(ct["center"], Vector2.ZERO))
+		_canvas.draw_arc(cc, 7.0, 0, TAU, 20, Color(0.95, 0.82, 0.45, 0.7), 2.0)
+		_canvas.draw_string(f, cc + Vector2(9, 4), str(ct.get("name", "")), HORIZONTAL_ALIGNMENT_LEFT, -1, 11, Color(0.95, 0.82, 0.45, 0.8))
+	for cp: Dictionary in reg.get("checkpoints", []):
+		var c2 := to_canvas(TerrainField._v2(cp["pos"], Vector2.ZERO))
+		_canvas.draw_colored_polygon(PackedVector2Array([c2 + Vector2(0, -5), c2 + Vector2(4, 3), c2 + Vector2(-4, 3)]), Color(0.45, 0.9, 0.85, 0.6))
+		_canvas.draw_string(f, c2 + Vector2(6, 4), str(cp.get("name", "")), HORIZONTAL_ALIGNMENT_LEFT, -1, 11, Color(0.45, 0.9, 0.85, 0.75))
 	var p := to_canvas(TerrainField._v2(doc["trigger"].get("pos", null), Vector2.ZERO))
-	var rad := float(doc["trigger"].get("radius", 5)) * _scale
+	var rad := float(doc["trigger"].get("radius", 5)) * _zoom.scale
 	_canvas.draw_circle(p, maxf(rad, 2.0), Color(1.0, 0.45, 0.3, 0.35))
 	_canvas.draw_arc(p, maxf(rad, 2.0), 0, TAU, 32, Color(1.0, 0.45, 0.3), 2.0)
 	_canvas.draw_line(p - Vector2(6, 0), p + Vector2(6, 0), Color(1, 1, 1), 1.5)
@@ -878,16 +921,9 @@ func _objectives_section() -> void:
 			"flag":
 				var r3 := HBoxContainer.new()
 				v.add_child(r3)
-				_label(r3, "플래그 키")
-				var fe := _line(r3, str(o.get("flag", "")), func(s: String) -> void: set_objective_field(idx, "flag", s.strip_edges()))
-				var fopts := [["", "아는 플래그…"]]
-				for fl: String in flags:
-					fopts.append([fl, fl])
-				_opt(r3, fopts, "", func(s: String) -> void:
-					if s != "":
-						fe.text = s
-						set_objective_field(idx, "flag", s))
-				_label(v, "컷씬 '플래그 세우기' 단계나 대화 액션 '플래그 세우기', 또는 게임 코드가 세우는 이야기 플래그가 켜지면 달성.", true)
+				_label(r3, "플래그 (이 이름표가 켜지면 달성)")
+				r3.add_child(EditorWidgets.flag_picker(str(o.get("flag", "")), func(s: String) -> void: set_objective_field(idx, "flag", s), "flag"))
+				_label(v, "켜는 곳: 컷씬 단계 '플래그 설정', 대화 액션 '플래그 설정', 지역의 이야기 장소(밟으면), 게임 코드. 위 '플래그 목록' 버튼에서 전부 볼 수 있음.", true)
 			_:
 				var r3 := HBoxContainer.new()
 				v.add_child(r3)

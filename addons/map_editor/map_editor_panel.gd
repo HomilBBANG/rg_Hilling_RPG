@@ -24,6 +24,7 @@ var issues: Array = []
 var _undo: Array[String] = []
 var _redo: Array[String] = []
 var _snap := ""
+var _zoom := MapZoom.new()
 var _scale := 1.0
 var _origin := Vector2.ZERO
 var _drag := false
@@ -91,6 +92,8 @@ func _build_ui() -> void:
 	_view_opt.item_selected.connect(func(i: int) -> void: set_view(_view_opt.get_item_metadata(i)))
 	bar.add_child(_view_opt)
 	_btn(bar, "검증", func() -> void: validate(true))
+	EditorWidgets.help_button(bar, "map")
+	EditorWidgets.quick_guide(root, "① 왼쪽에서 지역 고르기 → ② 위 버튼(지명·아이콘·메모)을 누르고 그림 클릭 → ③ 클릭해 고르고 끌어서 옮기기 → ④ 오른쪽에서 글자 고치기 → ⑤ 저장")
 	_status = Label.new()
 	_status.clip_text = true
 	root.add_child(_status)
@@ -111,17 +114,24 @@ func _build_ui() -> void:
 	var vs := VSplitContainer.new()
 	vs.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	right_split.add_child(vs)
+	var cbox := VBoxContainer.new()
+	cbox.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	vs.add_child(cbox)
 	_canvas = Control.new()
 	_canvas.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	_canvas.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_canvas.custom_minimum_size = Vector2(500, 420)
+	_canvas.custom_minimum_size = Vector2(500, 400)
 	_canvas.clip_contents = true
 	_canvas.mouse_filter = Control.MOUSE_FILTER_STOP
 	_canvas.focus_mode = Control.FOCUS_CLICK
 	_canvas.draw.connect(_draw_canvas)
 	_canvas.gui_input.connect(_canvas_input)
 	_canvas.resized.connect(_fit)
-	vs.add_child(_canvas)
+	_zoom.toolbar(cbox, _canvas)
+	_zoom.changed.connect(func() -> void:
+		_scale = _zoom.scale
+		_origin = _zoom.origin)
+	cbox.add_child(_canvas)
 	_issue_list = ItemList.new()
 	_issue_list.custom_minimum_size.y = 120
 	vs.add_child(_issue_list)
@@ -419,9 +429,10 @@ func _fit() -> void:
 	if view_region == "" or _canvas == null or _canvas.size.x < 10.0:
 		return
 	var r := MapDB.region_rect(view_region)
-	var pad := 24.0
-	_scale = minf((_canvas.size.x - pad * 2) / r.size.x, (_canvas.size.y - pad * 2) / r.size.y)
-	_origin = (_canvas.size - r.size * _scale) * 0.5 - r.position * _scale
+	_zoom.pad = 24.0
+	_zoom.fit(_canvas, r)
+	_scale = _zoom.scale
+	_origin = _zoom.origin
 	_canvas.queue_redraw()
 
 
@@ -479,6 +490,9 @@ func canvas_click(c: Vector2) -> void:
 
 
 func _canvas_input(ev: InputEvent) -> void:
+	if _zoom.handle(ev, _canvas):
+		_canvas.accept_event()
+		return
 	if ev is InputEventMouseButton and ev.button_index == MOUSE_BUTTON_LEFT:
 		if ev.pressed:
 			canvas_click(ev.position)
